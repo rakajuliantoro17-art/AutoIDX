@@ -1,0 +1,55 @@
+/**
+==========================================================
+AURA Trade OS
+Global Design Variables
+Version : 0.0.1 Alpha
+==========================================================
+*/
+
+
+:root {
+
+
+--aura-bg:
+#07111f;
+
+
+--aura-surface:
+rgba(255,255,255,.08);
+
+
+--aura-border:
+rgba(255,255,255,.12);
+
+
+
+--aura-primary:
+#38bdf8;
+
+
+
+--aura-success:
+#22c55e;
+
+
+
+--aura-danger:
+#ef4444;
+
+
+
+--aura-warning:
+#f59e0b;
+
+
+
+--aura-radius:
+18px;
+
+
+
+--aura-transition:
+.25s ease;
+
+
+}
