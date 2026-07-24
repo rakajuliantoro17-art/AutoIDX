@@ -1,0 +1,66 @@
+/**
+==========================================================
+AURA Trade OS
+Glass UI Components
+==========================================================
+*/
+
+
+.glass {
+
+
+background:
+
+rgba(255,255,255,.06);
+
+
+backdrop-filter:
+
+blur(24px);
+
+
+-webkit-backdrop-filter:
+
+blur(24px);
+
+
+
+border:
+
+1px solid rgba(255,255,255,.12);
+
+
+
+border-radius:
+
+18px;
+
+
+}
+
+
+
+.glass-hover {
+
+
+transition:.25s ease;
+
+
+}
+
+
+
+.glass-hover:hover {
+
+
+background:
+
+rgba(255,255,255,.1);
+
+
+transform:
+
+translateY(-3px);
+
+
+}
