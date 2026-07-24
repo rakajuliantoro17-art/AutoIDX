@@ -1,48 +1,108 @@
-'use client';
+/**
+==========================================================
+AURA Trade OS
+Dashboard Sidebar
+Version : 0.0.1 Alpha
+==========================================================
+*/
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
-export default function Sidebar() {
-  const pathname = usePathname();
+import Link from "next/link";
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: '📊' },
-    { name: 'Analisa Teknikal', href: '/analytics', icon: '📈' },
-    { name: 'Histori Transaksi', href: '/history', icon: '📜' },
-    { name: 'Pengaturan Bot', href: '/settings', icon: '⚙️' },
-  ];
 
-  return (
-    <aside className="w-64 border-r border-slate-800 bg-slate-900/50 min-h-[calc(100vh-4rem)] p-4 hidden md:flex flex-col justify-between">
-      <div className="space-y-1">
-        <p className="px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          Navigation Menu
-        </p>
-        {navigation.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium transition ${
-                isActive
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                  : 'text-gray-400 hover:bg-slate-800/60 hover:text-white'
-              }`}
-            >
-              <span>{item.icon}</span>
-              <span>{item.name}</span>
-            </Link>
-          );
-        })}
-      </div>
 
-      {/* Account Info Card / Footer Sidebar */}
-      <div className="p-3 bg-slate-800/40 border border-slate-800 rounded-xl text-xs">
-        <p className="text-gray-400 font-medium">Engine Mode</p>
-        <p className="text-emerald-400 font-mono font-bold mt-0.5">Vercel Cron / API</p>
-      </div>
-    </aside>
-  );
+const menus=[
+
+{
+name:"Dashboard",
+path:"/dashboard"
+},
+
+{
+name:"Scanner",
+path:"/scanner"
+},
+
+{
+name:"Portfolio",
+path:"/portfolio"
+},
+
+{
+name:"Activity",
+path:"/activity"
+},
+
+{
+name:"Backtest",
+path:"/backtest"
+},
+
+{
+name:"Settings",
+path:"/settings"
+}
+
+];
+
+
+
+
+export default function Sidebar(){
+
+
+return (
+
+<aside className="hidden md:block w-64 border-r border-white/10 min-h-[calc(100vh-64px)] p-4">
+
+
+<nav className="space-y-2">
+
+
+{
+
+menus.map(menu=>(
+
+
+<Link
+
+key={menu.path}
+
+href={menu.path}
+
+className="
+block
+px-4
+py-3
+rounded-xl
+text-sm
+text-slate-300
+hover:bg-white/10
+transition
+"
+
+>
+
+
+{menu.name}
+
+
+</Link>
+
+
+))
+
+}
+
+
+
+</nav>
+
+
+</aside>
+
+
+);
+
+
 }
