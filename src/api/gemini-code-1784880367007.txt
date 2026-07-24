@@ -1,2 +1,0 @@
-INDODAX_API_KEY=api_key_kamu_di_sini
-INDODAX_SECRET_KEY=secret_key_kamu_di_sini
