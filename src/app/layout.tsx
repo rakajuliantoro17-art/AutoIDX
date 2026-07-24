@@ -1,9 +1,25 @@
-import type { Metadata } from 'next';
-import './globals.css';
+/**
+==========================================================
+AURA Trade OS
+Root Layout
+Version : 0.0.1 Alpha
+==========================================================
+*/
+
+import type { Metadata } from "next";
+import Image from "next/image";
+import "./globals.css";
 
 export const metadata: Metadata = {
-  title: 'AutoIDX Dashboard | Indodax Bot',
-  description: 'Automated Indodax Crypto Trading Bot Dashboard',
+  title: "AutoIDX • Automated Indodax Trading Engine",
+  description:
+    "AI-powered automated crypto trading dashboard for Indodax.",
+
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -12,21 +28,99 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id">
-      <body className="antialiased">
-        <header className="border-b border-gray-800 bg-slate-900/50 backdrop-blur px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">🤖</span>
-            <h1 className="text-xl font-bold tracking-wider text-emerald-400">
-              Auto<span className="text-white">IDX</span>
-            </h1>
+    <html lang="id" suppressHydrationWarning>
+      <body>
+
+        {/* ===========================
+            Header
+        ============================ */}
+
+        <header className="sticky top-0 z-50 border-b border-white/10 backdrop-blur-xl bg-black/30">
+
+          <div className="max-w-7xl mx-auto h-16 px-6 flex items-center justify-between">
+
+            {/* Logo */}
+
+            <div className="flex items-center gap-3">
+
+              <Image
+                src="/logo.png"
+                alt="AutoIDX"
+                width={42}
+                height={42}
+                priority
+              />
+
+              <div>
+
+                <h1 className="text-lg font-bold tracking-wide">
+
+                  Auto<span className="text-sky-400">IDX</span>
+
+                </h1>
+
+                <p className="text-xs text-slate-400">
+
+                  Automated Trading Engine
+
+                </p>
+
+              </div>
+
+            </div>
+
+            {/* Status */}
+
+            <div className="flex items-center gap-3">
+
+              <span className="flex h-3 w-3 rounded-full bg-emerald-500 animate-pulse" />
+
+              <span className="text-sm text-slate-300">
+
+                Paper Trading
+
+              </span>
+
+            </div>
+
           </div>
-          <div className="flex items-center space-x-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-xs text-gray-400">System Active</span>
-          </div>
+
         </header>
-        <main className="max-w-7xl mx-auto p-6">{children}</main>
+
+        {/* ===========================
+            Main
+        ============================ */}
+
+        <main className="max-w-7xl mx-auto px-6 py-8">
+
+          {children}
+
+        </main>
+
+        {/* ===========================
+            Footer
+        ============================ */}
+
+        <footer className="border-t border-white/10 mt-12">
+
+          <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-2">
+
+            <span className="text-sm text-slate-500">
+
+              © 2026 AutoIDX — Automated Indodax Trading Engine
+
+            </span>
+
+            <span className="text-xs text-slate-600">
+
+              Version 0.0.1 Alpha
+
+            </span>
+
+          </div>
+
+        </footer>
+
       </body>
     </html>
   );
