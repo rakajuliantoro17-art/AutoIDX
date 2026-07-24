@@ -1,60 +1,408 @@
-import { db } from './config';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+/**
+==========================================================
+AURA Trade OS
+Firebase Bot State Manager
+Version : 0.0.1 Alpha
+==========================================================
+*/
+
+
+import {
+
+doc,
+
+getDoc,
+
+setDoc,
+
+serverTimestamp
+
+}
+
+from "firebase/firestore";
+
+
+import {
+
+db
+
+}
+
+from "./config";
+
+
+
+
+
+
 
 export interface BotState {
-  pair: string;
-  inPosition: boolean;
-  buyPrice: number;
-  coinAmount: number;
-  lastUpdated: string;
+
+
+pair:string;
+
+
+
+status:
+
+"IDLE"
+
+|
+
+"BUY"
+
+|
+
+"SELL";
+
+
+
+inPosition:boolean;
+
+
+
+entryPrice:number;
+
+
+
+currentPrice:number;
+
+
+
+coinAmount:number;
+
+
+
+positionValue:number;
+
+
+
+profitPercent:number;
+
+
+
+stopLoss:number;
+
+
+
+takeProfit:number;
+
+
+
+lastSignal:
+
+"BUY"
+
+|
+
+"SELL"
+
+|
+
+"HOLD";
+
+
+
+lastOrderId?:string;
+
+
+
+updatedAt:any;
+
+
+
 }
 
-const STATE_COLLECTION = 'bot_state';
 
-/**
- * Mengambil status posisi terkini bot dari Firestore
- */
-export async function getBotState(pair: string = 'btc_idr'): Promise<BotState> {
-  const defaultState: BotState = {
-    pair,
-    inPosition: false,
-    buyPrice: 0,
-    coinAmount: 0,
-    lastUpdated: new Date().toISOString(),
-  };
 
-  try {
-    const docRef = doc(db, STATE_COLLECTION, pair);
-    const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists()) {
-      return docSnap.data() as BotState;
-    } else {
-      // Buat dokumen state awal jika belum ada
-      await setDoc(docRef, defaultState);
-      return defaultState;
-    }
-  } catch (error) {
-    console.error('[Firebase BotState Get Error]:', error);
-    return defaultState;
-  }
+
+
+
+
+const STATE_COLLECTION="bot_state";
+
+
+
+
+
+
+
+
+
+
+function defaultState(pair:string):BotState{
+
+
+return {
+
+
+pair,
+
+
+status:"IDLE",
+
+
+inPosition:false,
+
+
+entryPrice:0,
+
+
+currentPrice:0,
+
+
+coinAmount:0,
+
+
+positionValue:0,
+
+
+profitPercent:0,
+
+
+stopLoss:1,
+
+
+takeProfit:3,
+
+
+lastSignal:"HOLD",
+
+
+updatedAt:new Date()
+
+
+
+};
+
+
+
 }
 
-/**
- * Memperbarui status posisi bot di Firestore setelah eksekusi order
- */
-export async function updateBotState(state: Partial<BotState> & { pair: string }): Promise<boolean> {
-  try {
-    const docRef = doc(db, STATE_COLLECTION, state.pair);
-    const payload = {
-      ...state,
-      lastUpdated: new Date().toISOString(),
-    };
-    
-    await setDoc(docRef, payload, { merge: true });
-    return true;
-  } catch (error) {
-    console.error('[Firebase BotState Update Error]:', error);
-    return false;
-  }
+
+
+
+
+
+
+
+
+
+export async function getBotState(
+
+pair="btc_idr"
+
+):Promise<BotState>{
+
+
+
+const fallback=
+
+defaultState(pair);
+
+
+
+try{
+
+
+
+const ref=
+
+doc(
+
+db,
+
+STATE_COLLECTION,
+
+pair
+
+);
+
+
+
+const snapshot=
+
+await getDoc(ref);
+
+
+
+
+
+
+if(snapshot.exists()){
+
+
+return {
+
+
+...fallback,
+
+
+...snapshot.data()
+
+} as BotState;
+
+
+}
+
+
+
+
+
+
+await setDoc(
+
+ref,
+
+fallback
+
+);
+
+
+
+return fallback;
+
+
+
+}
+
+catch(error){
+
+
+console.error(
+
+"[BOT STATE GET ERROR]",
+
+error
+
+);
+
+
+
+return fallback;
+
+
+}
+
+
+
+}
+
+
+
+
+
+
+
+
+
+export async function updateBotState(
+
+state:
+
+Partial<BotState>
+
+&
+
+{
+
+pair:string}
+
+):Promise<boolean>{
+
+
+
+
+
+if(!state.pair){
+
+
+return false;
+
+
+}
+
+
+
+
+
+
+
+try{
+
+
+
+const ref=
+
+doc(
+
+db,
+
+STATE_COLLECTION,
+
+state.pair
+
+);
+
+
+
+
+
+await setDoc(
+
+ref,
+
+{
+
+...state,
+
+
+updatedAt:
+
+serverTimestamp()
+
+
+
+},
+
+
+{
+
+merge:true
+
+}
+
+
+
+);
+
+
+
+return true;
+
+
+
+}
+
+catch(error){
+
+
+console.error(
+
+"[BOT STATE UPDATE ERROR]",
+
+error
+
+);
+
+
+
+return false;
+
+
+}
+
+
+
 }
