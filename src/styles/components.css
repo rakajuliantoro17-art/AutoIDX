@@ -1,0 +1,78 @@
+/**
+==========================================================
+AURA Trade OS
+Reusable Components
+==========================================================
+*/
+
+
+.badge {
+
+
+display:inline-flex;
+
+
+align-items:center;
+
+
+padding:
+
+6px 12px;
+
+
+border-radius:
+
+999px;
+
+
+font-size:
+
+12px;
+
+
+font-weight:
+
+600;
+
+
+}
+
+
+
+.badge-buy {
+
+
+color:#22c55e;
+
+
+background:
+
+rgba(34,197,94,.1);
+
+
+border:
+
+1px solid rgba(34,197,94,.3);
+
+
+}
+
+
+
+.badge-sell {
+
+
+color:#ef4444;
+
+
+background:
+
+rgba(239,68,68,.1);
+
+
+border:
+
+1px solid rgba(239,68,68,.3);
+
+
+}
