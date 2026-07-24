@@ -6,318 +6,719 @@ Version : 0.0.1 Alpha
 ==========================================================
 */
 
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
 
 /* ======================================================
    Root Variables
 ====================================================== */
 
+
 :root {
 
-  --background: #07111f;
 
-  --background-secondary: #0f172a;
+  --background:#07111f;
 
-  --surface: rgba(255,255,255,.08);
+  --background-secondary:#0f172a;
 
-  --surface-hover: rgba(255,255,255,.12);
 
-  --border: rgba(255,255,255,.12);
+  --surface:rgba(255,255,255,.08);
 
-  --text: #f8fafc;
+  --surface-hover:rgba(255,255,255,.14);
 
-  --text-secondary: #94a3b8;
 
-  --success: #22c55e;
+  --border:rgba(255,255,255,.12);
 
-  --warning: #f59e0b;
 
-  --danger: #ef4444;
+  --text:#f8fafc;
 
-  --info: #38bdf8;
+  --text-secondary:#94a3b8;
 
-  --radius: 18px;
 
-  --transition: .25s ease;
+  --success:#22c55e;
+
+  --warning:#f59e0b;
+
+  --danger:#ef4444;
+
+  --info:#38bdf8;
+
+
+  --radius:18px;
+
+
+  --transition:.25s ease;
+
 
 }
+
+
+
+
 
 /* ======================================================
    Reset
 ====================================================== */
 
-* {
 
-  margin: 0;
+*{
 
-  padding: 0;
+margin:0;
 
-  box-sizing: border-box;
+padding:0;
 
-}
-
-html {
-
-  scroll-behavior: smooth;
+box-sizing:border-box;
 
 }
 
-body {
 
-  min-height: 100vh;
 
-  color: var(--text);
+html{
 
-  background:
-
-      radial-gradient(
-        circle at top,
-        rgba(56,189,248,.15),
-        transparent 45%
-      ),
-
-      linear-gradient(
-        180deg,
-        #08111d,
-        #101827
-      );
-
-  font-family:
-
-      Inter,
-
-      system-ui,
-
-      -apple-system,
-
-      BlinkMacSystemFont,
-
-      "Segoe UI",
-
-      sans-serif;
+scroll-behavior:smooth;
 
 }
+
+
+
+
+
+body{
+
+
+min-height:100vh;
+
+
+color:var(--text);
+
+
+background:
+
+
+radial-gradient(
+
+circle at top,
+
+rgba(56,189,248,.18),
+
+transparent 45%
+
+),
+
+
+linear-gradient(
+
+180deg,
+
+#08111d,
+
+#101827
+
+);
+
+
+
+font-family:
+
+Inter,
+
+system-ui,
+
+-apple-system,
+
+BlinkMacSystemFont,
+
+"Segoe UI",
+
+sans-serif;
+
+
+
+overflow-x:hidden;
+
+
+}
+
+
+
+
+
+
 
 /* ======================================================
    Scrollbar
 ====================================================== */
 
-::-webkit-scrollbar {
 
-  width: 10px;
+::-webkit-scrollbar{
 
-}
-
-::-webkit-scrollbar-thumb {
-
-  background: rgba(255,255,255,.15);
-
-  border-radius: 999px;
+width:10px;
 
 }
 
-::-webkit-scrollbar-track {
 
-  background: transparent;
+::-webkit-scrollbar-thumb{
+
+
+background:rgba(255,255,255,.15);
+
+border-radius:999px;
+
 
 }
+
+
+::-webkit-scrollbar-track{
+
+background:transparent;
+
+}
+
+
+
+
 
 /* ======================================================
    Selection
 ====================================================== */
 
-::selection {
 
-  background: rgba(59,130,246,.35);
+::selection{
+
+background:rgba(59,130,246,.35);
 
 }
+
+
+
+
+
+
+
 
 /* ======================================================
-   Glass Component
+   Glass System
 ====================================================== */
 
-.glass {
 
-  background: var(--surface);
+.glass{
 
-  backdrop-filter: blur(24px);
 
-  -webkit-backdrop-filter: blur(24px);
+background:
 
-  border: 1px solid var(--border);
+linear-gradient(
 
-  border-radius: var(--radius);
+135deg,
+
+rgba(255,255,255,.12),
+
+rgba(255,255,255,.04)
+
+);
+
+
+backdrop-filter:blur(24px);
+
+
+-webkit-backdrop-filter:blur(24px);
+
+
+border:
+
+1px solid var(--border);
+
+
+border-radius:var(--radius);
+
 
 }
+
+
+
+
+
+.glass:hover{
+
+
+background:var(--surface-hover);
+
+
+transition:var(--transition);
+
+
+}
+
+
+
+
+
+
 
 /* ======================================================
    Card
 ====================================================== */
 
-.card {
 
-  @apply glass;
+.card{
 
-  padding: 24px;
+
+@apply glass;
+
+
+padding:24px;
+
+
+animation:fadeIn .35s ease;
+
 
 }
+
+
+
+
+
+
+
+
+/* ======================================================
+   Logo / Branding
+====================================================== */
+
+
+.brand-gradient{
+
+
+background:
+
+linear-gradient(
+
+90deg,
+
+#38bdf8,
+
+#22c55e
+
+);
+
+
+-webkit-background-clip:text;
+
+color:transparent;
+
+
+}
+
+
+
+
+
+
 
 /* ======================================================
    Button
 ====================================================== */
 
-.btn {
 
-  display: inline-flex;
+.btn{
 
-  align-items: center;
 
-  justify-content: center;
+display:inline-flex;
 
-  gap: 10px;
 
-  padding: 12px 18px;
+align-items:center;
 
-  border-radius: 12px;
 
-  transition: var(--transition);
+justify-content:center;
 
-  cursor: pointer;
 
-}
+gap:10px;
 
-.btn:hover {
 
-  transform: translateY(-2px);
+padding:12px 18px;
 
-}
 
-.btn-primary {
+border-radius:12px;
 
-  background: #2563eb;
 
-  color: white;
+transition:var(--transition);
+
+
+cursor:pointer;
+
 
 }
 
-.btn-success {
 
-  background: var(--success);
+
+.btn:hover{
+
+
+transform:translateY(-2px);
+
+
+}
+
+
+
+.btn-primary{
+
+
+background:#2563eb;
+
+color:white;
+
 
 }
 
-.btn-danger {
 
-  background: var(--danger);
+
+.btn-success{
+
+
+background:var(--success);
+
+color:white;
+
 
 }
+
+
+
+.btn-danger{
+
+
+background:var(--danger);
+
+color:white;
+
+
+}
+
+
+
+
+
+
+
 
 /* ======================================================
-   Inputs
+   Form
 ====================================================== */
+
 
 input,
 
 select,
 
-textarea {
+textarea{
 
-  width: 100%;
 
-  padding: 12px;
+width:100%;
 
-  border-radius: 12px;
 
-  border: 1px solid var(--border);
+padding:12px;
 
-  background: rgba(255,255,255,.04);
 
-  color: white;
+border-radius:12px;
 
-  outline: none;
+
+border:1px solid var(--border);
+
+
+background:rgba(255,255,255,.04);
+
+
+color:white;
+
+
+outline:none;
+
 
 }
+
+
 
 input:focus,
 
 textarea:focus,
 
-select:focus {
+select:focus{
 
-  border-color: #3b82f6;
+
+border-color:#38bdf8;
+
 
 }
+
+
+
+
+
+
+
 
 /* ======================================================
-   Status Colors
+   Trading Status
 ====================================================== */
 
-.text-success {
 
-  color: var(--success);
+.status-dot{
+
+
+width:10px;
+
+height:10px;
+
+
+border-radius:50%;
+
+
+display:inline-block;
+
+
+}
+
+
+
+.status-online{
+
+
+background:#22c55e;
+
+
+box-shadow:
+
+0 0 15px #22c55e;
+
 
 }
 
-.text-warning {
 
-  color: var(--warning);
+
+.status-warning{
+
+
+background:#f59e0b;
+
+
+box-shadow:
+
+0 0 15px #f59e0b;
+
+
+}
+
+
+
+.status-error{
+
+
+background:#ef4444;
+
+
+box-shadow:
+
+0 0 15px #ef4444;
+
 
 }
 
-.text-danger {
 
-  color: var(--danger);
 
-}
 
-.text-info {
 
-  color: var(--info);
 
-}
+
 
 /* ======================================================
-   Animations
+   Table
 ====================================================== */
 
-.fade-in {
 
-  animation: fadeIn .35s ease;
+table{
+
+
+border-collapse:collapse;
+
+}
+
+
+
+th{
+
+
+font-weight:500;
+
 
 }
 
-@keyframes fadeIn {
 
-  from {
 
-    opacity: 0;
+tr{
 
-    transform: translateY(10px);
 
-  }
+transition:.2s ease;
 
-  to {
-
-    opacity: 1;
-
-    transform: translateY(0);
-
-  }
 
 }
+
+
+tbody tr:hover{
+
+
+background:rgba(255,255,255,.04);
+
+
+}
+
+
+
+
+
+
+
+
+/* ======================================================
+   Profit Loss
+====================================================== */
+
+
+.profit{
+
+
+color:#22c55e;
+
+
+}
+
+
+
+.loss{
+
+
+color:#ef4444;
+
+
+}
+
+
+
+
+
+
+
+
+/* ======================================================
+   Loading Animation
+====================================================== */
+
+
+.loading{
+
+
+animation:pulse 1.5s infinite;
+
+
+}
+
+
+
+@keyframes pulse{
+
+
+0%,100%{
+
+opacity:.5;
+
+}
+
+
+50%{
+
+opacity:1;
+
+}
+
+
+}
+
+
+
+
+
+
+
+
+/* ======================================================
+   Animation
+====================================================== */
+
+
+.fade-in{
+
+
+animation:fadeIn .35s ease;
+
+
+}
+
+
+
+@keyframes fadeIn{
+
+
+from{
+
+
+opacity:0;
+
+transform:translateY(10px);
+
+
+}
+
+
+
+to{
+
+
+opacity:1;
+
+transform:translateY(0);
+
+
+}
+
+
+}
+
+
+
+
+
+
+
 
 /* ======================================================
    Responsive
 ====================================================== */
 
-@media (max-width:768px){
 
-  .card{
+@media(max-width:768px){
 
-      padding:18px;
 
-  }
+.card{
+
+
+padding:18px;
+
+
+}
+
+
 
 }
