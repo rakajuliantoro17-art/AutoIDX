@@ -1,34 +1,39 @@
 {
-  "name": "autoidx",
-  "version": "1.0.0",
-  "description": "Automated Indodax Trading Bot built with Python and deployed on Vercel Serverless Architecture",
-  "main": "api/index.py",
-  "scripts": {
-    "dev": "vercel dev",
-    "deploy": "vercel --prod",
-    "lint": "echo \"Running linter...\""
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/rakajuliantoro17-art/AutoIDX.git"
-  },
-  "keywords": [
-    "trading-bot",
-    "indodax",
-    "crypto",
-    "python",
-    "vercel",
-    "serverless",
-    "rsi",
-    "ema"
-  ],
+  "name": "aura-trade-os",
+  "version": "0.0.1",
+  "private": true,
+  "description": "AURA Trade OS - Adaptive Unified Risk & AI Trading Operating System",
   "author": "Raka Juliantoro",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/rakajuliantoro17-art/AutoIDX/issues"
+  "homepage": "https://github.com/rakajuliantoro17-art/AURA-Trade-OS",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rakajuliantoro17-art/AURA-Trade-OS.git"
   },
-  "homepage": "https://github.com/rakajuliantoro17-art/AutoIDX#readme",
-  "devDependencies": {
-    "vercel": "^33.0.0"
+  "bugs": {
+    "url": "https://github.com/rakajuliantoro17-art/AURA-Trade-OS/issues"
+  },
+  "keywords": [
+    "indodax",
+    "crypto",
+    "bitcoin",
+    "trading",
+    "nextjs",
+    "typescript",
+    "firebase",
+    "ai",
+    "machine-learning",
+    "dashboard",
+    "vercel"
+  ],
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }
