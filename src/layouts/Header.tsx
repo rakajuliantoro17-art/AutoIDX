@@ -1,41 +1,68 @@
-'use client';
+/**
+==========================================================
+AURA Trade OS
+Dashboard Header
+Version : 0.0.1 Alpha
+==========================================================
+*/
 
-interface HeaderProps {
-  pair?: string;
-  isOnline?: boolean;
-}
 
-export default function Header({ pair = 'BTC/IDR', isOnline = true }: HeaderProps) {
-  return (
-    <header className="sticky top-0 z-30 h-16 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md px-6 flex justify-between items-center">
-      {/* Brand & Active Market */}
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-2">
-          <span className="text-2xl">🤖</span>
-          <span className="text-lg font-bold tracking-wider text-emerald-400">
-            Auto<span className="text-white">IDX</span>
-          </span>
-        </div>
-        <span className="text-slate-600">|</span>
-        <div className="flex items-center space-x-2 bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700/50">
-          <span className="text-xs text-gray-400 font-medium">PAIR:</span>
-          <span className="text-xs font-bold text-white tracking-wide">{pair}</span>
-        </div>
-      </div>
+export default function Header(){
 
-      {/* System Status Indicator */}
-      <div className="flex items-center space-x-4">
-        <div className="flex items-center space-x-2 bg-slate-950/60 px-3 py-1.5 rounded-lg border border-slate-800">
-          <span
-            className={`h-2.5 w-2.5 rounded-full ${
-              isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
-            }`}
-          ></span>
-          <span className="text-xs text-gray-300 font-mono">
-            {isOnline ? 'CRON ACTIVE' : 'ENGINE OFFLINE'}
-          </span>
-        </div>
-      </div>
-    </header>
-  );
+
+return (
+
+<header className="sticky top-0 z-40 border-b border-white/10 bg-black/30 backdrop-blur-xl">
+
+
+<div className="h-16 px-6 flex items-center justify-between">
+
+
+<div>
+
+
+<h1 className="text-xl font-bold">
+
+Auto<span className="text-sky-400">IDX</span>
+
+</h1>
+
+
+<p className="text-xs text-slate-500">
+
+Automated Trading Engine
+
+</p>
+
+
+</div>
+
+
+
+
+<div className="flex items-center gap-3">
+
+
+<span className="h-3 w-3 rounded-full bg-emerald-500 animate-pulse"/>
+
+
+<span className="text-sm text-slate-300">
+
+SYSTEM ACTIVE
+
+</span>
+
+
+</div>
+
+
+
+</div>
+
+
+</header>
+
+);
+
+
 }
