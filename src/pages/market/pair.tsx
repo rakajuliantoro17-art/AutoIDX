@@ -6,251 +6,242 @@ Version : 0.0.1 Alpha
 ==========================================================
 */
 
-
-"use client";
-
-
 import {
-useRouter
+  useRouter
 } from "next/router";
 
-
 import {
-useEffect,
-useState
+  useEffect,
+  useState
 } from "react";
-
 
 import DashboardLayout from "@/layouts/DashboardLayout";
 
 
-
-
-
 interface DepthOrder {
 
-price:number;
+  price: number;
 
-amount:number;
+  amount: number;
 
 }
 
 
 
+export default function MarketPairDetail() {
 
 
-export default function MarketPairDetail(){
+  const router = useRouter();
 
 
+  const {
+    pair
+  } = router.query;
 
-const router=useRouter();
 
 
-const {pair}=router.query;
+  const activePair =
+    typeof pair === "string"
+      ? pair
+      : "btc_idr";
 
 
 
-const activePair=
+  const [bids, setBids] = useState<DepthOrder[]>([]);
 
-(pair as string)
 
-||
+  const [asks, setAsks] = useState<DepthOrder[]>([]);
 
-"btc_idr";
 
+  const [loading, setLoading] = useState(true);
 
 
 
 
-const [bids,setBids]=
 
-useState<DepthOrder[]>([]);
+  useEffect(() => {
 
 
+    if (!router.isReady) {
 
-const [asks,setAsks]=
+      return;
 
-useState<DepthOrder[]>([]);
+    }
 
 
 
-const [loading,setLoading]=
+    async function loadDepth() {
 
-useState(true);
 
+      try {
 
 
+        const response = await fetch(
+          `/api/market/${activePair}/depth`
+        );
 
 
 
+        if (!response.ok) {
 
+          throw new Error(
+            "Failed fetching market depth"
+          );
 
-useEffect(()=>{
+        }
 
 
-if(!router.isReady)
 
-return;
+        const data = await response.json();
 
 
 
-async function loadDepth(){
+        setBids(
+          data.bids ?? []
+        );
 
 
-try{
 
+        setAsks(
+          data.asks ?? []
+        );
 
-const response=
 
-await fetch(
 
-`/api/market/${activePair}/depth`
+      } catch (error) {
 
-);
 
+        console.error(
+          "Depth Error:",
+          error
+        );
 
 
-const data=
 
-await response.json();
+        setBids([]);
 
+        setAsks([]);
 
 
 
-setBids(data.bids ?? []);
+      } finally {
 
-setAsks(data.asks ?? []);
 
+        setLoading(false);
 
 
+      }
 
-}
 
-catch(error){
+    }
 
 
-console.error(
 
-"Depth Error",
+    loadDepth();
 
-error
 
-);
 
+  }, [
+    router.isReady,
+    activePair
+  ]);
 
-}
 
-finally{
 
 
-setLoading(false);
 
 
-}
+  return (
 
+    <DashboardLayout>
 
-}
 
+      <div className="space-y-6">
 
 
-loadDepth();
 
+        <div>
 
 
-},[router.isReady,activePair]);
+          <h1 className="text-2xl font-bold text-white">
 
 
+            Market Depth:
 
 
+            <span className="text-emerald-400 ml-2">
 
 
+              {activePair.toUpperCase()}
 
 
-return (
+            </span>
 
-<DashboardLayout>
 
+          </h1>
 
-<div className="space-y-6">
 
 
+          <p className="text-sm text-slate-400 mt-2">
 
-<h1 className="text-2xl font-bold">
 
+            Order book BUY dan SELL dari market Indodax.
 
-Market Depth:
 
+          </p>
 
-<span className="text-emerald-400 ml-2">
 
+        </div>
 
-{activePair.toUpperCase()}
 
 
-</span>
 
 
-</h1>
 
+        <div className="grid md:grid-cols-2 gap-6">
 
 
 
+          <OrderBook
 
-<div className="grid md:grid-cols-2 gap-6">
+            title="BUY ORDERS"
 
+            color="text-emerald-400"
 
+            orders={bids}
 
+            loading={loading}
 
+          />
 
-{/* BIDS */}
 
 
-<OrderBook
 
-title="BUY ORDERS"
+          <OrderBook
 
-color="text-emerald-400"
+            title="SELL ORDERS"
 
-orders={bids}
+            color="text-rose-400"
 
-loading={loading}
+            orders={asks}
 
-/>
+            loading={loading}
 
+          />
 
 
 
+        </div>
 
-{/* ASKS */}
 
 
-<OrderBook
 
-title="SELL ORDERS"
+      </div>
 
-color="text-rose-400"
 
-orders={asks}
+    </DashboardLayout>
 
-loading={loading}
-
-/>
-
-
-
-
-</div>
-
-
-
-</div>
-
-
-
-</DashboardLayout>
-
-
-);
+  );
 
 
 }
@@ -263,106 +254,146 @@ loading={loading}
 
 function OrderBook({
 
-title,
+  title,
 
-color,
+  color,
 
-orders,
+  orders,
 
-loading
+  loading
 
-}:{
-
-title:string;
-
-color:string;
-
-orders:DepthOrder[];
-
-loading:boolean;
-
-}){
+}: {
 
 
-return (
-
-<div className="glass p-5">
+  title:string;
 
 
-<h2 className={`font-bold ${color}`}>
+  color:string;
 
-{title}
 
-</h2>
+  orders:DepthOrder[];
+
+
+  loading:boolean;
+
+
+}) {
 
 
 
-<div className="mt-4 space-y-2 text-sm">
+  return (
 
 
-{
-
-loading ?
-
-
-<p>
-
-Loading...
-
-</p>
-
-
-:
-
-
-orders.map((item,index)=>(
-
-
-<div
-
-key={index}
-
-className="flex justify-between"
-
->
-
-
-<span>
-
-
-Rp {item.price.toLocaleString("id-ID")}
-
-
-</span>
+    <div className="glass p-5">
 
 
 
-<span className="text-slate-400">
+      <h2
+        className={`font-bold ${color}`}
+      >
+
+        {title}
 
 
-{item.amount}
-
-
-</span>
-
-
-</div>
-
-
-))
-
-
-}
-
-
-</div>
+      </h2>
 
 
 
-</div>
+
+      <div className="mt-4 space-y-2 text-sm">
 
 
-);
+
+        {
+
+
+          loading ? (
+
+
+            <p className="text-slate-400">
+
+              Loading order book...
+
+            </p>
+
+
+          ) : orders.length === 0 ? (
+
+
+            <p className="text-slate-500">
+
+              No order data available.
+
+            </p>
+
+
+          ) : (
+
+
+            orders.map(
+              (
+                item,
+                index
+              ) => (
+
+
+                <div
+
+                  key={index}
+
+                  className="flex justify-between"
+
+                >
+
+
+
+                  <span>
+
+
+                    Rp{" "}
+
+                    {item.price.toLocaleString(
+                      "id-ID"
+                    )}
+
+
+                  </span>
+
+
+
+                  <span className="text-slate-400">
+
+
+                    {item.amount}
+
+
+                  </span>
+
+
+
+                </div>
+
+
+              )
+
+            )
+
+
+          )
+
+
+        }
+
+
+
+      </div>
+
+
+
+    </div>
+
+
+  );
 
 
 }
