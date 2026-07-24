@@ -1,47 +1,323 @@
-interface LogItem {
-  id: string;
-  timestamp: string;
-  message: string;
-  type: 'info' | 'success' | 'warning' | 'danger';
+/**
+==========================================================
+AURA Trade OS
+Price Chart Component
+Version : 0.0.1 Alpha
+==========================================================
+*/
+
+
+interface PricePoint {
+
+  time:string;
+
+  price:number;
+
 }
 
-interface ActivityLogsProps {
-  logs: LogItem[];
+
+
+interface PriceChartProps {
+
+  data:PricePoint[];
+
+  pair?:string;
+
 }
 
-export default function ActivityLogs({ logs }: ActivityLogsProps) {
-  const getTypeColor = (type: LogItem['type']) => {
-    switch (type) {
-      case 'success':
-        return 'text-emerald-400';
-      case 'warning':
-        return 'text-amber-400';
-      case 'danger':
-        return 'text-rose-400';
-      default:
-        return 'text-slate-300';
-    }
-  };
 
-  return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 font-mono text-xs shadow-inner">
-      <div className="flex justify-between items-center pb-3 mb-3 border-b border-slate-800">
-        <span className="text-gray-400 font-sans font-semibold text-sm"> Live Activity Logs</span>
-        <span className="text-gray-600 text-[10px]">Realtime Engine Events</span>
-      </div>
 
-      <div className="space-y-2 max-h-56 overflow-y-auto pr-2 custom-scrollbar">
-        {logs.length === 0 ? (
-          <p className="text-gray-600 italic">Belum ada riwayat aktivitas...</p>
-        ) : (
-          logs.map((log) => (
-            <div key={log.id} className="flex items-start space-x-3 text-slate-300">
-              <span className="text-gray-500 shrink-0">[{log.timestamp}]</span>
-              <span className={getTypeColor(log.type)}>{log.message}</span>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
+
+
+export default function PriceChart({
+
+data,
+
+pair="BTC/IDR"
+
+}:PriceChartProps){
+
+
+
+
+
+if(!data || data.length===0){
+
+
+return (
+
+<div className="glass p-6">
+
+
+<h3 className="font-semibold">
+
+
+{pair} Price Chart
+
+
+</h3>
+
+
+
+<p className="mt-6 text-sm text-slate-500">
+
+
+Waiting market data...
+
+
+</p>
+
+
+</div>
+
+);
+
+
+}
+
+
+
+
+
+
+const prices=data.map(
+
+item=>item.price
+
+);
+
+
+
+const max=Math.max(...prices);
+
+const min=Math.min(...prices);
+
+
+
+const width=600;
+
+const height=220;
+
+
+
+
+
+const points=data.map(
+
+(item,index)=>{
+
+
+const x=
+
+(index/(data.length-1))
+
+*
+
+width;
+
+
+
+const y=
+
+height -
+
+(
+
+((item.price-min)
+
+/
+
+(max-min))
+
+*
+
+height
+
+);
+
+
+
+return `${x},${y}`;
+
+}
+
+
+).join(" ");
+
+
+
+
+
+
+
+
+return (
+
+
+<div className="glass p-5">
+
+
+
+
+
+{/* Header */}
+
+
+
+<div className="flex justify-between items-center mb-5">
+
+
+<div>
+
+
+<h3 className="font-semibold">
+
+
+{pair}
+
+
+</h3>
+
+
+<p className="text-xs text-slate-500">
+
+
+Realtime Market Price
+
+
+</p>
+
+
+</div>
+
+
+
+
+
+<div className="text-right">
+
+
+<p className="text-xs text-slate-500">
+
+
+LAST PRICE
+
+
+</p>
+
+
+<p className="text-emerald-400 font-semibold">
+
+
+Rp {prices[prices.length-1].toLocaleString("id-ID")}
+
+
+</p>
+
+
+</div>
+
+
+
+</div>
+
+
+
+
+
+
+
+
+{/* Chart */}
+
+
+
+<div className="overflow-hidden">
+
+
+<svg
+
+viewBox={`0 0 ${width} ${height}`}
+
+className="w-full h-56"
+
+
+>
+
+
+
+<polyline
+
+
+fill="none"
+
+
+stroke="currentColor"
+
+
+className="text-sky-400"
+
+
+strokeWidth="3"
+
+
+points={points}
+
+
+/>
+
+
+
+</svg>
+
+
+</div>
+
+
+
+
+
+
+
+{/* Range */}
+
+
+<div className="flex justify-between text-xs text-slate-500 mt-4">
+
+
+<span>
+
+
+Low:
+
+Rp {min.toLocaleString("id-ID")}
+
+
+</span>
+
+
+<span>
+
+
+High:
+
+Rp {max.toLocaleString("id-ID")}
+
+
+</span>
+
+
+</div>
+
+
+
+
+
+
+</div>
+
+
+);
+
+
 }
