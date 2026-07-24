@@ -1,41 +1,213 @@
-# 🗺️ AutoIDX - Project Roadmap
+# 🗺️ AURA Trade OS
+## Development Roadmap
 
-Dokumen ini memuat peta jalan (*roadmap*) pengembangan bot trading **AutoIDX** dari fase awal hingga fitur tingkat lanjut.
+**Adaptive Unified Risk & AI Trading Operating System**
 
----
-
-## 🚩 Phase 1: Core Foundation & Deployment (Current)
-* [x] Inisialisasi struktur proyek modular Python.
-* [x] Integrasi Indodax Public API (Ticker & Market Depth).
-* [x] Integrasi Indodax Private API (TAPI) dengan autentikasi HMAC-SHA512.
-* [x] Implementasi strategi dasar: EMA Crossover + RSI Filter.
-* [x] Modul Manajemen Risiko (Take-Profit & Stop-Loss).
-* [x] Deployment ke Vercel Serverless Architecture dengan Vercel Cron.
-* [x] Dokumentasi API & Arsitektur Sistem.
+Roadmap ini menjadi acuan resmi pengembangan AURA Trade OS.
 
 ---
 
-## 📈 Phase 2: Enhanced Strategy & Risk Management
-* [ ] **Multi-Pair Monitoring:** Kemampuan bot untuk melakukan scanning dan trading di beberapa *pair* Indodax secara serentak (misal: BTC/IDR, ETH/IDR, SOL/IDR).
-* [ ] **Dynamic Trailing Stop:** Menggeser batas *Stop-Loss* secara otomatis mengikuti kenaikan harga untuk mengunci *profit* maksimal.
-* [ ] **Backtesting Engine:** Modul simulasi untuk menguji performa strategi menggunakan data histori harga Indodax sebelum dipasang di pasar *live*.
-* [ ] **Additional Technical Indicators:** Penambahan indikator MACD, Bollinger Bands, dan ATR (Average True Range) untuk akurasi sinyal yang lebih tinggi.
+# 🚀 Version 0.0.1 Alpha
+## Foundation
+
+### Project
+
+- [x] Project Bootstrap
+- [x] GitHub Repository
+- [x] Vercel Deployment
+- [x] Firebase Integration
+- [x] Environment Configuration
+
+### Dashboard
+
+- [x] Layout
+- [x] Sidebar
+- [x] Header
+- [x] Activity Log
+
+### Market
+
+- [x] Indodax Public API
+- [x] Live Market
+- [x] Market Scanner
+- [x] Multi Pair Listing
+
+### Core
+
+- [x] Logger
+- [x] API Wrapper
+- [x] Configuration
 
 ---
 
-## 🔔 Phase 3: Notifications & Dashboard
-* [ ] **Telegram / Discord Bot Notifications:**
-  * Notifikasi *real-time* saat eksekusi `BUY` atau `SELL`.
-  * Alert harian/mingguan rangkuman PnL (Profit & Loss).
-  * Peringatan darurat jika terjadi kesalahan API atau saldo tidak mencukupi.
-* [ ] **Web Dashboard (Vercel Frontend):**
-  * Tampilan visual grafis harga & eksekusi order menggunakan React / Next.js.
-  * Ringkasan portofolio dan *win-rate* strategi.
-  * *Control panel* untuk mengubah parameter bot (SL, TP, Pair) secara langsung dari antarmuka web.
+# 🚀 Version 0.0.2
+## Market Intelligence
+
+- [ ] Order Book Scanner
+- [ ] Liquidity Scanner
+- [ ] Volume Scanner
+- [ ] Market Heatmap
+- [ ] Top Gainers
+- [ ] Top Losers
+- [ ] Spread Analysis
+- [ ] Opportunity Ranking
 
 ---
 
-## 🛡️ Phase 4: Security, Resilience & Optimization
-* [ ] **Database Integration:** Menyimpan histori transaksi dan *state* posisi bot secara permanen menggunakan Vercel Postgres / Supabase / Redis.
-* [ ] **Slippage & Order Execution Optimization:** Penyesuaian skema order (Limit vs Market) untuk menghindari *slippage* tinggi pada pasar bertransaksi rendah.
-* [ ] **Advanced Logging & Monitoring:** Integrasi *logging* error terpusat (misal: Sentry) untuk memantau performa *serverless function*.
+# 🚀 Version 0.0.3
+## Technical Analysis
+
+- [ ] EMA
+- [ ] RSI
+- [ ] MACD
+- [ ] ATR
+- [ ] Bollinger Bands
+- [ ] VWAP
+- [ ] ADX
+- [ ] Stochastic RSI
+
+---
+
+# 🚀 Version 0.0.4
+## Strategy Engine
+
+- [ ] Trend Following
+- [ ] RSI Reversal
+- [ ] Breakout
+- [ ] Momentum
+- [ ] Mean Reversion
+- [ ] Strategy Scoring
+
+---
+
+# 🚀 Version 0.0.5
+## Paper Trading
+
+- [ ] Simulated Buy
+- [ ] Simulated Sell
+- [ ] Portfolio Simulation
+- [ ] Daily Statistics
+- [ ] Win Rate
+- [ ] Profit Factor
+
+---
+
+# 🚀 Version 0.1.0
+## Trading Operating System
+
+### Portfolio
+
+- [ ] Portfolio Manager
+- [ ] Position Manager
+- [ ] Position Sizing
+
+### Risk
+
+- [ ] Dynamic Stop Loss
+- [ ] Dynamic Take Profit
+- [ ] Trailing Stop
+- [ ] Daily Loss Limit
+- [ ] Exposure Limit
+
+### Analytics
+
+- [ ] Dashboard Analytics
+- [ ] Strategy Performance
+- [ ] Drawdown
+- [ ] Sharpe Ratio
+- [ ] Sortino Ratio
+
+---
+
+# 🚀 Version 0.2.0
+## Backtesting
+
+- [ ] Historical Data
+- [ ] Backtesting Engine
+- [ ] Strategy Comparison
+- [ ] Performance Report
+
+---
+
+# 🚀 Version 0.3.0
+## Live Trading
+
+- [ ] Buy Engine
+- [ ] Sell Engine
+- [ ] Order Management
+- [ ] Multi Pair Trading
+
+---
+
+# 🚀 Version 0.4.0
+## Automation
+
+- [ ] Telegram Notification
+- [ ] Email Notification
+- [ ] Webhook
+- [ ] Health Monitoring
+
+---
+
+# 🚀 Version 0.5.0
+## AI Confidence
+
+- [ ] AI Confidence Score
+- [ ] Opportunity Ranking
+- [ ] Market Classification
+- [ ] Strategy Recommendation
+
+---
+
+# 🚀 Version 0.7.0
+## Machine Learning
+
+- [ ] Historical Learning
+- [ ] Adaptive Strategy
+- [ ] Feature Engineering
+- [ ] Confidence Calibration
+
+---
+
+# 🚀 Version 1.0.0
+## AURA Trade OS
+
+- [ ] AI Assisted Trading
+- [ ] Portfolio Optimizer
+- [ ] Risk Optimizer
+- [ ] Strategy Laboratory
+- [ ] Machine Learning Engine
+- [ ] Analytics Platform
+- [ ] Multi Asset Management
+
+---
+
+# 📌 Development Principles
+
+Seluruh fitur baru mengikuti alur berikut:
+
+```
+Development
+
+↓
+
+Unit Testing
+
+↓
+
+Paper Trading
+
+↓
+
+Backtesting
+
+↓
+
+Evaluation
+
+↓
+
+Release
+```
+
+Tidak ada fitur yang langsung digunakan untuk Live Trading tanpa melalui proses validasi.
