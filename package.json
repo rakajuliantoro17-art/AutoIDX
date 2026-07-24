@@ -1,1 +1,34 @@
-
+{
+  "name": "autoidx",
+  "version": "1.0.0",
+  "description": "Automated Indodax Trading Bot built with Python and deployed on Vercel Serverless Architecture",
+  "main": "api/index.py",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod",
+    "lint": "echo \"Running linter...\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rakajuliantoro17-art/AutoIDX.git"
+  },
+  "keywords": [
+    "trading-bot",
+    "indodax",
+    "crypto",
+    "python",
+    "vercel",
+    "serverless",
+    "rsi",
+    "ema"
+  ],
+  "author": "Raka Juliantoro",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rakajuliantoro17-art/AutoIDX/issues"
+  },
+  "homepage": "https://github.com/rakajuliantoro17-art/AutoIDX#readme",
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  }
+}
