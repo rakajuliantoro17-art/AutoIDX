@@ -1,41 +1,214 @@
-# 🚀 AutoIDX - Automated Indodax Trading Bot
+# 🚀 AURA Trade OS
 
-![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)
+> **Adaptive Unified Risk & AI Trading Operating System**
 
-**AutoIDX** adalah bot trading kripto otomatis yang dirancang khusus untuk platform **Indodax**. Dideploy menggunakan arsitektur *Serverless Function* dan *Vercel Cron*, bot ini mengeksekusi analisa teknikal secara berkala tanpa memerlukan server VPS 24/7.
-
----
-
-## ✨ Fitur Utama
-
-* ⚡ **Serverless Architecture:** Berjalan mulus di Vercel menggunakan Cron Jobs.
-* 📈 **Analisa Teknikal:** Menggunakan strategi kombinasi EMA Crossover (Exponential Moving Average) dan RSI (Relative Strength Index).
-* 🛡️ **Manajemen Risiko:** Dilengkapi fitur otomatis *Take-Profit* (TP) dan *Stop-Loss* (SL) untuk melindungi modal.
-* 🔐 **Autentikasi Aman:** Menggunakan enkripsi HMAC-SHA512 untuk komunikasi terotentikasi dengan Indodax Private API.
-* 📁 **Struktur Modular:** Kode yang bersih, terpisah antara API client, logika strategi, engine eksekusi, dan konfigurasi.
+![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript)
+![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 ---
 
-## 📁 Struktur Proyek
+## 📖 Overview
+
+**AURA Trade OS** adalah platform trading otomatis berbasis AI yang dirancang khusus untuk **Indodax Exchange**.
+
+Berbeda dengan trading bot biasa, AURA Trade OS dibangun sebagai **Trading Operating System** yang terdiri dari berbagai modul independen seperti:
+
+- 📊 Market Scanner
+- 📈 Technical Analysis Engine
+- 🤖 AI Confidence Engine
+- 🛡️ Risk Management
+- 💼 Portfolio Manager
+- ⚡ Auto Trading Engine
+- 📉 Analytics Dashboard
+
+Seluruh sistem dikembangkan secara modular sehingga mudah dikembangkan hingga versi Machine Learning.
+
+---
+
+# ✨ Features
+
+## ✅ Market Intelligence
+
+- Multi Pair Scanner
+- Market Ranking
+- Top Gainers
+- Top Losers
+- Volume Scanner
+- Liquidity Scanner
+- Order Book Analysis
+
+---
+
+## 📈 Technical Analysis
+
+- EMA
+- RSI
+- MACD
+- ATR
+- Bollinger Bands
+- VWAP
+- ADX
+
+---
+
+## 🛡 Risk Management
+
+- Position Sizing
+- Dynamic Stop Loss
+- Dynamic Take Profit
+- Trailing Stop
+- Daily Loss Limit
+- Maximum Drawdown
+- Portfolio Allocation
+
+---
+
+## 🤖 AI (Roadmap)
+
+- Confidence Score
+- Strategy Optimizer
+- Adaptive Strategy
+- Machine Learning
+- Historical Learning
+
+---
+
+## 📊 Dashboard
+
+- Portfolio
+- Open Position
+- Daily Profit
+- Monthly Profit
+- Win Rate
+- Drawdown
+- Activity Log
+- Strategy Performance
+- System Health
+
+---
+
+# 🏗 Architecture
+
+```
+Indodax API
+      │
+      ▼
+Market Scanner
+      │
+      ▼
+Technical Analysis
+      │
+      ▼
+Risk Management
+      │
+      ▼
+Strategy Engine
+      │
+      ▼
+Execution Engine
+      │
+      ▼
+Firebase
+      │
+      ▼
+Dashboard
+```
+
+---
+
+# 📁 Project Structure
 
 ```text
-AutoIDX/
-├── .github/
-│   └── workflows/
-│       └── deploy.yml        # Automation CI/CD GitHub Actions ke Vercel
-├── api/
-│   └── index.py              # Entry point Vercel Serverless Function
-├── docs/
-│   ├── api.md                # Dokumentasi Endpoint Indodax API
-│   ├── architecture.md       # Arsitektur & Alur Kerja Sistem
-│   └── roadmap.md            # Rencana Pengembangan Proyek
-├── config.py                 # Parameter Trading & Risk Management
-├── engine.py                 # Core Bot Engine Execution
-├── indodax_api.py            # Indodax Public & Private API Wrapper
-├── strategy.py               # Algoritma Indikator Teknikal (EMA & RSI)
-├── vercel.json               # Konfigurasi Vercel & Penjadwalan Cron Job
-├── requirements.txt          # Dependensi Python
-├── .gitignore                # Pengecualian File Sensitif
-└── README.md                 # Dokumentasi Utama
+src/
+
+app/
+components/
+layouts/
+pages/
+
+services/
+
+    ai/
+    analytics/
+    firebase/
+    indicators/
+    indodax/
+    logger/
+    portfolio/
+    risk/
+    scanner/
+    strategy/
+
+styles/
+utils/
+```
+
+---
+
+# 🚀 Development Roadmap
+
+## v0.0.1
+
+- Project Bootstrap
+- Dashboard
+- Firebase
+- Market Scanner
+- Live Market
+- Logging
+
+---
+
+## v0.1.0
+
+- Technical Indicators
+- Multi Pair Scanner
+- Opportunity Ranking
+- Portfolio
+
+---
+
+## v0.2.0
+
+- Paper Trading
+- Strategy Engine
+- Backtesting
+
+---
+
+## v0.5.0
+
+- Auto Trading
+- Telegram Notification
+- Dynamic Risk Engine
+
+---
+
+## v1.0.0
+
+- Machine Learning
+- AI Confidence
+- Portfolio Optimizer
+- Adaptive Trading
+
+---
+
+# 🛠 Technology Stack
+
+- Next.js
+- TypeScript
+- TailwindCSS
+- Firebase
+- Vercel
+- Indodax API
+
+---
+
+# 📄 License
+
+MIT License
+
+Copyright © 2026
+Raka Juliantoro
