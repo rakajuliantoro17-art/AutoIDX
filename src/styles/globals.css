@@ -1,71 +1,237 @@
-@import './animations.css';
+/**
+==========================================================
+AURA Trade OS
+Legacy Global Styles
+Version : 0.0.1 Alpha
+==========================================================
+*/
+
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+
+/* ======================================================
+   Theme Variables
+====================================================== */
+
+
 :root {
-  --bg-primary: #0b0f17;
-  --bg-card: #111827;
-  --border-color: #1f2937;
-  --accent-emerald: #10b981;
-  --accent-rose: #f43f5e;
+
+
+  --bg-primary:#0b0f17;
+
+  --bg-card:#111827;
+
+  --border-color:#1f2937;
+
+
+  --accent-emerald:#10b981;
+
+  --accent-rose:#f43f5e;
+
+
+  --text-primary:#f3f4f6;
+
 }
 
-/* Custom Base Styling */
+
+
+
+
+
+/* ======================================================
+   Base
+====================================================== */
+
+
 body {
-  background-color: var(--bg-primary);
-  color: #f3f4f6;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
+
+
+  background:
+
+    var(--bg-primary);
+
+
+  color:
+
+    var(--text-primary);
+
+
+  font-family:
+
+    ui-sans-serif,
+
+    system-ui,
+
+    -apple-system,
+
+    BlinkMacSystemFont,
+
+    "Segoe UI",
+
+    sans-serif;
+
+
+  overflow-x:hidden;
+
+
+  -webkit-font-smoothing:antialiased;
+
+
 }
 
-/* Custom Scrollbar for Dashboard Tables and Logs */
+
+
+
+
+
+/* ======================================================
+   Scrollbar
+====================================================== */
+
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+
+
+  width:6px;
+
+  height:6px;
+
+
 }
+
+
 
 ::-webkit-scrollbar-track {
-  background: #0d1117;
+
+
+  background:#0d1117;
+
+
 }
+
+
 
 ::-webkit-scrollbar-thumb {
-  background: #21262d;
-  border-radius: 4px;
+
+
+  background:#21262d;
+
+
+  border-radius:8px;
+
+
 }
+
+
+
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #30363d;
+
+
+  background:#30363d;
+
+
 }
 
-/* Glassmorphism Utility Classes */
+
+
+
+
+/* ======================================================
+   Legacy Glass Utility
+====================================================== */
+
+
 @layer utilities {
-  .glass-card {
-    background: rgba(17, 24, 39, 0.75);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-  }
 
-  .glass-card-hover {
-    transition: all 0.3s ease;
-  }
 
-  .glass-card-hover:hover {
-    border-color: rgba(16, 185, 129, 0.4);
-    box-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.1);
-  }
+.glass-card {
 
-  .text-gradient-emerald {
-    background: linear-gradient(135deg, #34d399 0%, #059669 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
+
+  background:
+
+  rgba(17,24,39,.75);
+
+
+  backdrop-filter:
+
+  blur(12px);
+
+
+
+  border:
+
+  1px solid rgba(255,255,255,.08);
+
+
+
 }
-@import "../styles/variables.css";
-@import "../styles/glass.css";
-@import "../styles/components.css";
-@import "../styles/dashboard.css";
-@import "../styles/animations.css";
-@import "../styles/scrollbar.css";
+
+
+
+
+.glass-card-hover {
+
+
+  transition:
+
+  all .3s ease;
+
+
+}
+
+
+
+
+.glass-card-hover:hover {
+
+
+  border-color:
+
+  rgba(16,185,129,.4);
+
+
+
+  box-shadow:
+
+  0 8px 32px
+
+  rgba(16,185,129,.1);
+
+
+}
+
+
+
+
+
+.text-gradient-emerald {
+
+
+background:
+
+linear-gradient(
+
+135deg,
+
+#34d399,
+
+#059669
+
+);
+
+
+
+-webkit-background-clip:text;
+
+
+-webkit-text-fill-color:transparent;
+
+
+}
+
+
+}
