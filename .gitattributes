@@ -1,2 +1,22 @@
-# Auto detect text files and perform LF normalization
+# Set default behavior to automatically handle line endings
 * text=auto
+
+# Force LF (Unix-style) for code files to avoid cross-platform whitespace issues
+*.py text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Binary files (Keep untouched)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
+
+# Linguist vendor overrides (Ignore docs/vendor from GitHub language statistics)
+docs/* linguist-documentation
