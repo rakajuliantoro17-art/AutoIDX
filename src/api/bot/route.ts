@@ -6,78 +6,48 @@ Version : 0.0.1 Alpha
 ==========================================================
 */
 
-import { NextResponse } from "next/server";
+import { executeBot } from "./execute";
+import { successResponse, errorResponse } from "./response";
+import { logger } from "./logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const startedAt = Date.now();
-
   try {
-    /**
-     * ============================================
-     * TODO v0.0.1
-     * ============================================
-     * 1. Load Bot Configuration
-     * 2. Scan Market
-     * 3. Analyze Indicators
-     * 4. Execute Strategy
-     * 5. Risk Validation
-     * 6. Paper Trading
-     * 7. Save Activity Log
-     */
 
-    const botMode = process.env.BOT_MODE ?? "paper";
+    logger.info(
+      "BOT",
+      "Bot execution requested."
+    );
 
-    const result = {
-      success: true,
+    const result = await executeBot();
 
-      version: "0.0.1",
+    logger.success(
+      "BOT",
+      "Bot execution completed.",
+      result.statistics
+    );
 
-      mode: botMode,
-
-      status: "running",
-
-      timestamp: new Date().toISOString(),
-
-      statistics: {
-        pairsScanned: 0,
-        buySignals: 0,
-        sellSignals: 0,
-        skippedSignals: 0,
-        ordersExecuted: 0,
-      },
-
-      duration: `${Date.now() - startedAt} ms`,
-
-      message: "Bot executed successfully.",
-    };
-
-    return NextResponse.json(result, {
-      status: 200,
-    });
+    return successResponse(
+      result,
+      "Bot executed successfully."
+    );
 
   } catch (error) {
 
-    console.error("[BOT ERROR]", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-
-        status: "error",
-
-        timestamp: new Date().toISOString(),
-
-        message:
-          error instanceof Error
-            ? error.message
-            : "Unknown Error",
-      },
-      {
-        status: 500,
-      }
+    logger.error(
+      "BOT",
+      "Bot execution failed.",
+      error
     );
+
+    return errorResponse(
+      error instanceof Error
+        ? error.message
+        : "Unknown error",
+      500
+    );
+
   }
 }
