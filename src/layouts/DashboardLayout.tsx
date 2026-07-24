@@ -1,29 +1,63 @@
-'use client';
+/**
+==========================================================
+AURA Trade OS
+Dashboard Layout
+Version : 0.0.1 Alpha
+==========================================================
+*/
 
-import Header from './Header';
-import Sidebar from './Sidebar';
-import Footer from './Footer';
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-}
+import Header from "./Header";
+import Sidebar from "./Sidebar";
+import Footer from "./Footer";
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
-      {/* Header Atas */}
-      <Header pair="BTC/IDR" isOnline={true} />
 
-      {/* Konten Utama + Sidebar */}
-      <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex-1 p-6 max-w-7xl overflow-x-hidden">
-          {children}
-        </main>
-      </div>
 
-      {/* Footer */}
-      <Footer />
-    </div>
-  );
+export default function DashboardLayout({
+
+children,
+
+}:{
+
+children:React.ReactNode;
+
+}){
+
+
+return (
+
+<div className="min-h-screen">
+
+
+<Header />
+
+
+<div className="flex">
+
+
+<Sidebar />
+
+
+<main className="flex-1 p-6">
+
+
+{children}
+
+
+</main>
+
+
+</div>
+
+
+
+<Footer />
+
+
+</div>
+
+
+);
+
+
 }
