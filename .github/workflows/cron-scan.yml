@@ -1,0 +1,15 @@
+name: AURA Trade OS - Market Scan Cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # setiap 5 menit
+  workflow_dispatch: {}     # bisa juga trigger manual dari tab Actions
+
+jobs:
+  trigger-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call scan endpoint
+        run: |
+          curl -f -X POST https://https://auto-idx.vercel.app/login/api/cron/scan \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
