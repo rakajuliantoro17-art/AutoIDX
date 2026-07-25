@@ -1,4 +1,3 @@
-// src/components/IndodaxAccountManager.tsx
 /**
 ==========================================================
 AURA Trade OS
@@ -82,17 +81,20 @@ export default function IndodaxAccountManager() {
   }
 
   return (
-    <div className="glass p-5 space-y-6">
-      <h2 className="font-bold text-white">Akun Trade API Indodax</h2>
+    <div className="card">
+      <h2 className="text-xl font-semibold mb-5">Akun Trade API Indodax</h2>
+      <p className="text-slate-400 text-sm mb-6">
+        Kelola API Key & Secret dari akun Indodax kamu. Bisa lebih dari satu akun.
+      </p>
 
       {/* Form tambah akun */}
-      <form onSubmit={handleAdd} className="space-y-3">
+      <form onSubmit={handleAdd} className="grid md:grid-cols-3 gap-3 mb-6">
         <input
           type="text"
-          placeholder="Label akun (contoh: Akun Utama)"
+          placeholder="Label (contoh: Akun Utama)"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          className="w-full bg-slate-800 rounded-md px-3 py-2 text-sm"
+          className="bg-white/5 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-sky-400"
           required
         />
         <input
@@ -100,7 +102,7 @@ export default function IndodaxAccountManager() {
           placeholder="API Key"
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
-          className="w-full bg-slate-800 rounded-md px-3 py-2 text-sm"
+          className="bg-white/5 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-sky-400"
           required
         />
         <input
@@ -108,13 +110,13 @@ export default function IndodaxAccountManager() {
           placeholder="Secret Key"
           value={secretKey}
           onChange={(e) => setSecretKey(e.target.value)}
-          className="w-full bg-slate-800 rounded-md px-3 py-2 text-sm"
+          className="bg-white/5 border border-white/10 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-sky-400"
           required
         />
         <button
           type="submit"
           disabled={saving}
-          className="bg-emerald-500 text-black font-semibold px-4 py-2 rounded-md text-sm disabled:opacity-50"
+          className="md:col-span-3 bg-emerald-500 text-black font-semibold px-4 py-2 rounded-md text-sm disabled:opacity-50 w-fit"
         >
           {saving ? "Menyimpan..." : "Tambah Akun"}
         </button>
@@ -130,24 +132,24 @@ export default function IndodaxAccountManager() {
           accounts.map((acc) => (
             <div
               key={acc.id}
-              className="flex items-center justify-between bg-slate-800/50 rounded-md px-3 py-2 text-sm"
+              className="flex items-center justify-between bg-white/5 rounded-md px-4 py-3 text-sm"
             >
               <div>
-                <p className="font-medium text-white">{acc.label}</p>
-                <p className="text-slate-400 text-xs">{maskKey(acc.apiKey)}</p>
+                <p className="font-medium">{acc.label}</p>
+                <p className="text-slate-500 text-xs mt-1">{maskKey(acc.apiKey)}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleToggle(acc.id, acc.isActive)}
-                  className={`text-xs px-2 py-1 rounded ${
-                    acc.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-700 text-slate-400"
+                  className={`text-xs px-3 py-1 rounded-full ${
+                    acc.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-slate-400"
                   }`}
                 >
                   {acc.isActive ? "Aktif" : "Nonaktif"}
                 </button>
                 <button
                   onClick={() => handleDelete(acc.id)}
-                  className="text-xs px-2 py-1 rounded bg-rose-500/20 text-rose-400"
+                  className="text-xs px-3 py-1 rounded-full bg-red-500/20 text-red-400"
                 >
                   Hapus
                 </button>
