@@ -2,10 +2,11 @@
 ==========================================================
 AURA Trade OS
 Settings Control Panel
-Version : 0.0.1 Alpha
+Version : 0.0.2 Alpha
 ==========================================================
 */
 import DashboardLayout from "@/layouts/DashboardLayout";
+import IndodaxAccountManager from "@/components/IndodaxAccountManager";
 
 interface TradingConfig {
   mode: string;
@@ -35,6 +36,9 @@ export default function SettingsPage() {
           <h1 className="text-3xl font-bold">AURA Trade OS Settings</h1>
           <p className="text-slate-400 mt-2">Trading configuration and risk management</p>
         </div>
+
+        {/* Section baru: Trade API Account */}
+        <IndodaxAccountManager />
 
         <div className="card">
           <h2 className="text-xl font-semibold mb-5">Trading Mode</h2>
