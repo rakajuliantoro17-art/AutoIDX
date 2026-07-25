@@ -43,7 +43,7 @@ class PortfolioService {
     const state = await getBotState(pair);
 
     const investedValue =
-      state.buyPrice * state.coinAmount;
+      state.entryPrice * state.coinAmount;
 
     const currentValue =
       currentPrice * state.coinAmount;
@@ -62,7 +62,7 @@ class PortfolioService {
 
       inPosition: state.inPosition,
 
-      buyPrice: state.buyPrice,
+      buyPrice: state.entryPrice,
 
       currentPrice,
 
