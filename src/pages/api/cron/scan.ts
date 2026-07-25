@@ -1,12 +1,15 @@
 /**
 ==========================================================
 AURA Trade OS
-Cron: Market Scanner Trigger
-Version : 0.0.2 Alpha
+Cron: Market Scanner + Paper Trading Trigger
+Version : 0.0.3 Alpha
 Dipanggil setiap 5 menit oleh GitHub Actions scheduler.
 ==========================================================
 */
 import type { NextApiRequest, NextApiResponse } from "next";
+import marketScanner from "@/services/scanner";
+import { adminDb } from "@/services/firebase/admin";
+import { runPaperTradingCycle } from "@/services/paperTrading/engine";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Proteksi: cuma request dengan secret yang benar yang diproses
@@ -21,31 +24,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const startedAt = Date.now();
+
   try {
-    // TODO: panggil logic scanner kamu di sini
-    // contoh: const result = await runMarketScanner();
+    // 1. Jalankan market scanner
+    const summary = await marketScanner.scanMarket();
 
-    console.log("[CRON] Market scan executed at", new Date().toISOString());
+    // 2. Simpan hasil scan ke Firestore
+    await adminDb.collection("scannerResults").doc("latest").set({
+      ...summary,
+      durationMs: Date.now() - startedAt,
+    });
 
+    await adminDb.collection("scannerHistory").add({
+      ...summary,
+      durationMs: Date.now() - startedAt,
+    });
+
+    console.log(
+      `[CRON] Scan selesai: ${summary.qualifiedCount}/${summary.scannedCount} pair qualified`
+    );
+
+    // 3. Jalankan paper trading cycle berdasarkan hasil scan
+    const paperResult = await runPaperTradingCycle(summary.topOpportunities);
+    console.log("[CRON] Paper trading:", paperResult);
+
+    // 4. Response akhir
     return res.status(200).json({
       success: true,
       executedAt: new Date().toISOString(),
+      summary,
+      paperTrading: paperResult,
     });
   } catch (error) {
-    console.error("[CRON ERROR]", error);
+    console.error("[CRON SCAN ERROR]", error);
     return res.status(500).json({ error: "Scan failed" });
   }
 }
-import { runPaperTradingCycle } from "@/services/paperTrading/engine";
-
-// ...di dalam handler, setelah summary didapat dan disimpan ke Firestore:
-
-const paperResult = await runPaperTradingCycle(summary.topOpportunities);
-console.log("[CRON] Paper trading:", paperResult);
-
-return res.status(200).json({
-  success: true,
-  executedAt: new Date().toISOString(),
-  summary,
-  paperTrading: paperResult,
-});
