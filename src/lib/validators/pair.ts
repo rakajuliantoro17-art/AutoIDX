@@ -2,13 +2,13 @@
 ==========================================================
 AURA Trade OS
 Trading Pair Validator
-Version : 0.0.5 Alpha
+Version : 0.0.6 Alpha
 ==========================================================
 */
 
 import { AppError } from "@/lib/error/AppError";
 
-const DEFAULT_PAIRS = [
+const DEFAULT_PAIRS_LITERAL = [
   "btc_idr",
   "eth_idr",
   "sol_idr",
@@ -21,14 +21,21 @@ const DEFAULT_PAIRS = [
   "avax_idr",
 ] as const;
 
-export type SupportedPair = typeof DEFAULT_PAIRS[number];
+export type SupportedPair = typeof DEFAULT_PAIRS_LITERAL[number];
+
+// Salinan runtime murni string[] biasa, sengaja dipisah dari
+// DEFAULT_PAIRS_LITERAL supaya array ini TIDAK PERNAH disempitkan
+// TypeScript ke union literal SupportedPair.
+const DEFAULT_PAIRS: string[] = DEFAULT_PAIRS_LITERAL.map(
+  (pair): string => pair
+);
 
 export class PairValidator {
 
   /**
    * Daftar pair bawaan
    */
-  static readonly supportedPairs: string[] = [...DEFAULT_PAIRS];
+  static readonly supportedPairs: string[] = DEFAULT_PAIRS.slice();
 
   /**
    * Normalisasi pair
@@ -86,9 +93,7 @@ export class PairValidator {
 
     const normalized = this.normalize(pair);
 
-    return this.supportedPairs.includes(
-      normalized as SupportedPair
-    );
+    return this.supportedPairs.indexOf(normalized) !== -1;
 
   }
 
@@ -115,7 +120,7 @@ export class PairValidator {
    */
   static register(pair: string): void {
 
-    const normalized =
+    const normalized: string =
       this.validateFormat(pair);
 
     if (!this.isSupported(normalized)) {
