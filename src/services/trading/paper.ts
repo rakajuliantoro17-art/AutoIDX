@@ -69,7 +69,7 @@ class PaperTradingService {
 
       inPosition: true,
 
-      buyPrice: request.price,
+      entryPrice: request.price,
 
       coinAmount: amount,
 
@@ -89,9 +89,12 @@ class PaperTradingService {
 
       reason: "Paper Trading BUY",
 
+      mode: "paper",
+
     });
 
     await recordLog(
+      "BOT",
       "success",
       `BUY ${request.pair.toUpperCase()} @ ${request.price.toLocaleString(
         "id-ID"
@@ -151,7 +154,7 @@ class PaperTradingService {
 
       inPosition: false,
 
-      buyPrice: 0,
+      entryPrice: 0,
 
       coinAmount: 0,
 
@@ -171,9 +174,12 @@ class PaperTradingService {
 
       reason: "Paper Trading SELL",
 
+      mode: "paper",
+
     });
 
     await recordLog(
+      "BOT",
       "success",
       `SELL ${request.pair.toUpperCase()} @ ${request.price.toLocaleString(
         "id-ID"
