@@ -28,7 +28,7 @@ export class PairValidator {
   /**
    * Daftar pair bawaan
    */
-  static readonly supportedPairs = [...DEFAULT_PAIRS];
+  static readonly supportedPairs: string[] = [...DEFAULT_PAIRS];
 
   /**
    * Normalisasi pair
