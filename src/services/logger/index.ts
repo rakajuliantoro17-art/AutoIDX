@@ -30,14 +30,15 @@ class Logger {
     // 2. Simpan ke Firebase Firestore secara asynchronous
     if (this.enableFirestore) {
       try {
-        const firestoreType = level === 'ERROR' ? 'danger' : level === 'WARN' ? 'warning' : level === 'SUCCESS' ? 'success' : 'info';
-        const formattedContextMsg = context ? `[${context}] ${message}` : message;
-        
-        // Panggil service Firebase tanpa memblokir proses utama (fire-and-forget)
-        recordLog(firestoreType, formattedContextMsg).catch((err) => {
-          console.error('[Logger Firebase Sync Error]:', err?.message || err);
-        });
-      } catch (err) {
+  const firestoreType: 'danger' | 'warning' | 'success' | 'info' =
+    level === 'ERROR' ? 'danger' : level === 'WARN' ? 'warning' : level === 'SUCCESS' ? 'success' : 'info';
+  const formattedContextMsg = context ? `[${context}] ${message}` : message;
+
+  // Panggil service Firebase tanpa memblokir proses utama (fire-and-forget)
+  recordLog('SYSTEM', firestoreType, formattedContextMsg).catch((err) => {
+    console.error('[Logger Firebase Sync Error]:', err?.message || err);
+  });
+} catch (err) {
         // Fallback silently agar pencatatan log tidak merusak alur trading
       }
     }
