@@ -2,7 +2,7 @@
 ==========================================================
 AURA Trade OS
 Dashboard Sidebar
-Version : 0.0.1 Alpha
+Version : 0.0.2 Alpha
 ==========================================================
 */
 import Link from "next/link";
@@ -16,6 +16,7 @@ interface MenuItem {
 const menus: MenuItem[] = [
   { name: "Dashboard", path: "/dashboard" },
   { name: "Scanner", path: "/dashboard/scanner" },
+  { name: "Paper Trading", path: "/dashboard/paper-trading" },
   { name: "Portfolio", path: "/dashboard/portfolio" },
   { name: "Activity", path: "/dashboard/activity" },
   { name: "Backtest", path: "/dashboard/backtest" },
@@ -24,7 +25,6 @@ const menus: MenuItem[] = [
 
 export default function Sidebar() {
   const router = useRouter();
-
   return (
     <aside className="hidden md:block w-64 border-r border-white/10 min-h-[calc(100vh-64px)] p-4">
       <nav className="space-y-2">
@@ -33,7 +33,6 @@ export default function Sidebar() {
             menu.path === "/dashboard"
               ? router.pathname === menu.path
               : router.pathname.startsWith(menu.path);
-
           return (
             <Link
               key={menu.path}
