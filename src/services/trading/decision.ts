@@ -6,7 +6,7 @@ Version : 0.0.6 Alpha
 ==========================================================
 */
 
-export type TradeSignal = "BUY" | "SELL" | "HOLD";
+import type { TradeSignal } from "./types";
 
 export interface DecisionInput {
   price: number;
