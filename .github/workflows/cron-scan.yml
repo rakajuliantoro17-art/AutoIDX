@@ -11,5 +11,5 @@ jobs:
     steps:
       - name: Call scan endpoint
         run: |
-          curl -f -X POST https://https://auto-idx.vercel.app/login/api/cron/scan \
+          curl -f -X POST https://auto-idx.vercel.app/api/cron/scan \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
