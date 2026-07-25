@@ -151,20 +151,13 @@ analyzeTechnicalIndicators(prices);
 
 
 const score=
-
-calculateOpportunityScore({
-
-rsi:tech.rsi14,
-
-emaFast:tech.emaFast,
-
-emaSlow:tech.emaSlow,
-
-volumeIdr:ticker.volIdr,
-
-change24h:ticker.change24h ?? 0
-
-});
+  calculateOpportunityScore({
+    rsi:tech.rsi14,
+    emaFast:tech.emaFast,
+    emaSlow:tech.emaSlow,
+    volumeIdr:ticker.volIdr,
+    change24h:0 // TODO: data 24h change belum tersedia dari Indodax ticker API, perlu endpoint candle/trades terpisah
+  });
 
 
 
