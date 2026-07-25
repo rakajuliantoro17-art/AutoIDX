@@ -1,432 +1,158 @@
 /**
 ==========================================================
 AURA Trade OS
-Home Landing
-Version : 0.0.1 Alpha
+Login Page
+Version : 0.0.2 Alpha
 ==========================================================
 */
 
-
-import Link from "next/link";
-
-
-
-export default function HomePage(){
-
-
-return (
-
-
-<section className="space-y-8">
-
-
-
-{/* =====================================================
-    HERO
-===================================================== */}
-
-
-<div className="glass p-10">
-
-
-<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-
-
-
-<div>
-
-
-<h1 className="text-5xl font-bold">
-
-
-<span className="brand-gradient">
-
-AutoIDX
-
-</span>
-
-
-</h1>
-
-
-
-
-<h2 className="mt-3 text-xl text-slate-300">
-
-
-Automated Indodax Trading Engine
-
-
-</h2>
-
-
-
-
-<p className="mt-5 text-slate-400 max-w-xl">
-
-
-AI-assisted crypto trading system yang melakukan
-market scanning, technical analysis, risk management,
-dan automated execution secara modular.
-
-
-</p>
-
-
-
-</div>
-
-
-
-
-
-{/* BOT STATUS */}
-
-
-<div className="glass p-5 min-w-[220px]">
-
-
-<div className="flex items-center gap-3">
-
-
-<span className="status-dot status-online"/>
-
-
-<span className="text-sm text-slate-300">
-
-
-System Ready
-
-
-</span>
-
-
-</div>
-
-
-
-<div className="mt-4">
-
-
-<p className="text-xs text-slate-500">
-
-
-MODE
-
-
-</p>
-
-
-<p className="font-semibold text-emerald-400">
-
-
-PAPER TRADING
-
-
-</p>
-
-
-</div>
-
-
-
-<div className="mt-3">
-
-
-<p className="text-xs text-slate-500">
-
-
-VERSION
-
-
-</p>
-
-
-<p className="text-sm">
-
-
-0.0.1 Alpha
-
-
-</p>
-
-
-</div>
-
-
-
-</div>
-
-
-
-</div>
-
-
-</div>
-
-
-
-
-
-
-
-
-
-{/* =====================================================
-    MODULE MENU
-===================================================== */}
-
-
-
-<div className="grid md:grid-cols-3 gap-6">
-
-
-
-<Link
-
-href="/dashboard"
-
-className="card hover:scale-[1.02] transition"
-
->
-
-
-<h3 className="text-xl font-semibold">
-
-
-📊 Dashboard
-
-
-</h3>
-
-
-<p className="mt-2 text-sm text-slate-400">
-
-
-Monitoring bot activity, signal,
-dan execution status.
-
-
-</p>
-
-
-</Link>
-
-
-
-
-
-
-<Link
-
-href="/scanner"
-
-className="card hover:scale-[1.02] transition"
-
->
-
-
-<h3 className="text-xl font-semibold">
-
-
-🔎 Market Scanner
-
-
-</h3>
-
-
-<p className="mt-2 text-sm text-slate-400">
-
-
-Scan banyak pair Indodax
-untuk mencari peluang BUY.
-
-
-</p>
-
-
-</Link>
-
-
-
-
-
-
-
-<Link
-
-href="/portfolio"
-
-className="card hover:scale-[1.02] transition"
-
->
-
-
-<h3 className="text-xl font-semibold">
-
-
-💰 Portfolio
-
-
-</h3>
-
-
-<p className="mt-2 text-sm text-slate-400">
-
-
-Balance, asset,
-dan performa trading.
-
-
-</p>
-
-
-</Link>
-
-
-
-</div>
-
-
-
-
-
-
-
-
-
-{/* =====================================================
-    CORE ENGINE STATUS
-===================================================== */}
-
-
-
-<div className="grid md:grid-cols-4 gap-4">
-
-
-
-<div className="card">
-
-
-<p className="text-xs text-slate-500">
-
-
-ENGINE
-
-
-</p>
-
-
-<p className="mt-2 text-emerald-400">
-
-
-ONLINE
-
-
-</p>
-
-
-</div>
-
-
-
-
-
-
-<div className="card">
-
-
-<p className="text-xs text-slate-500">
-
-
-MARKET DATA
-
-
-</p>
-
-
-<p className="mt-2 text-sky-400">
-
-
-READY
-
-
-</p>
-
-
-</div>
-
-
-
-
-
-
-<div className="card">
-
-
-<p className="text-xs text-slate-500">
-
-
-RISK ENGINE
-
-
-</p>
-
-
-<p className="mt-2 text-yellow-400">
-
-
-ACTIVE
-
-
-</p>
-
-
-</div>
-
-
-
-
-
-
-<div className="card">
-
-
-<p className="text-xs text-slate-500">
-
-
-AI MODULE
-
-
-</p>
-
-
-<p className="mt-2 text-slate-400">
-
-
-COMING SOON
-
-
-</p>
-
-
-</div>
-
-
-
-
-
-</div>
-
-
-
-
-
-
-</section>
-
-
-);
-
-
+"use client";
+
+import { useState, FormEvent } from "react";
+import { useAuth } from "@/services/auth/AuthContext";
+
+function friendlyAuthError(code: string): string {
+  switch (code) {
+    case "auth/invalid-email":
+      return "Format email tidak valid.";
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+    case "auth/invalid-credential":
+      return "Email atau password salah.";
+    case "auth/email-already-in-use":
+      return "Email ini sudah terdaftar. Coba login.";
+    case "auth/weak-password":
+      return "Password minimal 6 karakter.";
+    case "auth/popup-closed-by-user":
+      return "Login Google dibatalkan.";
+    default:
+      return "Terjadi kesalahan. Coba lagi.";
+  }
+}
+
+export default function LoginPage() {
+  const { signInEmail, signUpEmail, signInGoogle } = useAuth();
+
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      if (mode === "login") {
+        await signInEmail(email, password);
+      } else {
+        await signUpEmail(email, password);
+      }
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? "";
+      setError(friendlyAuthError(code));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleGoogle() {
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      await signInGoogle();
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? "";
+      setError(friendlyAuthError(code));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="min-h-[70vh] flex items-center justify-center">
+      <div className="card w-full max-w-sm p-8">
+        <h1 className="text-2xl font-bold text-center">
+          {mode === "login" ? "Masuk ke AURA Trade OS" : "Buat Akun Baru"}
+        </h1>
+
+        <p className="text-slate-400 text-sm text-center mt-2 mb-8">
+          {mode === "login"
+            ? "Kelola bot trading dan akun Indodax kamu"
+            : "Daftar untuk mulai mengelola akun Indodax kamu"}
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-sm text-slate-400 block mb-1">Email</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg bg-white/5 border border-white/10 px-4 py-2 outline-none focus:border-sky-500"
+              placeholder="nama@email.com"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-slate-400 block mb-1">Password</label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg bg-white/5 border border-white/10 px-4 py-2 outline-none focus:border-sky-500"
+              placeholder="••••••••"
+            />
+          </div>
+
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-lg bg-sky-500 hover:bg-sky-400 disabled:opacity-50 text-white font-semibold py-2.5 transition"
+          >
+            {submitting
+              ? "Memproses..."
+              : mode === "login"
+              ? "Masuk"
+              : "Daftar"}
+          </button>
+        </form>
+
+        <div className="flex items-center gap-3 my-6">
+          <div className="h-px bg-white/10 flex-1" />
+          <span className="text-xs text-slate-500">atau</span>
+          <div className="h-px bg-white/10 flex-1" />
+        </div>
+
+        <button
+          onClick={handleGoogle}
+          disabled={submitting}
+          className="w-full rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-50 text-white font-medium py-2.5 transition"
+        >
+          Lanjutkan dengan Google
+        </button>
+
+        <p className="text-center text-sm text-slate-400 mt-6">
+          {mode === "login" ? "Belum punya akun?" : "Sudah punya akun?"}{" "}
+          <button
+            onClick={() => {
+              setError(null);
+              setMode(mode === "login" ? "register" : "login");
+            }}
+            className="text-sky-400 hover:underline"
+          >
+            {mode === "login" ? "Daftar di sini" : "Masuk di sini"}
+          </button>
+        </p>
+      </div>
+    </div>
+  );
 }
