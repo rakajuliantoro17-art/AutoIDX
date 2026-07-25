@@ -7,10 +7,7 @@ Version : 0.0.6 Alpha
 */
 
 import PaperTradingService from "./paper";
-
-export type ExecutionMode =
-  | "paper"
-  | "live";
+import type { ExecutionMode } from "./types";
 
 export interface ExecuteTradeRequest {
 
