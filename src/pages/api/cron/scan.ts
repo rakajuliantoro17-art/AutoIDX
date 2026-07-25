@@ -36,3 +36,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "Scan failed" });
   }
 }
+import { runPaperTradingCycle } from "@/services/paperTrading/engine";
+
+// ...di dalam handler, setelah summary didapat dan disimpan ke Firestore:
+
+const paperResult = await runPaperTradingCycle(summary.topOpportunities);
+console.log("[CRON] Paper trading:", paperResult);
+
+return res.status(200).json({
+  success: true,
+  executedAt: new Date().toISOString(),
+  summary,
+  paperTrading: paperResult,
+});
