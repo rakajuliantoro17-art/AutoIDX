@@ -105,11 +105,12 @@ export class TradingEngine {
 
             inPosition: true,
 
-            buyPrice: input.price,
+            entryPrice: input.price,
 
           });
 
           await recordLog(
+            "BOT",
             "success",
             `BUY ${input.pair.toUpperCase()} @ ${input.price}`
           );
@@ -134,13 +135,14 @@ export class TradingEngine {
 
             inPosition: false,
 
-            buyPrice: 0,
+            entryPrice: 0,
 
             coinAmount: 0,
 
           });
 
           await recordLog(
+            "BOT",
             "success",
             `SELL ${input.pair.toUpperCase()} @ ${input.price}`
           );
@@ -152,6 +154,7 @@ export class TradingEngine {
         default:
 
           await recordLog(
+            "BOT",
             "info",
             `HOLD ${input.pair.toUpperCase()}`
           );
@@ -182,6 +185,7 @@ export class TradingEngine {
       );
 
       await recordLog(
+        "SYSTEM",
         "danger",
         "Trading Engine Error"
       );
