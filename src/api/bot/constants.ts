@@ -5,7 +5,6 @@ Bot Constants
 Version : 0.0.1 Alpha
 ==========================================================
 */
-
 export const BOT = {
   NAME: "AutoIDX",
   VERSION: "0.0.1",
@@ -30,10 +29,14 @@ export const TRADING = {
 export const INDICATORS = {
   EMA_FAST: 9,
   EMA_SLOW: 21,
-
   RSI_PERIOD: 14,
   RSI_OVERSOLD: 30,
   RSI_OVERBOUGHT: 70,
+} as const;
+
+export const STRATEGY = {
+  RSI_BUY: INDICATORS.RSI_OVERSOLD,
+  RSI_SELL: INDICATORS.RSI_OVERBOUGHT,
 } as const;
 
 export const RISK = {
