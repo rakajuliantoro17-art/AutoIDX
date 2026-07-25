@@ -64,7 +64,7 @@ class PositionService {
 
       inPosition: true,
 
-      buyPrice,
+      entryPrice: buyPrice,
 
       coinAmount,
 
@@ -85,7 +85,7 @@ class PositionService {
 
       inPosition: false,
 
-      buyPrice: 0,
+      entryPrice: 0,
 
       coinAmount: 0,
 
@@ -119,7 +119,7 @@ class PositionService {
       await getBotState(pair);
 
     const investedValue =
-      state.buyPrice *
+      state.entryPrice *
       state.coinAmount;
 
     const currentValue =
@@ -145,7 +145,7 @@ class PositionService {
         state.inPosition,
 
       buyPrice:
-        state.buyPrice,
+        state.entryPrice,
 
       currentPrice,
 
@@ -164,7 +164,7 @@ class PositionService {
         ),
 
       updatedAt:
-        state.lastUpdated,
+        state.updatedAt,
 
     };
 
