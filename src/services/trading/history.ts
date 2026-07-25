@@ -10,6 +10,7 @@ import {
   recordTrade,
   TradeLog,
 } from "@/services/firebase/logService";
+import { TRADING_CONFIG } from "@/config/trading";
 
 export interface HistoryRecord {
   id?: string;
@@ -51,6 +52,8 @@ export class TradingHistory {
       totalIdr: record.total,
 
       reason: record.reason,
+
+      mode: TRADING_CONFIG.mode,
 
     });
 
