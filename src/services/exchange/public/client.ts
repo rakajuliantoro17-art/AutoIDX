@@ -2,175 +2,153 @@
 ==========================================================
 AURA Trade OS
 Public Exchange HTTP Client
-Version : 0.1.1 Alpha
+Version : 0.1.2 Alpha
 ==========================================================
 */
 
 import {
-
     NetworkError,
-
 } from "../errors/NetworkError";
-
 import {
-
     RateLimitError,
-
 } from "../errors/RateLimitError";
 
 export interface PublicClientOptions {
-
     baseUrl: string;
-
     timeout?: number;
-
     headers?: HeadersInit;
+}
 
+export interface ServerTimeResponse {
+    timezone: string;
+    server_time: number;
 }
 
 export class PublicClient {
 
     readonly baseUrl: string;
-
     readonly timeout: number;
-
     readonly headers: HeadersInit;
 
     constructor(
-
         options: PublicClientOptions
-
     ) {
-
         this.baseUrl =
-
             options.baseUrl;
-
         this.timeout =
-
             options.timeout ?? 10000;
-
         this.headers =
-
             options.headers ?? {};
-
     }
 
     /**
      * Performs GET request.
      */
     async get<T>(
-
         path: string,
-
         params?: Record<string, string | number>
-
     ): Promise<T> {
 
         const url =
-
             new URL(
-
                 path,
-
                 this.baseUrl
-
             );
 
         if (params) {
-
             Object.entries(params)
-
                 .forEach(
-
                     ([key, value]) =>
-
                         url.searchParams.set(
-
                             key,
-
                             String(value)
-
                         )
-
                 );
-
         }
 
         const controller =
-
             new AbortController();
-
         const timer =
-
             setTimeout(
-
                 () =>
-
                     controller.abort(),
-
                 this.timeout
-
             );
 
         try {
 
             const response =
-
                 await fetch(
-
                     url.toString(),
-
                     {
-
                         method: "GET",
-
                         headers: this.headers,
-
                         signal: controller.signal,
-
                     }
-
                 );
 
             if (
-
                 response.status === 429
-
             ) {
-
                 throw new RateLimitError(
-
                     "Rate limit exceeded."
-
                 );
-
             }
 
             if (
-
                 !response.ok
-
             ) {
-
                 throw new NetworkError(
-
                     `HTTP ${response.status}`
-
                 );
-
             }
 
             return await response.json() as T;
 
         }
-
         finally {
-
             clearTimeout(timer);
-
         }
 
     }
 
 }
+
+/**
+ * Public HTTP client khusus Indodax.
+ * Base URL & endpoint mengikuti dokumentasi resmi:
+ * https://github.com/btcid/indodax-official-api-docs
+ */
+export class IndodaxPublicClient extends PublicClient {
+
+    constructor(
+        options?: Partial<PublicClientOptions>
+    ) {
+        super({
+            baseUrl: options?.baseUrl ?? "https://indodax.com",
+            timeout: options?.timeout,
+            headers: options?.headers,
+        });
+    }
+
+    /**
+     * Dipanggil sekali saat adapter di-initialize.
+     * Sengaja melakukan satu call ringan (server_time)
+     * untuk memastikan konektivitas ke Indodax berhasil.
+     */
+    async initialize(): Promise<void> {
+        await this.serverTime();
+    }
+
+    /**
+     * GET /api/server_time
+     */
+    async serverTime(): Promise<ServerTimeResponse> {
+        return this.get<ServerTimeResponse>("/api/server_time");
+    }
+
+}
+
+const publicClient = new IndodaxPublicClient();
+
+export default publicClient;
