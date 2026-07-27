@@ -7,7 +7,6 @@ Version : 0.0.8 Alpha
 */
 
 import marketScanner from "../scanner";
-import { runTradingEngine } from "../trading/engine";
 import { executeCron } from "../scheduler/cron";
 import { recordLog } from "../firebase/logService";
 
@@ -82,9 +81,12 @@ export class AutomationDispatcher {
         }
 
         case "RUN_ENGINE": {
-
+          // Catatan: TradingEngine butuh input (pair/price/rsi/ema),
+          // dan executeCron() sudah mengorkestrasi pengambilan data
+          // itu + panggil TradingEngine. Job ini alias ke situ
+          // sampai ada kebutuhan spesifik yang berbeda dari RUN_CRON.
           result =
-            await runTradingEngine();
+            await executeCron();
 
           break;
 
@@ -124,6 +126,7 @@ export class AutomationDispatcher {
       }
 
       await recordLog(
+        "SYSTEM",
         "success",
         `[Dispatcher] ${job.type} completed`
       );
@@ -161,6 +164,7 @@ export class AutomationDispatcher {
       );
 
       await recordLog(
+        "SYSTEM",
         "danger",
         `[Dispatcher] ${job.type} failed`
       );
