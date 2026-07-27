@@ -78,6 +78,7 @@ class AutomationLifecycle {
     };
 
     await recordLog(
+            "SYSTEM",
       "info",
       "[Lifecycle] Engine starting."
     );
@@ -88,6 +89,7 @@ class AutomationLifecycle {
       new Date().toISOString();
 
     await recordLog(
+            "SYSTEM",
       "success",
       "[Lifecycle] Engine running."
     );
@@ -109,6 +111,7 @@ class AutomationLifecycle {
       new Date().toISOString();
 
     await recordLog(
+            "SYSTEM",
       "warning",
       `[Lifecycle] ${reason}`
     );
@@ -128,6 +131,7 @@ class AutomationLifecycle {
       new Date().toISOString();
 
     await recordLog(
+            "SYSTEM",
       "success",
       "[Lifecycle] Engine resumed."
     );
@@ -147,6 +151,7 @@ class AutomationLifecycle {
       new Date().toISOString();
 
     await recordLog(
+            "SYSTEM",
       "warning",
       "[Lifecycle] Engine stopping."
     );
@@ -162,6 +167,7 @@ class AutomationLifecycle {
       new Date().toISOString();
 
     await recordLog(
+            "SYSTEM",
       "info",
       `[Lifecycle] ${reason}`
     );
@@ -183,6 +189,7 @@ class AutomationLifecycle {
       new Date().toISOString();
 
     await recordLog(
+            "SYSTEM",
       "danger",
       `[Lifecycle] ${reason}`
     );
@@ -204,6 +211,7 @@ class AutomationLifecycle {
     };
 
     await recordLog(
+            "SYSTEM",
       "info",
       "[Lifecycle] Reset completed."
     );
