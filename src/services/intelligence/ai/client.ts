@@ -409,3 +409,5 @@ async function queryGemini(
   }
 
 }
+
+export default queryAIModel;
