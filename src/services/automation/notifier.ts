@@ -96,6 +96,7 @@ export class AutomationNotifier {
       }
 
       await recordLog(
+                "SYSTEM",
         "info",
         `[Notifier] ${channel} : ${payload.title}`
       );
@@ -119,6 +120,7 @@ export class AutomationNotifier {
       );
 
       await recordLog(
+                "SYSTEM",
         "danger",
         `[Notifier] Failed (${channel})`
       );
