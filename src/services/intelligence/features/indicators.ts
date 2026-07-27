@@ -7,6 +7,7 @@ Version : 0.1.0 Alpha
 */
 
 import calculateEMA from "@/services/indicators/ema";
+import { calculateRSI } from "@/services/indicators/rsi";
 import calculateMACD from "@/services/indicators/macd";
 import calculateATR from "@/services/indicators/atr";
 import calculateADX from "@/services/indicators/adx";
@@ -98,25 +99,28 @@ export class IndicatorAggregator {
     const macd =
       calculateMACD(closes);
 
+    const rsi =
+      calculateRSI(closes, 14);
+
+    const candles = closes.map((close, i) => ({
+      high: highs[i],
+      low: lows[i],
+      close,
+    }));
+
     const atr =
       calculateATR(
-        highs,
-        lows,
-        closes
+        candles
       );
 
     const adx =
       calculateADX(
-        highs,
-        lows,
-        closes
+        candles
       );
 
     const stochastic =
       calculateStochastic(
-        highs,
-        lows,
-        closes
+        candles
       );
 
     const bollinger =
@@ -134,7 +138,7 @@ export class IndicatorAggregator {
 
       emaSlow,
 
-      rsi: macd.rsi,
+      rsi,
 
       macd: macd.macd,
 
@@ -143,9 +147,9 @@ export class IndicatorAggregator {
       macdHistogram:
         macd.histogram,
 
-      atr,
+      atr: atr.atr,
 
-      adx,
+      adx: adx.adx,
 
       stochasticK:
         stochastic.k,
