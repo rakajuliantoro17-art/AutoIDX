@@ -101,9 +101,7 @@ export class DecisionFusionEngine {
 
           b[1] - a[1]
 
-      )[0][0]
-
-      as TradingDecision;
+      )[0][0] as TradingDecision;
 
     const reasons: string[] = [];
 
