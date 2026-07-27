@@ -2,368 +2,410 @@
 ==========================================================
 AURA Trade OS
 AI Client Service
-Version : 0.0.1 Alpha
+Version : 0.1.0 Alpha
 ==========================================================
 */
 
+export type AIProvider =
+  | "AUTO"
+  | "OPENAI"
+  | "GEMINI";
 
-interface AIResponse {
+export interface AIResponse {
 
-success:boolean;
+  success: boolean;
 
-content:string|null;
+  provider: string;
 
-provider:string;
+  model: string;
+
+  content: string | null;
+
+  latencyMs: number;
+
+  error?: string;
 
 }
 
-
-
-
+const DEFAULT_TIMEOUT = 30000;
 
 export async function queryAIModel(
 
-prompt:string
+  prompt: string,
 
-):Promise<AIResponse>{
+  provider: AIProvider = "AUTO"
 
+): Promise<AIResponse> {
 
+  const started = Date.now();
 
-const openAIKey=
+  const openAIKey =
+    process.env.OPENAI_API_KEY;
 
-process.env.OPENAI_API_KEY;
+  const geminiKey =
+    process.env.GEMINI_API_KEY;
 
+  try {
 
+    /**
+     * AUTO Provider
+     */
 
-const geminiKey=
+    if (provider === "AUTO") {
 
-process.env.GEMINI_API_KEY;
+      if (openAIKey) {
 
+        const result =
+          await queryOpenAI(
+            prompt,
+            openAIKey
+          );
 
+        if (result.success) {
 
+          result.latencyMs =
+            Date.now() - started;
 
+          return result;
 
-if(!openAIKey && !geminiKey){
+        }
 
+      }
 
-console.warn(
+      if (geminiKey) {
 
-"[AI] No API Key configured"
+        const result =
+          await queryGemini(
+            prompt,
+            geminiKey
+          );
 
-);
+        result.latencyMs =
+          Date.now() - started;
 
+        return result;
 
-return {
+      }
 
-success:false,
+      return {
 
-content:null,
+        success: false,
 
-provider:"none"
+        provider: "NONE",
 
-};
+        model: "-",
 
+        content: null,
+
+        latencyMs:
+          Date.now() - started,
+
+        error:
+          "No AI provider configured.",
+
+      };
+
+    }
+
+    /**
+     * OpenAI Only
+     */
+
+    if (provider === "OPENAI") {
+
+      if (!openAIKey) {
+
+        throw new Error(
+          "OPENAI_API_KEY missing."
+        );
+
+      }
+
+      const result =
+        await queryOpenAI(
+          prompt,
+          openAIKey
+        );
+
+      result.latencyMs =
+        Date.now() - started;
+
+      return result;
+
+    }
+
+    /**
+     * Gemini Only
+     */
+
+    if (provider === "GEMINI") {
+
+      if (!geminiKey) {
+
+        throw new Error(
+          "GEMINI_API_KEY missing."
+        );
+
+      }
+
+      const result =
+        await queryGemini(
+          prompt,
+          geminiKey
+        );
+
+      result.latencyMs =
+        Date.now() - started;
+
+      return result;
+
+    }
+
+    throw new Error(
+      "Unsupported provider."
+    );
+
+  } catch (error) {
+
+    return {
+
+      success: false,
+
+      provider,
+
+      model: "-",
+
+      content: null,
+
+      latencyMs:
+        Date.now() - started,
+
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown AI error",
+
+    };
+
+  }
 
 }
 
+/* =======================================================
+ * OpenAI
+ * ======================================================= */
 
+async function queryOpenAI(
 
+  prompt: string,
 
+  apiKey: string
 
+): Promise<AIResponse> {
 
-try{
+  const controller =
+    new AbortController();
 
+  const timeout =
+    setTimeout(
+      () =>
+        controller.abort(),
+      DEFAULT_TIMEOUT
+    );
 
-/*
-=====================================
-OpenAI Provider
-=====================================
-*/
+  try {
 
+    const response =
+      await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
 
-if(openAIKey){
+          method: "POST",
 
+          signal:
+            controller.signal,
 
+          headers: {
 
-const response=
+            Authorization:
+              `Bearer ${apiKey}`,
 
-await fetch(
+            "Content-Type":
+              "application/json",
 
-"https://api.openai.com/v1/chat/completions",
+          },
 
-{
+          body: JSON.stringify({
 
-method:"POST",
+            model: "gpt-4.1-mini",
 
-headers:{
+            temperature: 0.2,
 
+            messages: [
 
-"Content-Type":
+              {
 
-"application/json",
+                role: "system",
 
+                content:
+                  "You are a professional quantitative crypto analyst. Never execute trades. Only provide market analysis.",
 
-Authorization:
+              },
 
-`Bearer ${openAIKey}`
+              {
 
+                role: "user",
 
-},
+                content: prompt,
 
+              },
 
-body:JSON.stringify({
+            ],
 
+          }),
 
-model:"gpt-4o-mini",
+        }
 
+      );
 
-messages:[
+    if (!response.ok) {
 
-{
+      throw new Error(
+        `OpenAI HTTP ${response.status}`
+      );
 
-role:"system",
+    }
 
-content:
+    const data =
+      await response.json();
 
-"You are a crypto market analysis assistant. Never execute trades."
+    return {
 
-},
+      success: true,
 
-{
+      provider: "OPENAI",
 
-role:"user",
+      model:
+        data.model ??
+        "gpt-4.1-mini",
 
-content:prompt
+      latencyMs: 0,
+
+      content:
+        data.choices?.[0]
+          ?.message?.content ??
+        null,
+
+    };
+
+  } finally {
+
+    clearTimeout(timeout);
+
+  }
 
 }
 
-],
+/* =======================================================
+ * Gemini
+ * ======================================================= */
 
+async function queryGemini(
 
-temperature:0.2
+  prompt: string,
 
+  apiKey: string
 
-})
+): Promise<AIResponse> {
 
+  const controller =
+    new AbortController();
 
-}
+  const timeout =
+    setTimeout(
+      () =>
+        controller.abort(),
+      DEFAULT_TIMEOUT
+    );
 
-);
+  try {
 
+    const response =
+      await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        {
 
+          method: "POST",
 
+          signal:
+            controller.signal,
 
+          headers: {
 
+            "Content-Type":
+              "application/json",
 
-if(!response.ok){
+          },
 
-throw new Error(
+          body: JSON.stringify({
 
-`OpenAI Error ${response.status}`
+            contents: [
 
-);
+              {
 
-}
+                parts: [
 
+                  {
 
+                    text: prompt,
 
+                  },
 
+                ],
 
-const data=
+              },
 
-await response.json();
+            ],
 
+          }),
 
+        }
 
+      );
 
-return {
+    if (!response.ok) {
 
+      throw new Error(
+        `Gemini HTTP ${response.status}`
+      );
 
-success:true,
+    }
 
+    const data =
+      await response.json();
 
-provider:"openai",
+    return {
 
+      success: true,
 
-content:
+      provider: "GEMINI",
 
-data.choices?.[0]
+      model:
+        "gemini-2.5-flash",
 
-?.message
+      latencyMs: 0,
 
-?.content
+      content:
+        data.candidates?.[0]
+          ?.content?.parts?.[0]
+          ?.text ?? null,
 
-??
+    };
 
-null
+  } finally {
 
+    clearTimeout(timeout);
 
-};
-
-
-
-}
-
-
-
-
-
-
-/*
-=====================================
-Gemini Provider
-=====================================
-*/
-
-
-if(geminiKey){
-
-
-
-const response=
-
-await fetch(
-
-`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-
-{
-
-
-method:"POST",
-
-headers:{
-
-
-"Content-Type":
-
-"application/json"
-
-
-},
-
-
-body:JSON.stringify({
-
-
-contents:[
-
-{
-
-parts:[
-
-{
-
-text:prompt
-
-}
-
-]
-
-}
-
-]
-
-
-})
-
-
-}
-
-);
-
-
-
-
-
-
-const data=
-
-await response.json();
-
-
-
-
-return {
-
-
-success:true,
-
-
-provider:"gemini",
-
-
-content:
-
-data.candidates?.[0]
-
-?.content
-
-?.parts?.[0]
-
-?.text
-
-??
-
-null
-
-
-};
-
-
-
-}
-
-
-
-
-
-return {
-
-
-success:false,
-
-content:null,
-
-provider:"unknown"
-
-
-};
-
-
-
-}
-
-catch(error){
-
-
-console.error(
-
-"[AI Service Error]",
-
-error
-
-);
-
-
-
-return {
-
-
-success:false,
-
-
-content:null,
-
-
-provider:"error"
-
-
-};
-
-
-
-}
-
-
+  }
 
 }
