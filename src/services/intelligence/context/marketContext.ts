@@ -57,9 +57,9 @@ export class MarketContextEngine {
 
     const confidence =
       this.calculateConfidence(
-        trend,
-        momentum,
-        volatility,
+        trend.level,
+        momentum.level,
+        volatility.level,
         liquidity.level
       );
 
@@ -67,11 +67,11 @@ export class MarketContextEngine {
 
       pair,
 
-      trend,
+      trend: trend.level,
 
-      momentum,
+      momentum: momentum.level,
 
-      volatility,
+      volatility: volatility.level,
 
       liquidity: liquidity.level,
 
