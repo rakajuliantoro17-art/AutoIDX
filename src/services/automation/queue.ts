@@ -129,6 +129,7 @@ export class AutomationQueue {
     if (this.processing) {
 
       await recordLog(
+                "SYSTEM",
         "warning",
         "[Queue] Already processing."
       );
@@ -142,6 +143,7 @@ export class AutomationQueue {
     const results: DispatchResult[] = [];
 
     await recordLog(
+            "SYSTEM",
       "info",
       `[Queue] Processing ${this.queue.length} job(s).`
     );
@@ -187,6 +189,7 @@ export class AutomationQueue {
     this.processing = false;
 
     await recordLog(
+            "SYSTEM",
       "success",
       "[Queue] Processing completed."
     );
