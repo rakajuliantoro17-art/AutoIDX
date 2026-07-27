@@ -61,6 +61,7 @@ export class AutomationEngine {
     try {
 
       await recordLog(
+                "SYSTEM",
         "info",
         "[Automation] Engine started."
       );
@@ -132,6 +133,7 @@ export class AutomationEngine {
         Date.now();
 
       await recordLog(
+                "SYSTEM",
         "success",
         "[Automation] Engine completed."
       );
@@ -167,6 +169,7 @@ export class AutomationEngine {
       );
 
       await recordLog(
+                "SYSTEM",
         "danger",
         "[Automation] Engine failed."
       );
