@@ -36,3 +36,5 @@ export function calculateBollingerBands(
     lower: Math.round((middle - sd * stdDev) * 100) / 100,
   };
 }
+
+export default calculateBollingerBands;
