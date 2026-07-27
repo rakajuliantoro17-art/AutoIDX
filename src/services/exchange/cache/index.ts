@@ -2,27 +2,37 @@
 ==========================================================
 AURA Trade OS
 Exchange Cache Gateway
-Version : 0.1.1 Alpha
+Version : 0.1.2 Alpha
 ==========================================================
 */
 
 /*
 ==========================================================
-Individual Cache Exports
+Individual Cache Imports (untuk dipakai di file ini)
 ==========================================================
 */
+import pairCache from "./pairCache";
+import tickerCache from "./tickerCache";
+import orderBookCache from "./orderBookCache";
+import marketCache from "./marketCache";
 
-export { default as pairCache } from "./pairCache";
-export { default as tickerCache } from "./tickerCache";
-export { default as orderBookCache } from "./orderBookCache";
-export { default as marketCache } from "./marketCache";
+/*
+==========================================================
+Individual Cache Exports (untuk dipakai file lain)
+==========================================================
+*/
+export {
+  pairCache,
+  tickerCache,
+  orderBookCache,
+  marketCache,
+};
 
 /*
 ==========================================================
 Type Exports
 ==========================================================
 */
-
 export type {
   CachedPair,
   PairCache,
@@ -48,17 +58,11 @@ export type {
 Convenience Export
 ==========================================================
 */
-
 export const exchangeCache = {
-
   pair: pairCache,
-
   ticker: tickerCache,
-
   orderBook: orderBookCache,
-
   market: marketCache,
-
 } as const;
 
 export default exchangeCache;
