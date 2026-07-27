@@ -59,6 +59,7 @@ export class AutomationScheduler {
     if (this.timer) {
 
       await recordLog(
+                "SYSTEM",
         "warning",
         "[Scheduler] Already running."
       );
@@ -74,6 +75,7 @@ export class AutomationScheduler {
     await automationLifecycle.start();
 
     await recordLog(
+            "SYSTEM",
       "success",
       `[Scheduler] Started (${this.intervalMs} ms).`
     );
@@ -112,6 +114,7 @@ export class AutomationScheduler {
     );
 
     await recordLog(
+            "SYSTEM",
       "warning",
       "[Scheduler] Stopped."
     );
@@ -138,6 +141,7 @@ export class AutomationScheduler {
     );
 
     await recordLog(
+            "SYSTEM",
       "warning",
       "[Scheduler] Paused."
     );
@@ -169,6 +173,7 @@ export class AutomationScheduler {
     );
 
     await recordLog(
+            "SYSTEM",
       "success",
       "[Scheduler] Resumed."
     );
@@ -202,6 +207,7 @@ export class AutomationScheduler {
       });
 
       await recordLog(
+                "SYSTEM",
         "success",
         `[Scheduler] Cycle #${this.executions} completed.`
       );
@@ -218,6 +224,7 @@ export class AutomationScheduler {
       );
 
       await recordLog(
+                "SYSTEM",
         "danger",
         "[Scheduler] Execution failed."
       );
