@@ -256,9 +256,7 @@ export class AICache {
 
   ): string {
 
-    return
-
-      `${provider}:${prompt}`;
+    return `${provider}:${prompt}`;
 
   }
 
