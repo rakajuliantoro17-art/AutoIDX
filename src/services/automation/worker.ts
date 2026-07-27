@@ -60,6 +60,7 @@ export class AutomationWorker {
     if (this.state === "RUNNING") {
 
       await recordLog(
+                "SYSTEM",
         "warning",
         `[Worker:${this.id}] Already running.`
       );
@@ -74,6 +75,7 @@ export class AutomationWorker {
       new Date().toISOString();
 
     await recordLog(
+            "SYSTEM",
       "info",
       `[Worker:${this.id}] Started.`
     );
@@ -99,6 +101,7 @@ export class AutomationWorker {
       this.state = "IDLE";
 
       await recordLog(
+                "SYSTEM",
         "success",
         `[Worker:${this.id}] Queue completed.`
       );
@@ -117,6 +120,7 @@ export class AutomationWorker {
       );
 
       await recordLog(
+                "SYSTEM",
         "danger",
         `[Worker:${this.id}] Failed.`
       );
@@ -135,6 +139,7 @@ export class AutomationWorker {
     this.state = "STOPPED";
 
     await recordLog(
+            "SYSTEM",
       "warning",
       `[Worker:${this.id}] Stopped.`
     );
