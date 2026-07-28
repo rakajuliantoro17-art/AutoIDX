@@ -6,169 +6,564 @@ Version : 0.1.0 Alpha
 ==========================================================
 */
 
+
+/**
+==========================================================
+Provider Category
+==========================================================
+*/
+
+export type IntelligenceCategory =
+
+    | "MARKET"
+
+    | "PORTFOLIO"
+
+    | "NEWS"
+
+    | "SOCIAL"
+
+    | "ONCHAIN"
+
+    | "SENTIMENT";
+
+
+
+/**
+==========================================================
+Provider Status
+==========================================================
+*/
+
+export type IntelligenceStatus =
+
+    | "ACTIVE"
+
+    | "INACTIVE"
+
+    | "ERROR"
+
+    | "LIMITED";
+
+
+
+/**
+==========================================================
+Intelligence Provider Contract
+==========================================================
+*/
+
+export interface IntelligenceProvider {
+
+    id:string;
+
+    name:string;
+
+    category:IntelligenceCategory;
+
+    status:IntelligenceStatus;
+
+    enabled:boolean;
+
+
+    /**
+     * Fetch external intelligence data.
+     */
+    fetch():
+
+        Promise<unknown>;
+
+
+
+    /**
+     * Provider health check.
+     */
+    health():
+
+        Promise<boolean>;
+
+}
+
+
+
+/**
+==========================================================
+Raw Intelligence Snapshot
+==========================================================
+*/
+
+export interface IntelligenceSnapshot {
+
+    timestamp:number;
+
+
+    providers:
+
+        Record<
+
+            string,
+
+            unknown
+
+        >;
+
+}
+
+
+
+/**
+==========================================================
+Market Intelligence
+==========================================================
+*/
+
+
 export type MarketTrend =
-  | "BULLISH"
-  | "BEARISH"
-  | "SIDEWAYS";
+
+    | "BULLISH"
+
+    | "BEARISH"
+
+    | "SIDEWAYS";
+
+
 
 export type MarketVolatility =
-  | "LOW"
-  | "MEDIUM"
-  | "HIGH";
 
-export type MarketMomentum =
-  | "WEAK"
-  | "NORMAL"
-  | "STRONG";
+    | "LOW"
+
+    | "MEDIUM"
+
+    | "HIGH";
+
+
 
 export type LiquidityLevel =
-  | "LOW"
-  | "MEDIUM"
-  | "HIGH";
 
-export type TradingSignal =
-  | "STRONG_BUY"
-  | "BUY"
-  | "HOLD"
-  | "SELL"
-  | "STRONG_SELL";
+    | "LOW"
 
-export interface FeatureVector {
+    | "MEDIUM"
 
-  pair: string;
+    | "HIGH";
 
-  price: number;
 
-  volume: number;
 
-  emaFast: number;
+export interface MarketSnapshot {
 
-  emaSlow: number;
 
-  rsi: number;
+    timestamp:number;
 
-  macd: number;
 
-  macdSignal: number;
 
-  macdHistogram: number;
+    marketCap:
 
-  atr: number;
+        number |
 
-  adx: number;
+        null;
 
-  stochasticK: number;
 
-  stochasticD: number;
 
-  bollingerUpper: number;
+    btcDominance:
 
-  bollingerMiddle: number;
+        number |
 
-  bollingerLower: number;
+        null;
 
-}
 
-export interface MarketContext {
 
-  pair: string;
+    fearGreed:
 
-  trend: MarketTrend;
+        number |
 
-  volatility: MarketVolatility;
+        null;
 
-  momentum: MarketMomentum;
 
-  liquidity: LiquidityLevel;
 
-  confidence: number;
+    totalVolume:
 
-  timestamp: string;
+        number |
 
-}
+        null;
 
-export interface AIAnalysis {
 
-  signal: TradingSignal;
 
-  confidence: number;
+    trendingCoins:
 
-  summary: string;
+        string[];
 
-  reasoning: string[];
 
-  risks: string[];
 
-  recommendation: string;
+    trend?:
 
-  timestamp: string;
+        MarketTrend;
 
-}
 
-export interface FusionDecision {
 
-  pair: string;
+    volatility?:
 
-  finalSignal: TradingSignal;
+        MarketVolatility;
 
-  confidence: number;
 
-  scannerScore: number;
 
-  aiScore: number;
+    liquidity?:
 
-  riskScore: number;
+        LiquidityLevel;
 
-  portfolioScore: number;
 
-  explanation: string[];
 
-  timestamp: string;
+    providers:
+
+        Record<
+
+            string,
+
+            boolean
+
+        >;
 
 }
 
-export interface IntelligenceResult {
 
-  pair: string;
 
-  features: FeatureVector;
+/**
+==========================================================
+Portfolio Intelligence
+==========================================================
+*/
 
-  context: MarketContext;
 
-  ai: AIAnalysis;
+export interface PortfolioAsset {
 
-  decision: FusionDecision;
 
-}
+    symbol:string;
 
-export interface AIRequest {
 
-  pair: string;
+    quantity:number;
 
-  featureVector: FeatureVector;
 
-  context: MarketContext;
+    value?:number;
 
-}
 
-export interface AIResponse {
+    averagePrice?:number;
 
-  success: boolean;
 
-  data?: AIAnalysis;
-
-  error?: string;
+    pnl?:number;
 
 }
 
-export interface IntelligenceConfig {
 
-  enableAI: boolean;
 
-  enableContextEngine: boolean;
+export interface PortfolioSnapshot {
 
-  enableFeatureEngineering: boolean;
 
-  minimumConfidence: number;
+    timestamp:number;
+
+
+    totalValue:number;
+
+
+    totalPnL:number;
+
+
+    totalPnLPercent:number;
+
+
+
+    assets:
+
+        PortfolioAsset[];
+
+
+
+    providers:
+
+        Record<
+
+            string,
+
+            boolean
+
+        >;
+
+}
+
+
+
+/**
+==========================================================
+Sentiment Intelligence
+==========================================================
+*/
+
+
+export interface SentimentSnapshot {
+
+
+    timestamp:number;
+
+
+
+    fearGreed:
+
+        number |
+
+        null;
+
+
+
+    newsSentiment:
+
+        number |
+
+        null;
+
+
+
+    socialSentiment:
+
+        number |
+
+        null;
+
+
+
+    onchainSentiment:
+
+        number |
+
+        null;
+
+
+
+    overallScore:
+
+        number |
+
+        null;
+
+
+
+    providers:
+
+        Record<
+
+            string,
+
+            boolean
+
+        >;
+
+}
+
+
+
+/**
+==========================================================
+News Intelligence
+==========================================================
+*/
+
+
+export interface NewsItem {
+
+
+    title:string;
+
+
+    source:string;
+
+
+    url?:string;
+
+
+    sentiment?:
+
+        number;
+
+
+
+    publishedAt:
+
+        number;
+
+}
+
+
+
+export interface NewsSnapshot {
+
+
+    timestamp:number;
+
+
+    items:
+
+        NewsItem[];
+
+
+
+    sentiment:
+
+        number |
+
+        null;
+
+}
+
+
+
+/**
+==========================================================
+On-chain Intelligence
+==========================================================
+*/
+
+
+export interface OnChainSnapshot {
+
+
+    timestamp:number;
+
+
+    activeAddresses?:
+
+        number;
+
+
+
+    transactionVolume?:
+
+        number;
+
+
+
+    whaleActivity?:
+
+        number;
+
+
+
+    sentiment?:
+
+        number;
+
+}
+
+
+
+/**
+==========================================================
+Social Intelligence
+==========================================================
+*/
+
+
+export interface SocialSnapshot {
+
+
+    timestamp:number;
+
+
+    mentions?:
+
+        number;
+
+
+
+    engagement?:
+
+        number;
+
+
+
+    sentiment?:
+
+        number;
+
+}
+
+
+
+/**
+==========================================================
+Market Filter Result
+==========================================================
+*/
+
+
+export interface MarketFilterResult {
+
+
+    passed:boolean;
+
+
+    score:number;
+
+
+    reasons:string[];
+
+}
+
+
+
+/**
+==========================================================
+Health Monitoring
+==========================================================
+*/
+
+
+export interface ProviderHealth {
+
+
+    providerId:string;
+
+
+    healthy:boolean;
+
+
+    latency:number;
+
+
+    lastChecked:number;
+
+
+    message:string;
+
+}
+
+
+
+export interface IntelligenceHealthReport {
+
+
+    overallHealthy:boolean;
+
+
+    checkedAt:number;
+
+
+    providers:
+
+        ProviderHealth[];
+
+}
+
+
+
+/**
+==========================================================
+Cache
+==========================================================
+*/
+
+
+export interface IntelligenceCacheEntry<T>{
+
+
+    value:T;
+
+
+    expiresAt:number;
 
 }
