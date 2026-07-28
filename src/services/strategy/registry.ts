@@ -2,131 +2,272 @@
 ==========================================================
 AURA Trade OS
 Strategy Registry
-Version : 0.1.1 Alpha
+Version : 0.1.0 Alpha
+==========================================================
+Dynamic Strategy Plugin Registry
 ==========================================================
 */
 
+
 import type {
 
-    Strategy,
+    StrategyDefinition,
 
-} from "./types";
+    StrategyRegistryItem
+
+}
+
+from "./types";
+
+
+
+import auraTrend
+
+from "./strategies/auraTrend";
+
+
+
+import emaCrossover
+
+from "./strategies/emaCrossover";
+
+
+
+import momentumStrategy
+
+from "./strategies/momentum";
+
+
+
+
 
 
 
 export class StrategyRegistry {
 
 
-    private static readonly strategies =
 
-        new Map<string, Strategy>();
+    private strategies:
+
+        Map<string,StrategyRegistryItem>;
+
+
+
+
+
+
+    constructor(){
+
+
+        this.strategies =
+
+            new Map();
+
+
+
+        this.initialize();
+
+
+
+    }
+
+
+
+
+
+
 
 
 
     /**
-     * Register strategy.
+     * Load default strategies
      */
-    static register(
+    private initialize(){
 
-        strategy: Strategy
 
-    ): void {
+
+        this.register(
+
+        {
+
+
+            name:"AURA_TREND",
+
+
+            description:
+
+            "Hybrid EMA MACD ADX RSI strategy",
+
+
+            version:"0.1.0",
+
+
+            status:"ACTIVE",
+
+
+            strategy:auraTrend as StrategyDefinition
+
+
+        });
+
+
+
+        this.register(
+
+        {
+
+
+            name:"EMA_CROSSOVER",
+
+
+            description:
+
+            "Simple EMA trend following strategy",
+
+
+            version:"0.1.0",
+
+
+            status:"ACTIVE",
+
+
+            strategy:emaCrossover as StrategyDefinition
+
+
+        });
+
+
+
+
+        this.register(
+
+        {
+
+
+            name:"MOMENTUM",
+
+
+            description:
+
+            "RSI Stochastic MACD momentum strategy",
+
+
+            version:"0.1.0",
+
+
+            status:"ACTIVE",
+
+
+            strategy:momentumStrategy as StrategyDefinition
+
+
+        });
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Register new strategy
+     */
+    register(
+
+        item:StrategyRegistryItem
+
+    ){
+
 
 
         this.strategies.set(
 
-            strategy.id,
+            item.name,
 
-            strategy
+            item
 
         );
+
 
     }
 
 
 
+
+
+
+
+
+
     /**
-     * Get strategy by id.
+     * Get strategy
      */
-    static get(
+    get(
 
-        id: string
+        name:string
 
-    ):
+    ){
 
-        | Strategy
-
-        | undefined {
 
 
         return this.strategies.get(
 
-            id
+            name
 
         );
+
+
 
     }
 
 
 
+
+
+
+
+
+
     /**
-     * Check strategy exists.
+     * Check strategy exists
      */
-    static has(
+    has(
 
-        id: string
+        name:string
 
-    ): boolean {
+    ){
+
 
 
         return this.strategies.has(
 
-            id
+            name
 
         );
 
-    }
 
-
-
-    /**
-     * Remove strategy.
-     */
-    static unregister(
-
-        id: string
-
-    ): boolean {
-
-
-        return this.strategies.delete(
-
-            id
-
-        );
 
     }
 
 
 
-    /**
-     * Remove all strategies.
-     */
-    static clear(): void {
 
 
-        this.strategies.clear();
 
-    }
 
 
 
     /**
-     * Get all registered strategies.
+     * Get all strategies
      */
-    static all():
+    all(){
 
-        readonly Strategy[] {
 
 
         return Array.from(
@@ -135,36 +276,147 @@ export class StrategyRegistry {
 
         );
 
+
     }
 
 
 
+
+
+
+
+
+
     /**
-     * Get all strategy ids.
+     * Enable strategy
      */
-    static ids():
+    enable(
 
-        readonly string[] {
+        name:string
+
+    ){
 
 
-        return Array.from(
 
-            this.strategies.keys()
+        const strategy =
+
+            this.strategies.get(
+
+                name
+
+            );
+
+
+
+
+
+        if(!strategy)
+
+            return false;
+
+
+
+
+
+        strategy.status="ACTIVE";
+
+
+        return true;
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Disable strategy
+     */
+    disable(
+
+        name:string
+
+    ){
+
+
+
+        const strategy =
+
+            this.strategies.get(
+
+                name
+
+            );
+
+
+
+
+
+        if(!strategy)
+
+            return false;
+
+
+
+
+
+        strategy.status="DISABLED";
+
+
+        return true;
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Get active strategies
+     */
+    active(){
+
+
+
+        return this.all()
+
+        .filter(
+
+            item =>
+
+            item.status==="ACTIVE"
 
         );
 
-    }
-
-
-
-    /**
-     * Number of registered strategies.
-     */
-    static count(): number {
-
-
-        return this.strategies.size;
 
     }
+
+
 
 }
+
+
+
+
+
+
+
+const strategyRegistry =
+
+    new StrategyRegistry();
+
+
+
+
+
+export default strategyRegistry;
