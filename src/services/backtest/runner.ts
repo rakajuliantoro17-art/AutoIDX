@@ -4,114 +4,54 @@ AURA Trade OS
 Backtest Runner
 Version : 0.1.0 Alpha
 ==========================================================
+Backtest Execution Controller
+==========================================================
 */
 
 
-export type RunnerStatus =
+import type {
 
-    | "IDLE"
+    BacktestCandle,
 
-    | "RUNNING"
+    BacktestConfig,
 
-    | "COMPLETED"
-
-    | "FAILED";
-
-
-
-export interface BacktestDataset {
-
-
-    symbol:string;
-
-
-    candles:BacktestCandle[];
-
+    BacktestState
 
 }
 
-
-
-export interface BacktestCandle {
-
-
-    timestamp:number;
-
-
-    open:number;
-
-
-    high:number;
-
-
-    low:number;
-
-
-    close:number;
-
-
-    volume:number;
-
-
-}
+from "./types";
 
 
 
-export interface RunnerProgress {
+import BacktestSimulator
+
+from "./simulator";
 
 
-    current:number;
 
 
-    total:number;
-
-
-    percentage:number;
-
-
-}
 
 
 
 export interface RunnerResult {
 
 
-    success:boolean;
+    state:BacktestState;
 
 
-    status:RunnerStatus;
-
-
-    processed:number;
-
-
-    total:number;
+    result:any;
 
 
     duration:number;
 
 
-    message:string;
-
-
 }
 
 
 
-export interface BacktestEngineAdapter {
-
-
-    process(
-
-        candle:BacktestCandle
-
-    ):Promise<void>;
 
 
 
-    reset?():void;
-
-}
 
 
 
@@ -119,51 +59,57 @@ export class BacktestRunner {
 
 
 
-    private status:
-
-        RunnerStatus;
+    private state:BacktestState;
 
 
-
-    private progress:
-
-        RunnerProgress;
 
 
 
     constructor(){
 
 
-        this.status = "IDLE";
+
+        this.state={
 
 
-        this.progress = {
+            status:"IDLE",
 
 
-            current:0,
+            currentIndex:0,
 
 
-            total:0,
+            totalCandles:0,
 
 
-            percentage:0
+            progress:0,
+
+
+            currentTime:0
+
 
         };
+
 
     }
 
 
 
+
+
+
+
+
+
     /**
-     * Run backtest process
+     * Run full backtest
      */
-    async run(
+    run(
 
-        dataset:BacktestDataset,
+        candles:BacktestCandle[],
 
-        engine:BacktestEngineAdapter
+        config:BacktestConfig
 
-    ):Promise<RunnerResult>{
+    ):RunnerResult {
 
 
 
@@ -173,42 +119,64 @@ export class BacktestRunner {
 
 
 
+
+
+
+        this.state={
+
+
+            status:"RUNNING",
+
+
+            currentIndex:0,
+
+
+            totalCandles:
+
+                candles.length,
+
+
+            progress:0,
+
+
+            currentTime:0
+
+
+
+        };
+
+
+
+
+
+
+
+
+        const simulator =
+
+            new BacktestSimulator(
+
+                config
+
+            );
+
+
+
+
+
+
+
+
+
         try {
-
-
-
-            this.status =
-
-                "RUNNING";
-
-
-
-            this.progress = {
-
-
-                current:0,
-
-
-                total:
-
-                    dataset.candles.length,
-
-
-                percentage:0
-
-            };
-
-
-
-            engine.reset?.();
 
 
 
             for(
 
-                let i = 0;
+                let i=0;
 
-                i < dataset.candles.length;
+                i<candles.length;
 
                 i++
 
@@ -218,11 +186,13 @@ export class BacktestRunner {
 
                 const candle =
 
-                    dataset.candles[i];
+                    candles[i];
 
 
 
-                await engine.process(
+
+
+                simulator.processCandle(
 
                     candle
 
@@ -230,77 +200,35 @@ export class BacktestRunner {
 
 
 
-                this.progress.current =
-
-                    i + 1;
 
 
+                this.updateState(
 
-                this.progress.percentage =
+                    i,
 
-                    Number(
+                    candle.timestamp,
 
-                        (
+                    candles.length
 
-                            (
+                );
 
-                                this.progress.current /
 
-                                this.progress.total
-
-                            )
-
-                            *
-
-                            100
-
-                        )
-
-                        .toFixed(2)
-
-                    );
 
             }
 
 
 
-            this.status =
+
+
+
+
+            this.state.status=
 
                 "COMPLETED";
 
 
 
-            return {
 
-
-                success:true,
-
-
-                status:
-
-                    this.status,
-
-
-                processed:
-
-                    this.progress.current,
-
-
-                total:
-
-                    this.progress.total,
-
-
-                duration:
-
-                    Date.now() - start,
-
-
-                message:
-
-                    "Backtest completed successfully."
-
-            };
 
 
 
@@ -310,87 +238,140 @@ export class BacktestRunner {
 
 
 
-            this.status =
+            this.state.status=
 
                 "FAILED";
 
 
 
-            return {
+            throw error;
 
 
-                success:false,
-
-
-                status:
-
-                    this.status,
-
-
-                processed:
-
-                    this.progress.current,
-
-
-                total:
-
-                    this.progress.total,
-
-
-                duration:
-
-                    Date.now() - start,
-
-
-                message:
-
-                    error instanceof Error
-
-                        ?
-
-                        error.message
-
-                        :
-
-                        "Unknown error."
-
-            };
 
         }
 
-    }
 
 
 
 
-    /**
-     * Current status
-     */
-    getStatus():
 
-        RunnerStatus {
-
-
-        return this.status;
-
-    }
-
-
-
-
-    /**
-     * Current progress
-     */
-    getProgress():
-
-        RunnerProgress {
 
 
         return {
 
-            ...this.progress
+
+            state:
+
+                this.state,
+
+
+
+            result:
+
+                simulator.result(),
+
+
+
+            duration:
+
+                Date.now()
+
+                -
+
+                start
+
+
 
         };
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Update progress
+     */
+    private updateState(
+
+        index:number,
+
+        timestamp:number,
+
+        total:number
+
+    ){
+
+
+
+        this.state.currentIndex =
+
+            index + 1;
+
+
+
+        this.state.currentTime =
+
+            timestamp;
+
+
+
+        this.state.progress =
+
+            Number(
+
+                (
+
+                    (
+
+                        index + 1
+
+                    )
+
+                    /
+
+                    total
+
+                )
+
+                *
+
+                100
+
+            )
+
+            .toFixed(2)
+
+            as unknown as number;
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Get current status
+     */
+    getState(){
+
+
+
+        return this.state;
+
 
     }
 
@@ -400,9 +381,15 @@ export class BacktestRunner {
 
 
 
+
+
+
+
 const backtestRunner =
 
     new BacktestRunner();
+
+
 
 
 
