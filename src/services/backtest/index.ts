@@ -1,28 +1,42 @@
 /**
 ==========================================================
 AURA Trade OS
-Backtest Service Entry Point
+Backtest Service
 Version : 0.1.0 Alpha
 ==========================================================
-*/
-
-
-/**
-==========================================================
-Core Engine
+Public Backtest Module Exports
 ==========================================================
 */
 
+
+
+
+
+/*
+==========================================================
+Core Types
+==========================================================
+*/
+
+
+export * from "./types";
+
+
+
+
+
+
+
+/*
+==========================================================
+Main Engine
+==========================================================
+*/
+
+
 export {
 
-    default as BacktestEngine
-
-}
-
-from "./engine";
-
-
-export {
+    default as backtestEngine,
 
     BacktestEngine
 
@@ -32,84 +46,20 @@ from "./engine";
 
 
 
-export type {
-
-    BacktestCandle,
-
-    BacktestSignal,
-
-    StrategyOutput,
-
-    StrategyAdapter,
-
-    EngineConfig,
-
-    EngineResult
-
-}
-
-from "./engine";
 
 
 
-/**
+
+/*
 ==========================================================
-Execution Simulator
+Execution Runner
 ==========================================================
 */
 
-export {
-
-    default as backtestSimulator
-
-}
-
-from "./simulator";
-
 
 export {
 
-    BacktestSimulator
-
-}
-
-from "./simulator";
-
-
-export type {
-
-    SimulatorOrder,
-
-    SimulatorResult,
-
-    SimulatorConfig,
-
-    SimulatorSide,
-
-    SimulatorStatus
-
-}
-
-from "./simulator";
-
-
-
-/**
-==========================================================
-Runner
-==========================================================
-*/
-
-export {
-
-    default as backtestRunner
-
-}
-
-from "./runner";
-
-
-export {
+    default as backtestRunner,
 
     BacktestRunner
 
@@ -118,40 +68,42 @@ export {
 from "./runner";
 
 
-export type {
-
-    RunnerStatus,
-
-    RunnerProgress,
-
-    RunnerResult,
-
-    BacktestDataset,
-
-    BacktestCandle as RunnerCandle
-
-}
-
-from "./runner";
 
 
 
-/**
+
+
+/*
 ==========================================================
-Metrics Engine
+Simulation
 ==========================================================
 */
 
+
 export {
 
-    default as backtestMetrics
+    default as BacktestSimulator
 
 }
 
-from "./metrics";
+from "./simulator";
+
+
+
+
+
+
+
+/*
+==========================================================
+Metrics
+==========================================================
+*/
 
 
 export {
+
+    default as metricsEngine,
 
     BacktestMetricsEngine
 
@@ -160,34 +112,21 @@ export {
 from "./metrics";
 
 
-export type {
-
-    MetricTrade,
-
-    BacktestMetrics
-
-}
-
-from "./metrics";
 
 
 
-/**
+
+
+/*
 ==========================================================
-Report Generator
+Report
 ==========================================================
 */
 
-export {
-
-    default as backtestReport
-
-}
-
-from "./report";
-
 
 export {
+
+    default as backtestReport,
 
     BacktestReportGenerator
 
@@ -196,14 +135,73 @@ export {
 from "./report";
 
 
-export type {
 
-    BacktestReport,
 
-    BacktestSummary,
 
-    BacktestTrade
+
+
+/*
+==========================================================
+Order Execution
+==========================================================
+*/
+
+
+export {
+
+    default as orderSimulator,
+
+    OrderSimulator
 
 }
 
-from "./report";
+from "./execution/orderSimulator";
+
+
+
+
+
+export {
+
+    default as fillSimulator,
+
+    FillSimulator
+
+}
+
+from "./execution/fillSimulator";
+
+
+
+
+
+
+
+/*
+==========================================================
+Portfolio
+==========================================================
+*/
+
+
+export {
+
+    default as VirtualPortfolio
+
+}
+
+from "./portfolio/virtualPortfolio";
+
+
+
+
+
+export {
+
+    default as positionManager,
+
+    PositionManager
+
+}
+
+from "./portfolio/position";
