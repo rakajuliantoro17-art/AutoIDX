@@ -4,77 +4,28 @@ AURA Trade OS
 Backtest Metrics Engine
 Version : 0.1.0 Alpha
 ==========================================================
+Performance Analytics Calculator
+==========================================================
 */
 
 
-export interface MetricTrade {
+import type {
 
+    BacktestTrade,
 
-    profit:number;
+    EquityPoint,
 
-
-    returnPercent:number;
-
-
-}
-
-
-
-export interface BacktestMetrics {
-
-
-    totalTrades:number;
-
-
-    winningTrades:number;
-
-
-    losingTrades:number;
-
-
-
-    winRate:number;
-
-
-
-    averageWin:number;
-
-
-    averageLoss:number;
-
-
-
-    riskRewardRatio:number;
-
-
-
-    expectancy:number;
-
-
-
-    profitFactor:number;
-
-
-
-    totalReturn:number;
-
-
-
-    totalReturnPercent:number;
-
-
-
-    volatility:number;
-
-
-
-    sharpeRatio:number;
-
-
-
-    maximumDrawdown:number;
+    BacktestMetrics
 
 }
+
+from "./types";
+
+
+
+
+
+
 
 
 
@@ -82,41 +33,18 @@ export class BacktestMetricsEngine {
 
 
 
+
+
+    /**
+     * Calculate all metrics
+     */
     calculate(
 
-        trades:MetricTrade[],
+        trades:BacktestTrade[],
 
-        initialCapital:number,
-
-        finalCapital:number,
-
-        drawdowns:number[]
+        equityCurve:EquityPoint[]
 
     ):BacktestMetrics {
-
-
-
-        const winners =
-
-            trades.filter(
-
-                trade =>
-
-                    trade.profit > 0
-
-            );
-
-
-
-        const losers =
-
-            trades.filter(
-
-                trade =>
-
-                    trade.profit < 0
-
-            );
 
 
 
@@ -126,44 +54,41 @@ export class BacktestMetricsEngine {
 
 
 
+
+
         const winningTrades =
 
-            winners.length;
+            trades.filter(
+
+                trade =>
+
+                trade.profitLoss > 0
+
+            ).length;
+
+
 
 
 
         const losingTrades =
 
-            losers.length;
+            trades.filter(
 
+                trade =>
 
+                trade.profitLoss < 0
 
-        const winRate =
-
-            totalTrades === 0
-
-                ?
-
-                0
-
-                :
-
-                (
-
-                    winningTrades /
-
-                    totalTrades
-
-                )
-
-                * 100;
+            ).length;
 
 
 
 
-        const totalWin =
 
-            winners.reduce(
+
+
+        const totalProfit =
+
+            trades.reduce(
 
                 (
 
@@ -173,9 +98,9 @@ export class BacktestMetricsEngine {
 
                 ) =>
 
-                    sum +
+                sum +
 
-                    trade.profit,
+                trade.profitLoss,
 
                 0
 
@@ -183,159 +108,265 @@ export class BacktestMetricsEngine {
 
 
 
-        const totalLoss =
 
-            Math.abs(
 
-                losers.reduce(
+
+
+
+        const winRate =
+
+            totalTrades === 0
+
+            ?
+
+            0
+
+            :
+
+            (
+
+                winningTrades /
+
+                totalTrades
+
+            )
+
+            *
+
+            100;
+
+
+
+
+
+
+
+
+
+        return {
+
+
+            totalTrades,
+
+
+            winningTrades,
+
+
+            losingTrades,
+
+
+            winRate:
+
+                Number(
+
+                    winRate.toFixed(2)
+
+                ),
+
+
+
+            totalProfit,
+
+
+
+            totalReturn:
+
+                this.calculateReturn(
+
+                    equityCurve
+
+                ),
+
+
+
+            maxDrawdown:
+
+                this.calculateDrawdown(
+
+                    equityCurve
+
+                ),
+
+
+
+            profitFactor:
+
+                this.calculateProfitFactor(
+
+                    trades
+
+                ),
+
+
+
+            sharpeRatio:
+
+                this.calculateSharpe(
+
+                    equityCurve
+
+                )
+
+
+        };
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Total return
+     */
+    private calculateReturn(
+
+        equity:EquityPoint[]
+
+    ){
+
+
+
+        if(equity.length < 2)
+
+            return 0;
+
+
+
+
+
+        const start =
+
+            equity[0].equity;
+
+
+
+        const end =
+
+            equity[
+
+                equity.length - 1
+
+            ]
+
+            .equity;
+
+
+
+
+
+
+        return Number(
+
+            (
+
+                (
 
                     (
 
-                        sum,
+                    end -
 
-                        trade
+                    start
 
-                    ) =>
+                    )
 
-                        sum +
+                    /
 
-                        trade.profit,
-
-                    0
+                    start
 
                 )
 
-            );
+                *
 
-
-
-
-        const averageWin =
-
-            winningTrades === 0
-
-                ?
-
-                0
-
-                :
-
-                totalWin /
-
-                winningTrades;
-
-
-
-
-        const averageLoss =
-
-            losingTrades === 0
-
-                ?
-
-                0
-
-                :
-
-                totalLoss /
-
-                losingTrades;
-
-
-
-
-        const riskRewardRatio =
-
-            averageLoss === 0
-
-                ?
-
-                0
-
-                :
-
-                averageWin /
-
-                averageLoss;
-
-
-
-
-        const expectancy =
-
-
-            (
-
-                winRate / 100
+                100
 
             )
 
-            *
+            .toFixed(2)
 
-            averageWin
+        );
 
-            -
 
-            (
+    }
 
-                1 -
+
+
+
+
+
+
+
+
+    /**
+     * Maximum drawdown
+     */
+    private calculateDrawdown(
+
+        equity:EquityPoint[]
+
+    ){
+
+
+
+        let peak = 0;
+
+
+        let maxDrawdown = 0;
+
+
+
+
+
+        for(
+
+            const point of equity
+
+        ){
+
+
+
+            if(
+
+                point.equity >
+
+                peak
+
+            ){
+
+
+                peak =
+
+                    point.equity;
+
+
+            }
+
+
+
+
+
+
+
+            const drawdown =
 
                 (
 
-                    winRate / 100
+                    (
 
-                )
+                    peak -
 
-            )
+                    point.equity
 
-            *
+                    )
 
-            averageLoss;
+                    /
 
-
-
-
-        const profitFactor =
-
-            totalLoss === 0
-
-                ?
-
-                totalWin
-
-                :
-
-                totalWin /
-
-                totalLoss;
-
-
-
-
-        const totalReturn =
-
-            finalCapital -
-
-            initialCapital;
-
-
-
-
-        const totalReturnPercent =
-
-            initialCapital === 0
-
-                ?
-
-                0
-
-                :
-
-                (
-
-                    totalReturn /
-
-                    initialCapital
+                    peak
 
                 )
 
@@ -346,321 +377,369 @@ export class BacktestMetricsEngine {
 
 
 
-        const returns =
-
-            trades.map(
-
-                trade =>
-
-                    trade.returnPercent
-
-            );
 
 
 
-        const volatility =
+            if(
 
-            this.standardDeviation(
+                drawdown >
 
-                returns
+                maxDrawdown
 
-            );
+            ){
+
+
+                maxDrawdown =
+
+                    drawdown;
+
+
+            }
+
+
+        }
 
 
 
-        const sharpeRatio =
 
-            volatility === 0
 
-                ?
 
-                0
 
-                :
+        return Number(
+
+            maxDrawdown.toFixed(2)
+
+        );
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Profit factor
+     */
+    private calculateProfitFactor(
+
+        trades:BacktestTrade[]
+
+    ){
+
+
+
+        const profit =
+
+            trades
+
+            .filter(
+
+                t =>
+
+                t.profitLoss > 0
+
+            )
+
+            .reduce(
 
                 (
 
-                    this.average(
+                    a,
 
-                        returns
+                    b
 
-                    )
+                ) =>
 
-                    /
+                a +
 
-                    volatility
-
-                );
-
-
-
-        const maximumDrawdown =
-
-            drawdowns.length === 0
-
-                ?
+                b.profitLoss,
 
                 0
 
-                :
+            );
 
-                Math.min(
 
-                    ...drawdowns
 
-                );
 
 
 
-        return {
 
+        const loss =
 
+            Math.abs(
 
-            totalTrades,
+                trades
 
+                .filter(
 
+                    t =>
 
-            winningTrades,
-
-
-
-            losingTrades,
-
-
-
-            winRate:
-
-                this.round(
-
-                    winRate
-
-                ),
-
-
-
-            averageWin:
-
-                this.round(
-
-                    averageWin
-
-                ),
-
-
-
-            averageLoss:
-
-                this.round(
-
-                    averageLoss
-
-                ),
-
-
-
-            riskRewardRatio:
-
-                this.round(
-
-                    riskRewardRatio
-
-                ),
-
-
-
-            expectancy:
-
-                this.round(
-
-                    expectancy
-
-                ),
-
-
-
-            profitFactor:
-
-                this.round(
-
-                    profitFactor
-
-                ),
-
-
-
-            totalReturn:
-
-                this.round(
-
-                    totalReturn
-
-                ),
-
-
-
-            totalReturnPercent:
-
-                this.round(
-
-                    totalReturnPercent
-
-                ),
-
-
-
-            volatility:
-
-                this.round(
-
-                    volatility
-
-                ),
-
-
-
-            sharpeRatio:
-
-                this.round(
-
-                    sharpeRatio
-
-                ),
-
-
-
-            maximumDrawdown:
-
-                this.round(
-
-                    maximumDrawdown
+                    t.profitLoss < 0
 
                 )
 
-        };
+                .reduce(
 
-    }
+                    (
+
+                        a,
+
+                        b
+
+                    ) =>
+
+                    a +
+
+                    b.profitLoss,
+
+                    0
+
+                )
+
+            );
 
 
 
 
 
-    private average(
-
-        values:number[]
-
-    ):number {
-
-
-        if(values.length===0)
-
-            return 0;
 
 
 
-        return values.reduce(
+        if(loss===0)
+
+            return profit > 0
+
+                ? Infinity
+
+                : 0;
+
+
+
+
+
+        return Number(
 
             (
 
-                a,
+                profit /
 
-                b
+                loss
 
-            ) => a+b,
+            )
 
-            0
+            .toFixed(2)
 
-        )
+        );
 
-        /
-
-        values.length;
 
     }
 
 
 
 
-    private standardDeviation(
-
-        values:number[]
-
-    ):number {
 
 
 
-        if(values.length===0)
+
+
+    /**
+     * Simple Sharpe ratio
+     */
+    private calculateSharpe(
+
+        equity:EquityPoint[]
+
+    ){
+
+
+
+        if(equity.length < 3)
 
             return 0;
 
 
 
-        const avg =
 
-            this.average(
 
-                values
+
+
+        const returns:number[]=[];
+
+
+
+
+
+
+
+        for(
+
+            let i=1;
+
+            i<equity.length;
+
+            i++
+
+        ){
+
+
+
+            returns.push(
+
+                (
+
+                    equity[i].equity -
+
+                    equity[i-1].equity
+
+                )
+
+                /
+
+                equity[i-1].equity
 
             );
+
+
+        }
+
+
+
+
+
+
+
+
+        const average =
+
+            returns.reduce(
+
+                (
+
+                    a,
+
+                    b
+
+                ) =>
+
+                a+b,
+
+                0
+
+            )
+
+            /
+
+            returns.length;
+
+
+
+
+
 
 
 
         const variance =
 
-            this.average(
+            returns.reduce(
 
-                values.map(
+                (
 
-                    value =>
+                    sum,
 
-                    Math.pow(
+                    value
 
-                        value-avg,
+                ) =>
 
-                        2
+                sum +
 
-                    )
+                Math.pow(
 
-                )
+                    value -
+
+                    average,
+
+                    2
+
+                ),
+
+                0
+
+            )
+
+            /
+
+            returns.length;
+
+
+
+
+
+
+
+
+        const deviation =
+
+            Math.sqrt(
+
+                variance
 
             );
 
 
 
-        return Math.sqrt(
-
-            variance
-
-        );
-
-    }
 
 
 
 
-    private round(
+        if(deviation===0)
 
-        value:number
+            return 0;
 
-    ):number {
+
+
+
+
 
 
         return Number(
 
-            value.toFixed(4)
+            (
+
+                average /
+
+                deviation
+
+            )
+
+            .toFixed(2)
 
         );
 
+
     }
+
 
 
 }
 
 
 
-const backtestMetrics =
+
+
+
+
+
+const metricsEngine =
 
     new BacktestMetricsEngine();
 
 
 
-export default backtestMetrics;
+
+
+export default metricsEngine;
