@@ -1,259 +1,290 @@
 /**
 ==========================================================
 AURA Trade OS
-Strategy Engine
-Version : 0.1.1 Alpha
+Strategy Service Engine
+Version : 0.1.0 Alpha
+==========================================================
+Public Strategy Execution Facade
 ==========================================================
 */
 
+
 import {
 
-    StrategyRegistry,
+    IndicatorFeatureVector
 
-} from "./registry";
+}
+
+from "@/services/indicators";
+
+
+
+import strategyManager
+
+from "./manager";
+
+
+
+import strategyRegistry
+
+from "./registry";
+
+
 
 import type {
 
-    Strategy,
+    StrategyMode,
 
-    StrategyContext,
+    StrategyDecision
 
-    StrategyDecision,
+}
 
-} from "./types";
+from "./types";
 
 
 
-export interface StrategyEngineOptions {
 
-    defaultStrategyId?: string;
+
+
+
+export interface StrategyEngineResult {
+
+
+    strategy:string;
+
+
+    mode:StrategyMode;
+
+
+    decision:StrategyDecision | null;
+
+
+    timestamp:number;
+
 
 }
 
 
 
-export class StrategyEngine {
-
-
-    private readonly defaultStrategyId?: string;
 
 
 
-    constructor(
 
-        options: StrategyEngineOptions = {}
 
-    ) {
+export class StrategyServiceEngine {
 
-        this.defaultStrategyId =
 
-            options.defaultStrategyId;
+
+    private ready:boolean;
+
+
+
+
+
+    constructor(){
+
+
+        this.ready=false;
+
 
     }
 
 
 
+
+
+
+
+
     /**
-     * Execute a specific strategy.
+     * Initialize strategy system
+     */
+    initialize(){
+
+
+
+        if(this.ready)
+
+            return;
+
+
+
+        this.ready=true;
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Execute active strategy
      */
     execute(
 
-        strategyId: string,
+        features:IndicatorFeatureVector
 
-        context: StrategyContext
-
-    ): StrategyDecision {
+    ):StrategyEngineResult {
 
 
-        const strategy =
 
-            StrategyRegistry.get(
-
-                strategyId
-
-            );
+        this.initialize();
 
 
-        if (!strategy) {
 
-            throw new Error(
 
-                `Strategy "${strategyId}" not found.`
+
+        const result =
+
+            strategyManager.evaluate(
+
+                features
 
             );
 
-        }
 
 
-        return strategy.evaluate(
 
-            context
+
+        return {
+
+
+            strategy:
+
+                result.strategy,
+
+
+
+            mode:
+
+                result.mode,
+
+
+
+            decision:
+
+                result.decision,
+
+
+
+            timestamp:
+
+                Date.now()
+
+
+        };
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Change trading mode
+     */
+    setMode(
+
+        mode:StrategyMode
+
+    ){
+
+
+
+        strategyManager.setMode(
+
+            mode
 
         );
 
+
     }
 
 
 
+
+
+
+
+
+
     /**
-     * Execute default strategy.
+     * Get available strategies
      */
-    executeDefault(
-
-        context: StrategyContext
-
-    ): StrategyDecision {
+    strategies(){
 
 
-        if (
 
-            !this.defaultStrategyId
+        return (
 
-        ) {
-
-            throw new Error(
-
-                "Default strategy is not configured."
-
-            );
-
-        }
-
-
-        return this.execute(
-
-            this.defaultStrategyId,
-
-            context
+            strategyRegistry.active()
 
         );
 
-    }
-
-
-
-    /**
-     * Execute every registered strategy.
-     */
-    executeAll(
-
-        context: StrategyContext
-
-    ): StrategyDecision[] {
-
-
-        return StrategyRegistry
-
-            .all()
-
-            .map(
-
-                strategy =>
-
-                    strategy.evaluate(
-
-                        context
-
-                    )
-
-            );
 
     }
 
 
 
-    /**
-     * Execute only selected strategies.
-     */
-    executeSelected(
-
-        strategyIds: readonly string[],
-
-        context: StrategyContext
-
-    ): StrategyDecision[] {
 
 
-        const decisions: StrategyDecision[] = [];
 
-
-        for (
-
-            const id of strategyIds
-
-        ) {
-
-
-            const strategy =
-
-                StrategyRegistry.get(
-
-                    id
-
-                );
-
-
-            if (
-
-                strategy
-
-            ) {
-
-                decisions.push(
-
-                    strategy.evaluate(
-
-                        context
-
-                    )
-
-                );
-
-            }
-
-        }
-
-
-        return decisions;
-
-    }
 
 
 
     /**
-     * Get registered strategy.
+     * Compare all strategies
      */
-    getStrategy(
+    compare(
 
-        id: string
+        features:IndicatorFeatureVector
 
-    ):
-
-        | Strategy
-
-        | undefined {
+    ){
 
 
-        return StrategyRegistry.get(
 
-            id
+        return (
+
+            strategyManager.compare(
+
+                features
+
+            )
 
         );
 
-    }
-
-
-
-    /**
-     * List available strategies.
-     */
-    listStrategies():
-
-        readonly Strategy[] {
-
-
-        return StrategyRegistry.all();
 
     }
+
+
+
+
 
 }
+
+
+
+
+
+
+
+const strategyEngine =
+
+    new StrategyServiceEngine();
+
+
+
+
+
+export default strategyEngine;
