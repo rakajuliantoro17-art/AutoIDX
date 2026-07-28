@@ -1,98 +1,55 @@
 /**
 ==========================================================
 AURA Trade OS
-Backtest Execution Simulator
+Backtest Simulator
 Version : 0.1.0 Alpha
+==========================================================
+Strategy Simulation Runtime
 ==========================================================
 */
 
 
-export type SimulatorSide =
+import type {
 
-    | "BUY"
+    BacktestCandle,
 
-    | "SELL";
+    BacktestConfig,
 
+    BacktestTrade,
 
-
-export type SimulatorStatus =
-
-    | "FILLED"
-
-    | "REJECTED";
-
-
-
-export interface SimulatorOrder {
-
-
-    id:string;
-
-
-    symbol:string;
-
-
-    side:SimulatorSide;
-
-
-    quantity:number;
-
-
-    price:number;
-
-
-    timestamp:number;
+    EquityPoint
 
 }
 
-
-
-export interface SimulatorResult {
-
-
-    success:boolean;
-
-
-    orderId:string;
-
-
-    symbol:string;
-
-
-    side:SimulatorSide;
-
-
-    executedPrice:number;
-
-
-    executedQuantity:number;
-
-
-    status:SimulatorStatus;
-
-
-    fee:number;
-
-
-    timestamp:number;
-
-
-}
+from "./types";
 
 
 
-export interface SimulatorConfig {
+import strategyEngine
+
+from "@/services/strategy/engine";
 
 
-    initialBalance:number;
+
+import orderSimulator
+
+from "./execution/orderSimulator";
 
 
-    feePercent:number;
+
+import fillSimulator
+
+from "./execution/fillSimulator";
 
 
-    slippagePercent:number;
 
-}
+import VirtualPortfolio
+
+from "./portfolio/virtualPortfolio";
+
+
+
+
 
 
 
@@ -100,318 +57,559 @@ export class BacktestSimulator {
 
 
 
-    private config:SimulatorConfig;
+    private portfolio:VirtualPortfolio;
 
 
+    private trades:BacktestTrade[];
 
-    private orders:
 
-        SimulatorOrder[];
+    private equityCurve:EquityPoint[];
+
+
 
 
 
     constructor(
 
-        config?:Partial<SimulatorConfig>
+        private config:BacktestConfig
 
     ){
 
 
-        this.config = {
 
+        this.portfolio =
 
-            initialBalance:
+            new VirtualPortfolio({
 
-                10000000,
+                initialCapital:
 
+                    config.initialCapital,
 
-            feePercent:
+                feeRate:
 
-                0.1,
+                    config.feeRate
 
-
-            slippagePercent:
-
-                0.05,
-
-
-            ...config
-
-        };
+            });
 
 
 
-        this.orders = [];
+        this.trades=[];
+
+
+        this.equityCurve=[];
+
 
     }
 
 
 
 
+
+
+
+
+
     /**
-     * Execute simulated order
+     * Run one candle simulation
      */
-    execute(
+    processCandle(
 
-        symbol:string,
+        candle:BacktestCandle
 
-        side:SimulatorSide,
+    ){
 
-        quantity:number,
 
-        marketPrice:number,
 
-        timestamp:number = Date.now()
+        const features:any = {
 
-    ):SimulatorResult {
+
+
+            close:
+
+                candle.close,
+
+
+            volume:
+
+                candle.volume,
+
+
+            timestamp:
+
+                candle.timestamp
+
+
+        };
+
+
+
+
+
+
+
+
+        const decision =
+
+            strategyEngine.execute(
+
+                features
+
+            );
+
+
+
+
+
+
 
 
 
         if(
 
-            quantity <= 0
+            decision.decision?.action
+
+            ===
+
+            "BUY"
 
         ){
 
-            return {
 
 
-                success:false,
+            this.executeBuy(
+
+                candle
+
+            );
 
 
-                orderId:"",
-
-
-                symbol,
-
-
-                side,
-
-
-                executedPrice:0,
-
-
-                executedQuantity:0,
-
-
-                status:"REJECTED",
-
-
-                fee:0,
-
-
-                timestamp,
-
-            };
 
         }
 
 
 
-        const slippage =
-
-            marketPrice *
-
-            (
-
-                this.config.slippagePercent /
-
-                100
-
-            );
 
 
 
-        const executedPrice =
 
-            side === "BUY"
+        if(
 
-                ?
+            decision.decision?.action
 
-                marketPrice + slippage
+            ===
 
-                :
+            "SELL"
 
-                marketPrice - slippage;
-
-
-
-        const value =
-
-            executedPrice *
-
-            quantity;
+        ){
 
 
 
-        const fee =
+            this.executeSell(
 
-            value *
-
-            (
-
-                this.config.feePercent /
-
-                100
+                candle
 
             );
 
 
 
-        const order:SimulatorOrder = {
-
-
-            id:
-
-                `BT-${Date.now()}`,
+        }
 
 
 
-            symbol,
 
 
 
-            side,
 
 
+        this.portfolio.updatePrice(
 
-            quantity,
-
-
-
-            price:
-
-                executedPrice,
-
-
-
-            timestamp,
-
-        };
-
-
-
-        this.orders.push(
-
-            order
+            candle.close
 
         );
 
 
 
-        return {
 
 
-            success:true,
+        this.recordEquity(
+
+            candle.timestamp
+
+        );
 
 
-            orderId:
-
-                order.id,
-
-
-            symbol,
-
-
-            side,
-
-
-            executedPrice:
-
-
-                Number(
-
-                    executedPrice.toFixed(2)
-
-                ),
+    }
 
 
 
-            executedQuantity:
-
-                quantity,
 
 
 
-            status:"FILLED",
 
 
 
-            fee:
+    /**
+     * Execute BUY
+     */
+    private executeBuy(
+
+        candle:BacktestCandle
+
+    ){
 
 
-                Number(
 
-                    fee.toFixed(2)
+        const amount =
 
-                ),
+            this.calculateAmount(
+
+                candle.close
+
+            );
+
+
+
+
+
+        const order =
+
+            orderSimulator.execute({
+
+
+                pair:
+
+                    candle.pair,
+
+
+                side:
+
+                    "BUY",
+
+
+                price:
+
+                    candle.close,
+
+
+                amount,
+
+
+                timestamp:
+
+                    candle.timestamp
+
+
+            });
+
+
+
+
+
+
+
+
+        const fill =
+
+            fillSimulator.fill(
+
+                order,
+
+                {
+
+
+                    volume:
+
+                        candle.volume,
+
+
+                    averageVolume:
+
+                        candle.volume,
+
+
+                    spread:
+
+                        0.001,
+
+
+                    volatility:
+
+                        0.02
+
+
+                }
+
+            );
+
+
+
+
+
+
+
+
+        if(fill.status==="FILLED"){
+
+
+
+            this.portfolio.buy(
+
+                candle.pair,
+
+                fill.executionPrice,
+
+                fill.filledAmount
+
+            );
+
+
+        }
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Execute SELL
+     */
+    private executeSell(
+
+        candle:BacktestCandle
+
+    ){
+
+
+
+        const closed =
+
+            this.portfolio.sell(
+
+                candle.close
+
+            );
+
+
+
+
+
+        if(!closed)
+
+            return;
+
+
+
+
+
+
+        this.trades.push({
+
+
+
+            id:
+
+                "TRD-"+Date.now(),
+
+
+
+            pair:
+
+                closed.pair,
+
+
+
+            entryPrice:
+
+                closed.entryPrice,
+
+
+
+            exitPrice:
+
+                closed.exitPrice,
+
+
+
+            quantity:
+
+                closed.quantity,
+
+
+
+            profitLoss:
+
+                closed.profitLoss,
+
+
+
+            returnPercent:
+
+                closed.returnPercent,
+
+
+
+            duration:
+
+                closed.closedAt -
+
+                closed.openedAt,
+
+
+
+            openedAt:
+
+                closed.openedAt,
+
+
+
+            closedAt:
+
+                closed.closedAt
+
+
+
+        });
+
+
+    }
+
+
+
+
+
+
+
+
+
+    private calculateAmount(
+
+        price:number
+
+    ){
+
+
+
+        return (
+
+            this.config.initialCapital *
+
+            0.95
+
+        )
+
+        /
+
+        price;
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+    private recordEquity(
+
+        timestamp:number
+
+    ){
+
+
+
+        const snapshot =
+
+            this.portfolio.snapshot();
+
+
+
+
+
+        this.equityCurve.push({
 
 
 
             timestamp,
 
-        };
+
+            equity:
+
+                snapshot.equity,
+
+
+            cash:
+
+                snapshot.cash,
+
+
+            assetValue:
+
+                snapshot.assetValue
+
+
+
+        });
+
 
     }
 
 
 
 
-    /**
-     * Get simulated orders
-     */
-    getOrders():
 
-        SimulatorOrder[] {
-
-
-        return [
-
-            ...this.orders
-
-        ];
-
-    }
 
 
 
 
     /**
-     * Reset simulation
+     * Final simulation result
      */
-    reset():void {
+    result(){
 
-
-        this.orders = [];
-
-    }
-
-
-
-    /**
-     * Get configuration
-     */
-    getConfig():
-
-        SimulatorConfig {
 
 
         return {
 
-            ...this.config
+
+            trades:
+
+                this.trades,
+
+
+            equityCurve:
+
+                this.equityCurve,
+
+
+            portfolio:
+
+                this.portfolio.getBalance()
+
+
 
         };
 
+
     }
+
+
 
 }
 
 
 
-const simulator =
-
-    new BacktestSimulator();
 
 
 
-export default simulator;
+
+export default BacktestSimulator;
