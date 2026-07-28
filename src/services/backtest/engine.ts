@@ -1,22 +1,38 @@
 /**
 ==========================================================
 AURA Trade OS
-Backtest Core Engine
+Backtest Engine
 Version : 0.1.0 Alpha
+==========================================================
+Public Backtest Orchestrator
 ==========================================================
 */
 
 
-import simulator, {
+import type {
 
-    BacktestSimulator
+    BacktestCandle,
 
-} from "./simulator";
+    BacktestConfig,
+
+    BacktestResult
+
+}
+
+from "./types";
 
 
-import backtestMetrics
+
+import backtestRunner
+
+from "./runner";
+
+
+
+import metricsEngine
 
 from "./metrics";
+
 
 
 import backtestReport
@@ -25,92 +41,29 @@ from "./report";
 
 
 
-export type BacktestSignal =
-
-    | "BUY"
-
-    | "SELL"
-
-    | "HOLD";
 
 
 
-export interface BacktestCandle {
+
+export interface BacktestExecutionResult {
 
 
-    timestamp:number;
-
-
-    open:number;
-
-
-    high:number;
-
-
-    low:number;
-
-
-    close:number;
-
-
-    volume:number;
-
-}
-
-
-
-export interface StrategyOutput {
-
-
-    signal:BacktestSignal;
-
-
-    confidence:number;
-
-}
-
-
-
-export interface StrategyAdapter {
-
-
-    analyze(
-
-        candle:BacktestCandle
-
-    ):Promise<StrategyOutput>;
-
-}
-
-
-
-export interface EngineConfig {
-
-
-    symbol:string;
-
-
-    initialCapital:number;
-
-
-    quantity:number;
-
-}
-
-
-
-export interface EngineResult {
-
-
-    trades:any[];
-
-
-    metrics:any;
+    result:BacktestResult;
 
 
     report:any;
 
+
+    duration:number;
+
+
 }
+
+
+
+
+
+
 
 
 
@@ -118,322 +71,346 @@ export class BacktestEngine {
 
 
 
-    private config:EngineConfig;
+    private history:
 
 
 
-    private simulator:BacktestSimulator;
+        BacktestExecutionResult[];
 
 
 
-    private trades:any[];
 
 
 
-    constructor(
-
-        config:EngineConfig
-
-    ){
-
-
-        this.config = config;
+    constructor(){
 
 
 
-        this.simulator =
+        this.history=[];
 
-            simulator;
-
-
-
-        this.trades = [];
 
     }
 
 
 
 
+
+
+
+
+
     /**
-     * Process single candle
+     * Execute backtest
      */
-    async process(
+    run(
 
-        candle:BacktestCandle,
+        candles:BacktestCandle[],
 
-        strategy:StrategyAdapter
+        config:BacktestConfig
 
-    ):Promise<void>{
-
-
-
-        const decision =
-
-            await strategy.analyze(
-
-                candle
-
-            );
+    ):BacktestExecutionResult {
 
 
 
-        if(
+        this.validateConfig(
 
-            decision.signal === "HOLD"
+            config
 
-        ){
+        );
 
-            return;
 
-        }
 
 
 
 
         const execution =
 
-            this.simulator.execute(
+            backtestRunner.run(
 
-                this.config.symbol,
+                candles,
 
-                decision.signal,
-
-                this.config.quantity,
-
-                candle.close,
-
-                candle.timestamp
+                config
 
             );
 
 
 
-        if(
-
-            execution.success
-
-        ){
-
-
-
-            this.trades.push({
-
-                id:
-
-                    execution.orderId,
-
-
-                symbol:
-
-                    execution.symbol,
-
-
-                side:
-
-                    execution.side,
-
-
-                profit:0,
-
-
-                returnPercent:0,
-
-
-                price:
-
-                    execution.executedPrice,
-
-
-                quantity:
-
-                    execution.executedQuantity,
-
-
-                timestamp:
-
-                    execution.timestamp
-
-            });
-
-        }
-
-    }
 
 
 
 
-    /**
-     * Run full backtest
-     */
-    async run(
 
-        candles:BacktestCandle[],
+        const raw =
 
-        strategy:StrategyAdapter
-
-    ):Promise<EngineResult>{
+            execution.result;
 
 
 
-        this.reset();
 
 
-
-        for(
-
-            const candle of candles
-
-        ){
-
-
-            await this.process(
-
-                candle,
-
-                strategy
-
-            );
-
-        }
-
-
-
-        const finalCapital =
-
-            this.calculateCapital();
 
 
 
         const metrics =
 
-            backtestMetrics.calculate(
+            metricsEngine.calculate(
 
-                this.trades,
+                raw.trades,
 
-                this.config.initialCapital,
-
-                finalCapital,
-
-                []
+                raw.equityCurve
 
             );
 
 
 
-        const report =
-
-            backtestReport.generate({
-
-                symbol:
-
-                    this.config.symbol,
-
-
-                initialCapital:
-
-                    this.config.initialCapital,
-
-
-                finalCapital,
-
-
-                trades:
-
-                    this.trades,
-
-
-                maximumDrawdown:
-
-                    metrics.maximumDrawdown,
-
-
-                startTime:
-
-                    candles[0]?.timestamp ?? Date.now(),
-
-
-                endTime:
-
-                    candles[candles.length-1]?.timestamp ?? Date.now()
-
-            });
 
 
 
-        return {
 
 
-            trades:
 
-                this.trades,
+        const finalResult:BacktestResult={
+
+
+
+            strategy:
+
+                config.strategy,
+
+
+
+            pair:
+
+                config.pair,
+
+
+
+            status:
+
+                execution.state.status,
+
+
+
+            initialCapital:
+
+                config.initialCapital,
+
+
+
+            finalCapital:
+
+                raw.portfolio.equity,
+
+
+
+            profitLoss:
+
+                raw.portfolio.equity -
+
+                config.initialCapital,
+
 
 
             metrics,
 
 
-            report
+
+            trades:
+
+                raw.trades,
+
+
+
+            equityCurve:
+
+                raw.equityCurve,
+
+
+
+            createdAt:
+
+                Date.now()
+
+
 
         };
 
+
+
+
+
+
+
+
+
+        const report =
+
+            backtestReport.generate(
+
+                finalResult
+
+            );
+
+
+
+
+
+
+
+
+        const output = {
+
+
+
+            result:
+
+                finalResult,
+
+
+
+            report,
+
+
+
+            duration:
+
+                execution.duration
+
+
+
+        };
+
+
+
+
+
+
+
+
+
+        this.history.push(
+
+            output
+
+        );
+
+
+
+
+
+
+
+
+        return output;
+
+
+
     }
 
 
 
 
+
+
+
+
+
     /**
-     * Calculate virtual capital
+     * Validate configuration
      */
-    private calculateCapital():
+    private validateConfig(
 
-        number {
+        config:BacktestConfig
 
-
-
-        let capital =
-
-            this.config.initialCapital;
+    ){
 
 
 
-        for(
+        if(!config.pair)
 
-            const trade of this.trades
+            throw new Error(
 
-        ){
+                "Pair required"
 
-
-
-            if(
-
-                trade.side === "SELL"
-
-            ){
-
-                capital +=
-
-                    trade.profit;
-
-            }
-
-        }
+            );
 
 
 
-        return capital;
+
+
+        if(!config.strategy)
+
+            throw new Error(
+
+                "Strategy required"
+
+            );
+
+
+
+
+
+        if(
+
+            config.initialCapital <= 0
+
+        )
+
+            throw new Error(
+
+                "Invalid capital"
+
+            );
+
+
 
     }
 
 
 
 
+
+
+
+
+
     /**
-     * Reset engine
+     * Get previous executions
      */
-    reset(){
+    getHistory(){
 
-        this.trades = [];
 
-        this.simulator.reset();
+
+        return this.history;
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Last result
+     */
+    latest(){
+
+
+
+        return (
+
+            this.history[
+
+                this.history.length-1
+
+            ]
+
+        );
+
 
     }
 
@@ -443,4 +420,16 @@ export class BacktestEngine {
 
 
 
-export default BacktestEngine;
+
+
+
+
+const backtestEngine =
+
+    new BacktestEngine();
+
+
+
+
+
+export default backtestEngine;
