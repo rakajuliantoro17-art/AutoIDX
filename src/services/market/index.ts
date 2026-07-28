@@ -1,70 +1,141 @@
 /**
 ==========================================================
 AURA Trade OS
-Market Service
-Version : 0.1.1 Alpha
-==========================================================
-Public Market Service Exports
+Market Data Service Entry Point
+Version : 0.1.0 Alpha
 ==========================================================
 */
 
 
-/*
+/**
 ==========================================================
-Types
-==========================================================
-*/
-
-export * from "./types";
-
-
-
-/*
-==========================================================
-Feeds
+WebSocket Layer
 ==========================================================
 */
 
-export * from "./feeds";
+
+export {
+
+    default as indodaxSocket,
+
+    IndodaxSocket
+
+} from "./websocket/indodaxSocket";
+
+
+export type {
+
+    MarketTick,
+
+    SocketConfig,
+
+    SocketEvent
+
+} from "./websocket/indodaxSocket";
 
 
 
-/*
+
+
+export {
+
+    default as marketSocketManager,
+
+    MarketWebSocketManager
+
+} from "./websocket/manager";
+
+
+export type {
+
+    ConnectionStatus,
+
+    Subscription
+
+} from "./websocket/manager";
+
+
+
+
+
+/**
 ==========================================================
-Aggregators
+Candle Layer
 ==========================================================
 */
 
-export * from "./aggregators";
+
+export {
+
+    default as candleBuilder,
+
+    CandleBuilder
+
+} from "./candles/candleBuilder";
+
+
+export type {
+
+    Candle,
+
+    CandleTimeframe
+
+} from "./candles/candleBuilder";
 
 
 
-/*
+
+
+/**
 ==========================================================
-Filters
-==========================================================
-*/
-
-export * from "./filters";
-
-
-
-/*
-==========================================================
-Snapshots
-==========================================================
-*/
-
-export * from "./snapshots";
-
-
-
-/*
-==========================================================
-Registry & Manager
+Order Book Layer
 ==========================================================
 */
 
-export * from "./registry";
 
-export * from "./manager";
+export {
+
+    default as orderBook,
+
+    OrderBookEngine
+
+} from "./orderbook/orderBook";
+
+
+export type {
+
+    OrderBookLevel,
+
+    OrderBookSnapshot,
+
+    OrderBookMetrics
+
+} from "./orderbook/orderBook";
+
+
+
+
+
+/**
+==========================================================
+Ticker Layer
+==========================================================
+*/
+
+
+export {
+
+    default as tickerService,
+
+    TickerService
+
+} from "./ticker/tickerService";
+
+
+export type {
+
+    TickerData,
+
+    PriceUpdate
+
+} from "./ticker/tickerService";
