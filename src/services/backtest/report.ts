@@ -4,104 +4,116 @@ AURA Trade OS
 Backtest Report Generator
 Version : 0.1.0 Alpha
 ==========================================================
+Backtest Result Reporting Service
+==========================================================
 */
 
 
-export interface BacktestTrade {
+import type {
 
+    BacktestResult,
 
-    id:string;
+    BacktestMetrics,
 
+    BacktestTrade,
 
-    symbol:string;
-
-
-    side:
-
-        | "BUY"
-
-        | "SELL";
-
-
-    profit:number;
-
-
-    timestamp:number;
+    EquityPoint
 
 }
 
-
-
-export interface BacktestSummary {
-
-
-    symbol:string;
-
-
-    initialCapital:number;
-
-
-    finalCapital:number;
-
-
-    totalReturn:number;
-
-
-    totalReturnPercent:number;
+from "./types";
 
 
 
-    totalTrades:number;
 
-
-    winningTrades:number;
-
-
-    losingTrades:number;
-
-
-
-    winRate:number;
-
-
-    profitFactor:number;
-
-
-
-    maximumDrawdown:number;
-
-
-
-    startTime:number;
-
-
-    endTime:number;
-
-}
 
 
 
 export interface BacktestReport {
 
 
+    title:string;
+
+
+    strategy:string;
+
+
+    pair:string;
+
+
+
+    summary:{
+
+
+        initialCapital:number;
+
+
+        finalCapital:number;
+
+
+        profitLoss:number;
+
+
+        returnPercent:number;
+
+
+    };
+
+
+
+    performance:BacktestMetrics;
+
+
+
+    trading:{
+
+
+        totalTrades:number;
+
+
+        winningTrades:number;
+
+
+        losingTrades:number;
+
+
+        averageTrade:number;
+
+
+    };
+
+
+
+    risk:{
+
+
+        maxDrawdown:number;
+
+
+        sharpeRatio:number;
+
+
+        riskLevel:string;
+
+
+    };
+
+
+
+    equityCurve:EquityPoint[];
+
+
+
     generatedAt:number;
 
 
-    summary:BacktestSummary;
-
-
-
-    status:
-
-        | "PASS"
-
-        | "FAIL";
-
-
-
-    notes:string[];
-
 }
+
+
+
+
+
+
 
 
 
@@ -109,25 +121,12 @@ export class BacktestReportGenerator {
 
 
 
+    
+
+
     generate(
 
-        data:{
-
-            symbol:string;
-
-            initialCapital:number;
-
-            finalCapital:number;
-
-            trades:BacktestTrade[];
-
-            maximumDrawdown:number;
-
-            startTime:number;
-
-            endTime:number;
-
-        }
+        result:BacktestResult
 
     ):BacktestReport {
 
@@ -135,376 +134,295 @@ export class BacktestReportGenerator {
 
         const trades =
 
-            data.trades;
+            result.trades;
 
 
 
-        const winners =
 
-            trades.filter(
 
-                trade =>
+        const averageTrade =
 
-                    trade.profit > 0
-
-            );
-
-
-
-        const losers =
-
-            trades.filter(
-
-                trade =>
-
-                    trade.profit < 0
-
-            );
-
-
-
-        const totalProfit =
-
-            winners.reduce(
-
-                (
-
-                    total,
-
-                    trade
-
-                ) =>
-
-                    total +
-
-                    trade.profit,
-
-                0
-
-            );
-
-
-
-        const totalLoss =
-
-            Math.abs(
-
-                losers.reduce(
-
-                    (
-
-                        total,
-
-                        trade
-
-                    ) =>
-
-                        total +
-
-                        trade.profit,
-
-                    0
-
-                )
-
-            );
-
-
-
-        const totalTrades =
-
-            trades.length;
-
-
-
-        const winRate =
-
-            totalTrades === 0
-
-                ?
-
-                0
-
-                :
-
-                (
-
-                    winners.length /
-
-                    totalTrades
-
-                )
-
-                *
-
-                100;
-
-
-
-        const profitFactor =
-
-            totalLoss === 0
-
-                ?
-
-                totalProfit
-
-                :
-
-                totalProfit /
-
-                totalLoss;
-
-
-
-        const totalReturn =
-
-            data.finalCapital -
-
-            data.initialCapital;
-
-
-
-        const totalReturnPercent =
-
-            data.initialCapital === 0
-
-                ?
-
-                0
-
-                :
-
-                (
-
-                    totalReturn /
-
-                    data.initialCapital
-
-                )
-
-                *
-
-                100;
-
-
-
-        const summary:BacktestSummary = {
-
-
-            symbol:
-
-                data.symbol,
-
-
-
-            initialCapital:
-
-                data.initialCapital,
-
-
-
-            finalCapital:
-
-                data.finalCapital,
-
-
-
-            totalReturn:
-
-
-
-                Number(
-
-                    totalReturn.toFixed(2)
-
-                ),
-
-
-
-            totalReturnPercent:
-
-
-
-                Number(
-
-                    totalReturnPercent.toFixed(2)
-
-                ),
-
-
-
-            totalTrades,
-
-
-
-            winningTrades:
-
-                winners.length,
-
-
-
-            losingTrades:
-
-                losers.length,
-
-
-
-            winRate:
-
-                Number(
-
-                    winRate.toFixed(2)
-
-                ),
-
-
-
-            profitFactor:
-
-                Number(
-
-                    profitFactor.toFixed(2)
-
-                ),
-
-
-
-            maximumDrawdown:
-
-                data.maximumDrawdown,
-
-
-
-            startTime:
-
-                data.startTime,
-
-
-
-            endTime:
-
-                data.endTime,
-
-        };
-
-
-
-        const notes:string[] = [];
-
-
-
-        if(
-
-            summary.totalReturnPercent > 0
-
-        ){
-
-            notes.push(
-
-                "Strategy generated positive return."
-
-            );
-
-        }
-
-        else {
-
-
-            notes.push(
-
-                "Strategy generated negative return."
-
-            );
-
-        }
-
-
-
-        if(
-
-            summary.maximumDrawdown < -20
-
-        ){
-
-            notes.push(
-
-                "High drawdown risk detected."
-
-            );
-
-        }
-
-
-
-        if(
-
-            summary.profitFactor >= 2
-
-        ){
-
-            notes.push(
-
-                "Profit factor indicates strong edge."
-
-            );
-
-        }
-
-
-
-        const status =
-
-            (
-
-                summary.totalReturnPercent > 0
-
-                &&
-
-                summary.profitFactor >= 1
-
-            )
+            trades.length > 0
 
             ?
 
-            "PASS"
+            result.profitLoss /
+
+            trades.length
 
             :
 
-            "FAIL";
+            0;
+
+
+
 
 
 
         return {
 
 
+            title:
+
+                "AURA Trade OS Backtest Report",
+
+
+
+            strategy:
+
+                result.strategy,
+
+
+
+            pair:
+
+                result.pair,
+
+
+
+            summary:{
+
+
+                initialCapital:
+
+                    result.initialCapital,
+
+
+
+                finalCapital:
+
+                    result.finalCapital,
+
+
+
+                profitLoss:
+
+                    result.profitLoss,
+
+
+
+                returnPercent:
+
+                    (
+
+                        result.profitLoss /
+
+                        result.initialCapital
+
+                    )
+
+                    *
+
+                    100
+
+
+
+            },
+
+
+
+            performance:
+
+                result.metrics,
+
+
+
+            trading:{
+
+
+                totalTrades:
+
+                    result.metrics.totalTrades,
+
+
+
+                winningTrades:
+
+                    result.metrics.winningTrades,
+
+
+
+                losingTrades:
+
+                    result.metrics.losingTrades,
+
+
+
+                averageTrade
+
+
+            },
+
+
+
+            risk:{
+
+
+                maxDrawdown:
+
+                    result.metrics.maxDrawdown,
+
+
+
+                sharpeRatio:
+
+                    result.metrics.sharpeRatio,
+
+
+
+                riskLevel:
+
+                    this.calculateRisk(
+
+                        result.metrics.maxDrawdown
+
+                    )
+
+
+            },
+
+
+
+            equityCurve:
+
+                result.equityCurve,
+
+
+
             generatedAt:
 
-                Date.now(),
+                Date.now()
 
 
-
-            summary,
-
-
-
-            status,
-
-
-
-            notes,
 
         };
 
+
     }
 
+
+
+
+
+
+
+
+
+    /**
+     * Determine risk category
+     */
+    private calculateRisk(
+
+        drawdown:number
+
+    ){
+
+
+
+        if(drawdown < 5)
+
+            return "LOW";
+
+
+
+        if(drawdown < 15)
+
+            return "MEDIUM";
+
+
+
+        return "HIGH";
+
+
+    }
+
+
+
+
+
+
+
+
+
+    /**
+     * Export simple text summary
+     */
+    summaryText(
+
+        report:BacktestReport
+
+    ){
+
+
+
+        return `
+
+AURA Trade OS BACKTEST REPORT
+
+Strategy :
+
+${report.strategy}
+
+
+Pair :
+
+${report.pair}
+
+
+Initial Capital :
+
+${report.summary.initialCapital}
+
+
+Final Capital :
+
+${report.summary.finalCapital}
+
+
+Profit/Loss :
+
+${report.summary.profitLoss}
+
+
+Return :
+
+${report.summary.returnPercent.toFixed(2)}%
+
+
+Win Rate :
+
+${report.performance.winRate}%
+
+
+Max Drawdown :
+
+${report.performance.maxDrawdown}%
+
+
+Risk :
+
+${report.risk.riskLevel}
+
+        `;
+
+
+    }
+
+
+
 }
+
+
+
+
 
 
 
 const backtestReport =
 
     new BacktestReportGenerator();
+
+
 
 
 
