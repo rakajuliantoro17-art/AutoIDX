@@ -2,31 +2,149 @@
 ==========================================================
 AURA Trade OS
 Strategy Engine
-Version : 0.1.1 Alpha
+Version : 0.1.0 Alpha
 ==========================================================
-Public Strategy Exports
+Public Strategy Service Exports
 ==========================================================
 */
+
+
 
 /*
 ==========================================================
-Core
+Core Engine
 ==========================================================
 */
 
-export * from "./types";
-export * from "./registry";
-export * from "./engine";
+
+export {
+
+    default as strategyEngine
+
+}
+
+from "./core/strategyEngine";
+
+
+
+export {
+
+    default as strategyEvaluator
+
+}
+
+from "./core/evaluator";
+
+
+
+
 
 /*
 ==========================================================
-Signals
+Strategy Manager
 ==========================================================
 */
 
-export * from "./signals/buySignal";
-export * from "./signals/sellSignal";
-export * from "./signals/neutralSignal";
+
+export {
+
+    default as strategyManager
+
+}
+
+from "./manager";
+
+
+
+
+
+/*
+==========================================================
+Strategy Types
+==========================================================
+*/
+
+
+export type {
+
+    StrategyDefinition,
+
+    StrategyDecision,
+
+    TradeAction
+
+}
+
+from "./core/strategyEngine";
+
+
+
+export type {
+
+    EvaluationRule,
+
+    EvaluationResult,
+
+    EvaluationStatus
+
+}
+
+from "./core/evaluator";
+
+
+
+export type {
+
+    StrategyMode,
+
+    StrategyManagerResult
+
+}
+
+from "./manager";
+
+
+
+
+
+/*
+==========================================================
+Strategies
+==========================================================
+*/
+
+
+export {
+
+    default as auraTrend
+
+}
+
+from "./strategies/auraTrend";
+
+
+
+export {
+
+    default as emaCrossover
+
+}
+
+from "./strategies/emaCrossover";
+
+
+
+export {
+
+    default as momentumStrategy
+
+}
+
+from "./strategies/momentum";
+
+
+
+
 
 /*
 ==========================================================
@@ -34,10 +152,38 @@ Rules
 ==========================================================
 */
 
-export * from "./rules/trendRule";
-export * from "./rules/momentumRule";
-export * from "./rules/volatilityRule";
-export * from "./rules/volumeRule";
+
+export {
+
+    default as entryRules
+
+}
+
+from "./rules/entryRules";
+
+
+
+export {
+
+    default as exitRules
+
+}
+
+from "./rules/exitRules";
+
+
+
+export {
+
+    default as filterRules
+
+}
+
+from "./rules/filterRules";
+
+
+
+
 
 /*
 ==========================================================
@@ -45,5 +191,13 @@ Scoring
 ==========================================================
 */
 
-export * from "./scoring/confidence";
-export * from "./scoring/scoreEngine";
+
+export {
+
+    default as strategyScore
+
+}
+
+from "./scoring/strategyScore";
+
+
