@@ -1,97 +1,168 @@
 /**
 ==========================================================
 AURA Trade OS
-Intelligence Layer
+Intelligence Layer Entry
 Version : 0.1.0 Alpha
 ==========================================================
 */
 
-/* ======================================================
- * Types
- * ====================================================== */
 
-export * from "./types";
-
-/* ======================================================
- * AI Engine
- * ====================================================== */
+/**
+==========================================================
+Core
+==========================================================
+*/
 
 export {
-  default as aiClient,
-} from "./ai/client";
+
+    default as intelligenceManager
+
+}
+
+from "./manager";
+
+
 
 export {
-  default as aiAnalyzer,
-} from "./ai/analyzer";
+
+    default as intelligenceRegistry
+
+}
+
+from "./registry";
+
+
+
+/**
+==========================================================
+Types
+==========================================================
+*/
+
+export type {
+
+    IntelligenceProvider,
+
+    IntelligenceCategory,
+
+    IntelligenceStatus,
+
+    IntelligenceSnapshot,
+
+    MarketSnapshot,
+
+    MarketTrend,
+
+    MarketVolatility,
+
+    LiquidityLevel,
+
+    PortfolioSnapshot,
+
+    PortfolioAsset,
+
+    SentimentSnapshot,
+
+    NewsSnapshot,
+
+    NewsItem,
+
+    OnChainSnapshot,
+
+    SocialSnapshot,
+
+    MarketFilterResult,
+
+    ProviderHealth,
+
+    IntelligenceHealthReport,
+
+    IntelligenceCacheEntry,
+
+}
+
+from "./types";
+
+
+
+/**
+==========================================================
+Aggregators
+==========================================================
+*/
 
 export {
-  default as aiConfidence,
-} from "./ai/confidence";
+
+    default as marketAggregator
+
+}
+
+from "./aggregators/marketAggregator";
+
+
 
 export {
-  default as aiExplanation,
-} from "./ai/explanation";
+
+    default as portfolioAggregator
+
+}
+
+from "./aggregators/portfolioAggregator";
+
+
 
 export {
-  default as aiPrompt,
-} from "./ai/prompt";
 
-/* ======================================================
- * Feature Engineering
- * ====================================================== */
+    default as sentimentAggregator
 
-export {
-  default as featureBuilder,
-} from "./features/builder";
+}
 
-export {
-  default as featureIndicators,
-} from "./features/indicators";
+from "./aggregators/sentimentAggregator";
 
-export {
-  default as featureNormalization,
-} from "./features/normalization";
+
+
+/**
+==========================================================
+Cache
+==========================================================
+*/
 
 export {
-  default as featureVector,
-} from "./features/vector";
 
-/* ======================================================
- * Market Context
- * ====================================================== */
+    default as intelligenceCache
 
-export {
-  default as marketContext,
-} from "./context/marketContext";
+}
 
-export {
-  default as marketTrend,
-} from "./context/trend";
+from "./cache/intelligenceCache";
 
-export {
-  default as marketMomentum,
-} from "./context/momentum";
+
+
+/**
+==========================================================
+Filters
+==========================================================
+*/
 
 export {
-  default as marketVolatility,
-} from "./context/volatility";
+
+    default as marketFilter
+
+}
+
+from "./filters/marketFilter";
+
+
+
+/**
+==========================================================
+Health
+==========================================================
+*/
 
 export {
-  default as marketLiquidity,
-} from "./context/liquidity";
 
-/* ======================================================
- * Decision Fusion
- * ====================================================== */
+    default as intelligenceHealth
 
-export {
-  default as decisionFusion,
-} from "./fusion/decision";
+}
 
-export {
-  default as decisionVoting,
-} from "./fusion/voting";
-
-export {
-  default as confidenceFusion,
-} from "./fusion/confidence";
+from "./health/health";
