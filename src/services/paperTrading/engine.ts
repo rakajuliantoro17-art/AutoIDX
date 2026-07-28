@@ -2,151 +2,450 @@
 ==========================================================
 AURA Trade OS
 Paper Trading Engine
-Version : 0.0.3 Alpha
+Version : 0.1.0 Alpha
 ==========================================================
 */
-import { BOT_CONFIG } from "@/config/bot";
-import { RISK_CONFIG } from "@/config/risk";
-import { TRADING_CONFIG } from "@/config/trading";
-import indodaxTickerService from "@/services/indodax/ticker";
-import {
-  getPaperPosition,
-  getOpenPaperPositions,
-  savePaperPosition,
-  getPaperPortfolio,
-  savePaperPortfolio,
-  logPaperTrade,
-} from "@/services/firebase/paperTradingStore";
-import { ScannedPairResult } from "@/services/scanner/types";
-import { PaperPosition } from "./types";
 
-const STARTING_BALANCE = Number(process.env.PAPER_STARTING_BALANCE ?? 1_000_000);
-const FEE_PERCENT = TRADING_CONFIG.feePercent;
 
-export async function runPaperTradingCycle(topOpportunities: ScannedPairResult[]) {
-  if (BOT_CONFIG.mode !== "paper") {
-    return { skipped: true, reason: "Bot mode bukan 'paper', paper engine tidak dijalankan" };
-  }
+import paperAccount, {
 
-  const portfolio = await getPaperPortfolio(STARTING_BALANCE);
-  const actions: string[] = [];
+    PaperTradingAccount
 
-  // --- 1. EXIT CHECK: berdasarkan posisi yang BENAR-BENAR terbuka, bukan hasil scan hari ini ---
-  const openPositions = await getOpenPaperPositions();
-  let openPositionsCount = openPositions.length;
+} from "./account";
 
-  for (const position of openPositions) {
-    const ticker = await indodaxTickerService.getFormattedTicker(position.pair);
-    if (!ticker) continue;
 
-    const currentPrice = ticker.lastPrice;
-    let exitReason: PaperPosition["lastExitReason"] | null = null;
 
-    if (currentPrice <= position.stopLossPrice) exitReason = "STOP_LOSS";
-    else if (currentPrice >= position.takeProfitPrice) exitReason = "TAKE_PROFIT";
+export type PaperSignal =
 
-    if (!exitReason) continue;
+    | "BUY"
 
-    const grossValue = position.coinAmount * currentPrice;
-    const feeIdr = grossValue * (FEE_PERCENT / 100);
-    const netValue = grossValue - feeIdr;
-    const pnlIdr = netValue - position.entryValue;
-    const pnlPercent = (pnlIdr / position.entryValue) * 100;
+    | "SELL"
 
-    portfolio.availableBalance += netValue;
+    | "HOLD";
 
-    await logPaperTrade({
-      pair: position.pair,
-      type: "SELL",
-      price: currentPrice,
-      coinAmount: position.coinAmount,
-      idrValue: netValue,
-      feeIdr,
-      pnlIdr,
-      pnlPercent,
-      reason: exitReason,
-      executedAt: Date.now(),
-    });
 
-    await savePaperPosition({
-      ...position,
-      inPosition: false,
-      entryPrice: 0,
-      coinAmount: 0,
-      entryValue: 0,
-      lastExitReason: exitReason,
-      lastClosedAt: Date.now(),
-    });
 
-    openPositionsCount--;
-    actions.push(
-      `[${position.pair}] CLOSED (${exitReason}) @ Rp${currentPrice.toLocaleString("id-ID")}, PnL: Rp${pnlIdr.toFixed(0)} (${pnlPercent.toFixed(2)}%)`
-    );
-  }
+export interface PaperTradeRequest {
 
-  // --- 2. ENTRY CHECK: dari top opportunities hasil scan, kalau slot masih tersedia ---
-  for (const opp of topOpportunities) {
-    if (openPositionsCount >= RISK_CONFIG.maxOpenPosition) break;
 
-    const isBuySignal = opp.signalRecommendation === "STRONG_BUY" || opp.signalRecommendation === "BUY";
-    if (!isBuySignal) continue;
+    symbol:string;
 
-    const position = await getPaperPosition(opp.pair);
-    if (position.inPosition) continue; // sudah ada posisi terbuka di pair ini
 
-    // Cooldown: cegah re-entry terlalu cepat setelah posisi di pair ini baru ditutup
-    if (position.lastClosedAt && Date.now() - position.lastClosedAt < RISK_CONFIG.cooldownSeconds * 1000) {
-      continue;
-    }
+    signal:PaperSignal;
 
-    // Sizing: dibatasi trade amount default, max trade amount, dan max exposure % dari saldo tersedia
-    const maxByExposure = portfolio.availableBalance * (RISK_CONFIG.maxExposurePercent / 100);
-    const tradeAmount = Math.min(BOT_CONFIG.defaultTradeAmount, BOT_CONFIG.maxTradeAmount, maxByExposure);
 
-    if (tradeAmount < TRADING_CONFIG.order.minimumAmount || tradeAmount > portfolio.availableBalance) {
-      continue; // saldo tidak cukup atau di bawah minimum order Indodax
-    }
+    quantity:number;
 
-    const entryPrice = opp.lastPrice;
-    const feeIdr = tradeAmount * (FEE_PERCENT / 100);
-    const netAmount = tradeAmount - feeIdr;
-    const coinAmount = netAmount / entryPrice;
 
-    portfolio.availableBalance -= tradeAmount;
+    price:number;
 
-    const newPosition: PaperPosition = {
-      pair: opp.pair,
-      inPosition: true,
-      entryPrice,
-      coinAmount,
-      entryValue: tradeAmount,
-      entryTime: Date.now(),
-      stopLossPrice: entryPrice * (1 - RISK_CONFIG.stopLossPercent / 100),
-      takeProfitPrice: entryPrice * (1 + RISK_CONFIG.targetProfitPercent / 100),
-      updatedAt: Date.now(),
-    };
 
-    await savePaperPosition(newPosition);
-    await logPaperTrade({
-      pair: opp.pair,
-      type: "BUY",
-      price: entryPrice,
-      coinAmount,
-      idrValue: tradeAmount,
-      feeIdr,
-      executedAt: Date.now(),
-    });
+    confidence:number;
 
-    openPositionsCount++;
-    actions.push(`[${opp.pair}] OPENED @ Rp${entryPrice.toLocaleString("id-ID")}, amount: Rp${tradeAmount.toFixed(0)}`);
-  }
 
-  // Estimasi equity kasar (belum full mark-to-market semua posisi terbuka)
-  const stillOpen = await getOpenPaperPositions();
-  const openValue = stillOpen.reduce((sum, p) => sum + p.entryValue, 0);
-  portfolio.equityIdr = portfolio.availableBalance + openValue;
+    timestamp?:number;
 
-  await savePaperPortfolio(portfolio);
-
-  return { skipped: false, portfolio, openPositionsCount, actions };
 }
+
+
+
+export interface PaperTradeResult {
+
+
+    success:boolean;
+
+
+    action:PaperSignal;
+
+
+    symbol:string;
+
+
+    quantity:number;
+
+
+    price:number;
+
+
+    message:string;
+
+
+    timestamp:number;
+
+}
+
+
+
+export interface PaperEngineConfig {
+
+
+    minimumConfidence:number;
+
+
+}
+
+
+
+export class PaperTradingEngine {
+
+
+
+    private account:
+
+        PaperTradingAccount;
+
+
+
+    private config:
+
+        PaperEngineConfig;
+
+
+
+    private history:
+
+        PaperTradeResult[];
+
+
+
+
+    constructor(
+
+        account?:PaperTradingAccount,
+
+        config?:Partial<PaperEngineConfig>
+
+    ){
+
+
+
+        this.account =
+
+            account ??
+
+            paperAccount;
+
+
+
+        this.config = {
+
+
+            minimumConfidence:
+
+                0.60,
+
+
+            ...config
+
+        };
+
+
+
+        this.history=[];
+
+    }
+
+
+
+
+
+    /**
+     * Execute trading signal
+     */
+    execute(
+
+        request:PaperTradeRequest
+
+    ):PaperTradeResult {
+
+
+
+        const timestamp =
+
+            request.timestamp ??
+
+            Date.now();
+
+
+
+        /**
+         * Confidence filter
+         */
+        if(
+
+            request.confidence <
+
+            this.config.minimumConfidence
+
+        ){
+
+
+            return this.record({
+
+                success:false,
+
+                action:
+
+                    "HOLD",
+
+                symbol:
+
+                    request.symbol,
+
+                quantity:0,
+
+                price:
+
+                    request.price,
+
+                message:
+
+                    "Confidence below threshold.",
+
+                timestamp
+
+            });
+
+        }
+
+
+
+
+
+        let success = false;
+
+
+
+        /**
+         * BUY
+         */
+        if(
+
+            request.signal === "BUY"
+
+        ){
+
+
+            success =
+
+                this.account.buy(
+
+                    request.symbol,
+
+                    request.quantity,
+
+                    request.price
+
+                );
+
+        }
+
+
+
+
+        /**
+         * SELL
+         */
+        if(
+
+            request.signal === "SELL"
+
+        ){
+
+
+            success =
+
+                this.account.sell(
+
+                    request.symbol,
+
+                    request.quantity,
+
+                    request.price
+
+                );
+
+        }
+
+
+
+
+
+        /**
+         * HOLD
+         */
+        if(
+
+            request.signal === "HOLD"
+
+        ){
+
+
+            return this.record({
+
+                success:true,
+
+                action:"HOLD",
+
+                symbol:
+
+                    request.symbol,
+
+                quantity:0,
+
+                price:
+
+                    request.price,
+
+                message:
+
+                    "No trade executed.",
+
+                timestamp
+
+            });
+
+        }
+
+
+
+
+        return this.record({
+
+            success,
+
+            action:
+
+                request.signal,
+
+            symbol:
+
+                request.symbol,
+
+            quantity:
+
+                success
+
+                    ?
+
+                    request.quantity
+
+                    :
+
+                    0,
+
+            price:
+
+                request.price,
+
+            message:
+
+                success
+
+                    ?
+
+                    "Paper trade executed."
+
+                    :
+
+                    "Trade rejected.",
+
+            timestamp
+
+        });
+
+    }
+
+
+
+
+
+    /**
+     * Current account state
+     */
+    getAccount(){
+
+        return {
+
+            cash:
+
+                this.account.getCash(),
+
+
+            assets:
+
+                this.account.getAssets()
+
+        };
+
+    }
+
+
+
+
+
+    /**
+     * Trade history
+     */
+    getHistory():
+
+        PaperTradeResult[] {
+
+
+        return [
+
+            ...this.history
+
+        ];
+
+    }
+
+
+
+
+
+    /**
+     * Reset engine
+     */
+    reset(){
+
+        this.account.reset();
+
+        this.history=[];
+
+    }
+
+
+
+
+
+    private record(
+
+        trade:PaperTradeResult
+
+    ){
+
+
+        this.history.push(
+
+            trade
+
+        );
+
+
+        return trade;
+
+    }
+
+
+}
+
+
+
+const paperTradingEngine =
+
+    new PaperTradingEngine();
+
+
+
+export default paperTradingEngine;
