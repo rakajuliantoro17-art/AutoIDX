@@ -2,153 +2,250 @@
 ==========================================================
 AURA Trade OS
 Execution Engine
-Version : 0.1.0 Alpha
+Version : 0.2.0 Alpha
 ==========================================================
 */
 
-export type ExecutionSide =
+import type {
 
-  | "BUY"
+    ExecutionRequest,
+    ExecutionResult,
+    ExecutionAdapter,
+    ExecutionContext,
 
-  | "SELL";
+} from "./types";
 
-export type ExecutionStatus =
 
-  | "PENDING"
 
-  | "FILLED"
+export interface ExecutionEngineOptions {
 
-  | "REJECTED"
+    adapter: ExecutionAdapter;
 
-  | "FAILED";
-
-export interface ExecutionRequest {
-
-  symbol:string;
-
-  side:ExecutionSide;
-
-  quantity:number;
-
-  price?:number;
-
-  market:boolean;
-
-  confidence:number;
+    minimumConfidence?: number;
 
 }
 
-export interface ExecutionResult {
 
-  success:boolean;
-
-  orderId:string;
-
-  status:ExecutionStatus;
-
-  executedPrice:number|null;
-
-  executedQuantity:number;
-
-  timestamp:Date;
-
-  message:string;
-
-}
 
 export class ExecutionEngine {
 
-  async execute(
+    private readonly adapter: ExecutionAdapter;
 
-    request:ExecutionRequest
+    private readonly minimumConfidence: number;
 
-  ):Promise<ExecutionResult>{
 
-    /**
-     * Safety Validation
-     */
 
-    if(request.quantity<=0){
+    constructor(
 
-      throw new Error(
+        options: ExecutionEngineOptions
 
-        "Invalid quantity."
+    ) {
 
-      );
+        this.adapter = options.adapter;
 
-    }
+        this.minimumConfidence =
 
-    if(
-
-      request.confidence<0.60
-
-    ){
-
-      return{
-
-        success:false,
-
-        orderId:"",
-
-        status:"REJECTED",
-
-        executedPrice:null,
-
-        executedQuantity:0,
-
-        timestamp:new Date(),
-
-        message:
-
-        "Confidence below execution threshold."
-
-      };
+            options.minimumConfidence ?? 0.60;
 
     }
 
+
+
     /**
-     * Phase Alpha
-     *
-     * Placeholder.
-     *
-     * Exchange adapter akan
-     * diintegrasikan pada fase berikutnya.
+     * Execute trading request.
      */
+    async execute(
 
-    const orderId=
+        request: ExecutionRequest,
 
-      `ORD-${Date.now()}`;
+        context: ExecutionContext
 
-    return{
+    ): Promise<ExecutionResult> {
 
-      success:true,
 
-      orderId,
+        /*
+        ==========================================
+        Basic Validation
+        ==========================================
+        */
 
-      status:"FILLED",
+        if (
 
-      executedPrice:
+            request.quantity <= 0
 
-        request.price ?? null,
+        ) {
 
-      executedQuantity:
+            throw new Error(
 
-        request.quantity,
+                "Quantity must be greater than zero."
 
-      timestamp:new Date(),
+            );
 
-      message:
+        }
 
-        "Paper execution completed."
 
-    };
 
-  }
+        if (
+
+            request.confidence <
+
+            this.minimumConfidence
+
+        ) {
+
+            return {
+
+                success: false,
+
+                orderId: null,
+
+                status: "REJECTED",
+
+                executedPrice: null,
+
+                executedQuantity: 0,
+
+                timestamp: Date.now(),
+
+                latency: 0,
+
+                exchange: context.exchange,
+
+                mode: context.mode,
+
+                message:
+
+                    "Confidence below execution threshold.",
+
+            };
+
+        }
+
+
+
+        /*
+        ==========================================
+        HOLD
+
+        Nothing to execute.
+        ==========================================
+        */
+
+        if (
+
+            request.strategy?.signal === "HOLD"
+
+        ) {
+
+            return {
+
+                success: true,
+
+                orderId: null,
+
+                status: "REJECTED",
+
+                executedPrice: null,
+
+                executedQuantity: 0,
+
+                timestamp: Date.now(),
+
+                latency: 0,
+
+                exchange: context.exchange,
+
+                mode: context.mode,
+
+                message:
+
+                    "Strategy returned HOLD.",
+
+            };
+
+        }
+
+
+
+        /*
+        ==========================================
+        Delegate execution
+        to adapter.
+        ==========================================
+        */
+
+        const start =
+
+            performance.now();
+
+
+
+        const result =
+
+            await this.adapter.execute(
+
+                request,
+
+                context
+
+            );
+
+
+
+        const latency =
+
+            performance.now() -
+
+            start;
+
+
+
+        return {
+
+            ...result,
+
+            latency,
+
+        };
+
+    }
+
+
+
+    /**
+     * Cancel order.
+     */
+    async cancel(
+
+        orderId: string
+
+    ): Promise<boolean> {
+
+        return this.adapter.cancel(
+
+            orderId
+
+        );
+
+    }
+
+
+
+    /**
+     * Get order status.
+     */
+    async status(
+
+        orderId: string
+
+    ) {
+
+        return this.adapter.status(
+
+            orderId
+
+        );
+
+    }
 
 }
-
-const executionEngine=
-
-new ExecutionEngine();
-
-export default executionEngine;
