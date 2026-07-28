@@ -1,26 +1,33 @@
 /**
 ==========================================================
 AURA Trade OS
-Strategy Types
-Version : 0.1.1 Alpha
+Strategy Engine Types
+Version : 0.1.0 Alpha
+==========================================================
+Central Strategy Data Contracts
 ==========================================================
 */
 
+
 import type {
 
-    MarketSnapshot,
+    IndicatorFeatureVector
 
-} from "@/services/market";
+}
+
+from "@/services/indicators";
+
 
 
 
 /*
 ==========================================================
-Signal
+Trading Action
 ==========================================================
 */
 
-export type StrategySignal =
+
+export type StrategyAction =
 
     | "BUY"
 
@@ -30,107 +37,47 @@ export type StrategySignal =
 
 
 
-/*
-==========================================================
-Market Bias
-==========================================================
-*/
-
-export type MarketBias =
-
-    | "BULLISH"
-
-    | "BEARISH"
-
-    | "SIDEWAYS";
 
 
 
 /*
 ==========================================================
-Risk Level
+Strategy Mode
 ==========================================================
 */
 
-export type RiskLevel =
 
-    | "LOW"
+export type StrategyMode =
 
-    | "MEDIUM"
+    | "CONSERVATIVE"
 
-    | "HIGH";
+    | "BALANCED"
+
+    | "AGGRESSIVE";
+
+
+
 
 
 
 /*
 ==========================================================
-Confidence
+Strategy Status
 ==========================================================
 */
 
-export type ConfidenceLevel =
 
-    | "VERY_LOW"
+export type StrategyStatus =
 
-    | "LOW"
+    | "ACTIVE"
 
-    | "MEDIUM"
+    | "INACTIVE"
 
-    | "HIGH"
-
-    | "VERY_HIGH";
+    | "DISABLED";
 
 
 
-/*
-==========================================================
-Indicator Values
-==========================================================
-*/
 
-export interface StrategyIndicators {
-
-    ema?: number;
-
-    sma?: number;
-
-    macd?: number;
-
-    macdSignal?: number;
-
-    histogram?: number;
-
-    rsi?: number;
-
-    atr?: number;
-
-    bollingerUpper?: number;
-
-    bollingerMiddle?: number;
-
-    bollingerLower?: number;
-
-    obv?: number;
-
-}
-
-
-
-/*
-==========================================================
-Rule Result
-==========================================================
-*/
-
-export interface RuleResult {
-
-    passed: boolean;
-
-    score: number;
-
-    reason: string;
-
-}
 
 
 
@@ -140,13 +87,107 @@ Strategy Context
 ==========================================================
 */
 
+
 export interface StrategyContext {
 
-    snapshot: MarketSnapshot;
 
-    indicators: StrategyIndicators;
+    pair:string;
+
+
+    features:IndicatorFeatureVector;
+
+
+
+    mode:StrategyMode;
+
+
+
+    position:
+
+        | "NONE"
+
+        | "LONG";
+
+
+
+    balance:number;
+
+
+
+    timestamp:number;
+
 
 }
+
+
+
+
+
+
+
+/*
+==========================================================
+Strategy Rule Result
+==========================================================
+*/
+
+
+export interface StrategyRuleResult {
+
+
+    passed:boolean;
+
+
+    rule:string;
+
+
+    weight:number;
+
+
+    message:string;
+
+
+}
+
+
+
+
+
+
+
+
+/*
+==========================================================
+Strategy Evaluation
+==========================================================
+*/
+
+
+export interface StrategyEvaluation {
+
+
+    score:number;
+
+
+    confidence:number;
+
+
+    rules:StrategyRuleResult[];
+
+
+
+    reasons:string[];
+
+
+
+    timestamp:number;
+
+
+}
+
+
+
+
 
 
 
@@ -156,66 +197,206 @@ Strategy Decision
 ==========================================================
 */
 
+
 export interface StrategyDecision {
 
-    signal: StrategySignal;
 
-    bias: MarketBias;
+    pair:string;
 
-    confidence: number;
 
-    confidenceLevel: ConfidenceLevel;
 
-    score: number;
+    strategy:string;
 
-    risk: RiskLevel;
 
-    reasons: string[];
 
-    timestamp: number;
+    action:StrategyAction;
+
+
+
+    confidence:number;
+
+
+
+    score:number;
+
+
+
+    reasons:string[];
+
+
+
+    riskLevel:
+
+        | "LOW"
+
+        | "MEDIUM"
+
+        | "HIGH";
+
+
+
+    timestamp:number;
+
 
 }
 
 
 
+
+
+
+
 /*
 ==========================================================
-Strategy Rule
+Strategy Definition
 ==========================================================
 */
 
-export interface StrategyRule {
 
-    readonly name: string;
+export interface StrategyDefinition {
 
-    evaluate(
 
-        context: StrategyContext
+    name:string;
 
-    ): RuleResult;
+
+
+    description:string;
+
+
+
+    version:string;
+
+
+
+    status:StrategyStatus;
+
+
+
+    execute:
+
+    (
+
+        context:StrategyContext
+
+    )=>StrategyDecision;
+
+
 
 }
 
 
 
+
+
+
+
+
 /*
 ==========================================================
-Strategy
+Strategy Configuration
 ==========================================================
 */
 
-export interface Strategy {
 
-    readonly id: string;
+export interface StrategyConfig {
 
-    readonly name: string;
 
-    readonly version: string;
+    activeStrategy:string;
 
-    evaluate(
 
-        context: StrategyContext
 
-    ): StrategyDecision;
+    mode:StrategyMode;
+
+
+
+    minimumConfidence:number;
+
+
+
+    allowTrading:boolean;
+
+
+}
+
+
+
+
+
+
+
+/*
+==========================================================
+Strategy Performance
+==========================================================
+*/
+
+
+export interface StrategyPerformance {
+
+
+    strategy:string;
+
+
+
+    totalTrades:number;
+
+
+
+    winningTrades:number;
+
+
+
+    losingTrades:number;
+
+
+
+    winRate:number;
+
+
+
+    profitLoss:number;
+
+
+
+    maxDrawdown:number;
+
+
+
+    timestamp:number;
+
+
+}
+
+
+
+
+
+
+
+/*
+==========================================================
+Strategy Registry Item
+==========================================================
+*/
+
+
+export interface StrategyRegistryItem {
+
+
+    name:string;
+
+
+    description:string;
+
+
+    version:string;
+
+
+
+    status:StrategyStatus;
+
+
+    strategy:StrategyDefinition;
+
 
 }
