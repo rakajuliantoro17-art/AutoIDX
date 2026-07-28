@@ -1,240 +1,385 @@
 /**
 ==========================================================
 AURA Trade OS
-Confidence Engine
-Version : 0.1.1 Alpha
+Strategy Confidence Engine
+Version : 0.1.0 Alpha
+==========================================================
+Final Decision Confidence Calculation
 ==========================================================
 */
 
-import type {
 
-    ConfidenceLevel,
-    RuleResult,
+import {
 
-} from "../types";
+    EvaluationResult
+
+}
+
+from "../core/evaluator";
+
+
+
+import {
+
+    StrategyScoreResult
+
+}
+
+from "./strategyScore";
+
+
+
+
 
 
 
 export interface ConfidenceResult {
 
-    confidence: number;
 
-    level: ConfidenceLevel;
+    confidence:number;
 
-    agreement: number;
 
-    activeRules: number;
+    level:
+
+        | "VERY_HIGH"
+
+        | "HIGH"
+
+        | "MEDIUM"
+
+        | "LOW"
+
+        | "VERY_LOW";
+
+
+
+    components:{
+
+
+        strategyScore:number;
+
+
+        ruleScore:number;
+
+
+        marketScore:number;
+
+
+        agreementScore:number;
+
+
+    };
+
+
+
+    explanation:string[];
+
+
+    timestamp:number;
+
 
 }
+
+
+
+
+
+
 
 
 
 export class ConfidenceEngine {
 
 
-    /**
-     * Calculate confidence from rule results.
-     */
-    static calculate(
-
-        results: readonly RuleResult[]
-
-    ): ConfidenceResult {
-
-
-        if (
-
-            results.length === 0
-
-        ) {
-
-            return {
-
-                confidence: 0,
-
-                level: "VERY_LOW",
-
-                agreement: 0,
-
-                activeRules: 0,
-
-            };
-
-        }
 
 
 
-        const activeRules =
+    calculate(
 
-            results.length;
+        strategy:StrategyScoreResult,
 
+        evaluation:EvaluationResult,
 
+        marketScore:number = 1,
 
-        const positiveRules =
+        agreementScore:number = 1
 
-            results.filter(
-
-                rule => rule.passed
-
-            ).length;
+    ):ConfidenceResult {
 
 
 
-        const agreement =
 
-            (
 
-                positiveRules /
+        const strategyScore =
 
-                activeRules
-
-            )
-
-            * 100;
+            strategy.score;
 
 
 
-        const totalScore =
 
-            results.reduce(
 
-                (
+        const ruleScore =
 
-                    total,
-
-                    rule
-
-                ) =>
-
-                    total + rule.score,
-
-                0
-
-            );
+            evaluation.score;
 
 
 
-        const maxScore =
 
-            activeRules * 5;
 
 
 
         const confidence =
 
-            Math.max(
+            (
 
-                0,
+                strategyScore * 0.40
 
-                Math.min(
+                +
 
-                    100,
+                ruleScore * 0.30
 
-                    (
+                +
 
-                        Math.abs(
+                marketScore * 0.20
 
-                            totalScore
+                +
 
-                        )
-
-                        /
-
-                        maxScore
-
-                    )
-
-                    * 100
-
-                )
+                agreementScore * 0.10
 
             );
 
 
 
+
+
+
+
+
         return {
 
-            confidence,
+
+            confidence:
+
+                Number(
+
+                    confidence.toFixed(2)
+
+                ),
+
+
 
             level:
 
-                this.toLevel(
+                this.getLevel(
 
                     confidence
 
                 ),
 
-            agreement,
 
-            activeRules,
+
+            components:{
+
+
+                strategyScore,
+
+
+                ruleScore,
+
+
+                marketScore,
+
+
+                agreementScore
+
+
+            },
+
+
+
+            explanation:
+
+                this.generateExplanation(
+
+                    confidence,
+
+                    strategyScore,
+
+                    ruleScore
+
+                ),
+
+
+
+            timestamp:
+
+                Date.now()
+
 
         };
+
 
     }
 
 
 
-    /**
-     * Convert percentage
-     * to confidence level.
-     */
-    private static toLevel(
-
-        confidence: number
-
-    ): ConfidenceLevel {
 
 
-        if (
 
-            confidence >= 90
 
-        ) {
+    private getLevel(
+
+        confidence:number
+
+    ){
+
+
+
+        if(confidence >=0.85)
 
             return "VERY_HIGH";
 
-        }
 
 
-
-        if (
-
-            confidence >= 75
-
-        ) {
+        if(confidence >=0.70)
 
             return "HIGH";
 
-        }
 
 
-
-        if (
-
-            confidence >= 50
-
-        ) {
+        if(confidence >=0.55)
 
             return "MEDIUM";
 
-        }
 
 
-
-        if (
-
-            confidence >= 25
-
-        ) {
+        if(confidence >=0.40)
 
             return "LOW";
-
-        }
 
 
 
         return "VERY_LOW";
 
+
     }
 
+
+
+
+
+
+
+
+    private generateExplanation(
+
+        confidence:number,
+
+        strategyScore:number,
+
+        ruleScore:number
+
+    ){
+
+
+
+        const result:string[]=[];
+
+
+
+        if(strategyScore>=0.70){
+
+
+            result.push(
+
+                "Strong strategy quality"
+
+            );
+
+
+        }
+
+        else{
+
+
+            result.push(
+
+                "Weak strategy setup"
+
+            );
+
+
+        }
+
+
+
+
+
+
+        if(ruleScore>=0.75){
+
+
+            result.push(
+
+                "Trading rules strongly confirmed"
+
+            );
+
+
+        }
+
+        else{
+
+
+            result.push(
+
+                "Rules confirmation insufficient"
+
+            );
+
+
+        }
+
+
+
+
+
+
+        if(confidence>=0.85){
+
+
+            result.push(
+
+                "High confidence trade opportunity"
+
+            );
+
+
+        }
+
+
+
+        return result;
+
+
+    }
+
+
+
 }
+
+
+
+
+
+
+
+const confidenceEngine =
+
+    new ConfidenceEngine();
+
+
+
+
+
+export default confidenceEngine;
