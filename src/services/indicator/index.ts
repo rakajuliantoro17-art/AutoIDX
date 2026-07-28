@@ -21,13 +21,25 @@ export * from "./types";
 
 /*
 ==========================================================
+Core Engine
+==========================================================
+*/
+
+export * from "./manager";
+
+export * from "./registry";
+
+
+
+/*
+==========================================================
 Momentum Indicators
 ==========================================================
 */
 
-export * from "./momentum/macd";
-
 export * from "./momentum/rsi";
+
+export * from "./momentum/stochastic";
 
 
 
@@ -40,6 +52,10 @@ Trend Indicators
 export * from "./trend/ema";
 
 export * from "./trend/sma";
+
+export * from "./trend/macd";
+
+export * from "./trend/adx";
 
 
 
@@ -62,3 +78,15 @@ Volume Indicators
 */
 
 export * from "./volume/obv";
+
+
+
+/*
+==========================================================
+Signal Engine
+==========================================================
+*/
+
+export * from "./signal/signalGenerator";
+
+export * from "./signal/signalFusion";
