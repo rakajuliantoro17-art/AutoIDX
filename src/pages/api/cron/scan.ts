@@ -1,8 +1,8 @@
 /**
 ==========================================================
 AURA Trade OS
-Cron: Market Scanner + Paper Trading Trigger
-Version : 0.0.4 Alpha
+Cron: Market Scanner + Trading Engine Trigger
+Version : 0.0.5 Alpha
 Dipanggil setiap 5 menit oleh GitHub Actions scheduler.
 ==========================================================
 */
@@ -10,7 +10,7 @@ Dipanggil setiap 5 menit oleh GitHub Actions scheduler.
 import type { NextApiRequest, NextApiResponse } from "next";
 import marketScanner from "@/services/scanner";
 import { adminDb } from "@/services/firebase/admin";
-import paperTradingEngine from "@/services/paperTrading/engine";
+import TradingEngine from "@/services/trading/engine";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
@@ -48,17 +48,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `[CRON] Scan selesai: ${summary.qualifiedCount}/${summary.scannedCount} pair qualified`
     );
 
-    // 3. Jalankan paper trading cycle berdasarkan hasil scan
-    const paperResult = paperTradingEngine.runCycle(summary.topOpportunities);
+    // 3. Jalankan Trading Engine untuk tiap pair hasil scan
+    // (menulis bot state & log ke Firestore, dibaca dashboard)
+    const tradingResults = [];
 
-    console.log("[CRON] Paper trading:", paperResult);
+    for (const opportunity of summary.topOpportunities) {
+      const result = await TradingEngine.run({
+        pair: opportunity.pair,
+        price: opportunity.lastPrice,
+        rsi: opportunity.rsi14,
+        emaFast: opportunity.emaFast,
+        emaSlow: opportunity.emaSlow,
+      });
+      tradingResults.push(result);
+    }
+
+    console.log("[CRON] Trading engine:", tradingResults);
 
     // 4. Response akhir
     return res.status(200).json({
       success: true,
       executedAt: new Date().toISOString(),
       summary,
-      paperTrading: paperResult,
+      trading: tradingResults,
     });
 
   } catch (error) {
