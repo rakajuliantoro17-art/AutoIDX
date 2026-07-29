@@ -9,7 +9,7 @@ Dipanggil setiap 5 menit oleh GitHub Actions scheduler.
 import type { NextApiRequest, NextApiResponse } from "next";
 import marketScanner from "@/services/scanner";
 import { adminDb } from "@/services/firebase/admin";
-import { runPaperTradingCycle } from "@/services/paperTrading/engine";
+import runPaperTradingCycle from "@/services/paperTrading/engine";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Proteksi: cuma request dengan secret yang benar yang diproses
