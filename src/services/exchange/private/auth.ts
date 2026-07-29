@@ -2,61 +2,46 @@
 ==========================================================
 AURA Trade OS
 Private Authentication Service
-Version : 0.1.1 Alpha
+Version : 0.1.2 Alpha
 ==========================================================
 */
 
-import type { ExchangeAdapter } from "../adapters/base";
+import type { IExchangeAdapter } from "../adapters/base";
 
 export interface ExchangeCredential {
-
   exchange: string;
-
   apiKey: string;
-
   apiSecret: string;
-
   passphrase?: string;
-
 }
 
 export class AuthenticationService {
 
   constructor(
-
-    private readonly adapter: ExchangeAdapter
-
+    private readonly adapter: IExchangeAdapter
   ) {}
 
   /**
    * Validate current API credential.
    */
   async validate(): Promise<boolean> {
-
     return this.adapter.validateCredential();
-
   }
 
   /**
    * Returns authenticated account id.
    */
   async accountId(): Promise<string> {
-
     const account =
-
       await this.adapter.getAccount();
-
     return account.id;
-
   }
 
   /**
    * Returns current exchange id.
    */
   exchange(): string {
-
     return this.adapter.id;
-
   }
 
   /**
@@ -64,9 +49,7 @@ export class AuthenticationService {
    * has been authenticated.
    */
   async isAuthenticated(): Promise<boolean> {
-
     return this.validate();
-
   }
 
 }
