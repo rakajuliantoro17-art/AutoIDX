@@ -2,16 +2,18 @@
 ==========================================================
 AURA Trade OS
 Cron: Market Scanner + Paper Trading Trigger
-Version : 0.0.3 Alpha
+Version : 0.0.4 Alpha
 Dipanggil setiap 5 menit oleh GitHub Actions scheduler.
 ==========================================================
 */
+
 import type { NextApiRequest, NextApiResponse } from "next";
 import marketScanner from "@/services/scanner";
 import { adminDb } from "@/services/firebase/admin";
-import runPaperTradingCycle from "@/services/paperTrading/engine";
+import paperTradingEngine from "@/services/paperTrading/engine";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+
   // Proteksi: cuma request dengan secret yang benar yang diproses
   const authHeader = req.headers.authorization;
   const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
@@ -27,6 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const startedAt = Date.now();
 
   try {
+
     // 1. Jalankan market scanner
     const summary = await marketScanner.scanMarket();
 
@@ -46,7 +49,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
 
     // 3. Jalankan paper trading cycle berdasarkan hasil scan
-    const paperResult = await runPaperTradingCycle(summary.topOpportunities);
+    const paperResult = paperTradingEngine.runCycle(summary.topOpportunities);
+
     console.log("[CRON] Paper trading:", paperResult);
 
     // 4. Response akhir
@@ -56,8 +60,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       summary,
       paperTrading: paperResult,
     });
+
   } catch (error) {
     console.error("[CRON SCAN ERROR]", error);
     return res.status(500).json({ error: "Scan failed" });
   }
+
 }
