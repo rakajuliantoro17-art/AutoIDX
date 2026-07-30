@@ -12,7 +12,7 @@ import orderBookCache from "./orderBookCache";
 
 import type { Pair } from "../models/pair";
 import type { Ticker } from "../models/ticker";
-import type { OrderBook } from "../models/order";
+import type { OrderBook } from "../public/orderBook";
 
 export interface MarketSnapshot {
 
