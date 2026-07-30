@@ -300,59 +300,25 @@ export class BacktestRunner {
      * Update progress
      */
     private updateState(
-
         index:number,
-
         timestamp:number,
-
         total:number
-
     ){
-
-
-
         this.state.currentIndex =
-
             index + 1;
-
-
-
         this.state.currentTime =
-
             timestamp;
-
-
-
         this.state.progress =
-
             Number(
-
                 (
-
                     (
-
-                        index + 1
-
+                        (index + 1)
+                        /
+                        total
                     )
-
-                    /
-
-                    total
-
-                )
-
-                *
-
-                100
-
-            )
-
-            .toFixed(2)
-
-            as unknown as number;
-
-
-
+                    * 100
+                ).toFixed(2)
+            );
     }
 
 
