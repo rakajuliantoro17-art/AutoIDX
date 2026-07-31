@@ -29,7 +29,7 @@ export interface EnvironmentConfig {
   GEMINI_API_KEY?: string;
 
   INDODAX_API_KEY?: string;
-  INDODAX_SECRET?: string;
+  INDODAX_SECRET_KEY?: string;
 }
 
 export class EnvValidator {
@@ -89,8 +89,8 @@ export class EnvValidator {
       INDODAX_API_KEY:
         process.env.INDODAX_API_KEY,
 
-      INDODAX_SECRET:
-        process.env.INDODAX_SECRET,
+      INDODAX_SECRET_KEY:
+        process.env.INDODAX_SECRET_KEY,
 
     };
 
@@ -107,7 +107,7 @@ export class EnvValidator {
 
     if (
       !env.INDODAX_API_KEY ||
-      !env.INDODAX_SECRET
+      !env.INDODAX_SECRET_KEY
     ) {
       console.warn(
         "[EnvValidator] Indodax Private API belum dikonfigurasi."
