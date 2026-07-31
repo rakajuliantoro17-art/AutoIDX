@@ -141,7 +141,7 @@ export class PaperTradingSimulator {
 
                     "REJECTED",
 
-                executedPrice:null,
+                executedPrice:undefined,
 
                 executedQuantity:0,
 
