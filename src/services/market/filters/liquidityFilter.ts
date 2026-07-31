@@ -64,9 +64,9 @@ export class LiquidityFilter {
 
             orderBook.bids.reduce(
 
-                (sum, [, volume]) =>
+                (sum, level) =>
 
-                    sum + volume,
+                    sum + level.quantity,
 
                 0
 
@@ -76,9 +76,9 @@ export class LiquidityFilter {
 
             orderBook.asks.reduce(
 
-                (sum, [, volume]) =>
+                (sum, level) =>
 
-                    sum + volume,
+                    sum + level.quantity,
 
                 0
 
@@ -108,7 +108,7 @@ export class LiquidityFilter {
 
             options.minimumBidVolume !== undefined &&
 
-            bidLiquidity <
+            bidLiquidity 
 
             options.minimumBidVolume
 
@@ -138,7 +138,7 @@ export class LiquidityFilter {
 
             options.minimumAskVolume !== undefined &&
 
-            askLiquidity <
+            askLiquidity 
 
             options.minimumAskVolume
 
@@ -168,7 +168,7 @@ export class LiquidityFilter {
 
             options.minimumTotalLiquidity !== undefined &&
 
-            totalLiquidity <
+            totalLiquidity 
 
             options.minimumTotalLiquidity
 
