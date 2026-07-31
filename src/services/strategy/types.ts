@@ -77,6 +77,37 @@ export type StrategyStatus =
 
 
 
+export type RiskLevel =
+
+    | "LOW"
+
+    | "MEDIUM"
+
+    | "HIGH";
+
+
+export type ConfidenceLevel =
+
+    | "VERY_HIGH"
+
+    | "HIGH"
+
+    | "MEDIUM"
+
+    | "LOW"
+
+    | "VERY_LOW";
+
+
+export type MarketBias =
+
+    | "BULLISH"
+
+    | "BEARISH"
+
+    | "SIDEWAYS";
+
+
 
 
 
@@ -88,6 +119,51 @@ Strategy Context
 */
 
 
+export interface RuleContextIndicators {
+
+
+    macd:number;
+
+
+    histogram:number;
+
+
+    rsi:number;
+
+
+    ema:number;
+
+
+    sma:number;
+
+
+    atr:number;
+
+
+    bollingerUpper:number;
+
+
+    bollingerMiddle:number;
+
+
+    bollingerLower:number;
+
+
+    obv:number;
+
+}
+
+
+
+export interface RuleContextSnapshot {
+
+
+    close:number;
+
+}
+
+
+
 export interface StrategyContext {
 
 
@@ -95,6 +171,16 @@ export interface StrategyContext {
 
 
     features:IndicatorFeatureVector;
+
+
+    /**
+     * Bentuk indikator khusus dipakai services/strategy/rules/*.ts
+     * (sistem terpisah, belum tersambung ke evaluator/engine utama).
+     */
+    indicators:RuleContextIndicators;
+
+
+    snapshot:RuleContextSnapshot;
 
 
 
@@ -116,6 +202,44 @@ export interface StrategyContext {
 
     timestamp:number;
 
+
+}
+
+
+
+/*
+==========================================================
+Strategy Rule (services/strategy/rules/*.ts)
+==========================================================
+*/
+
+
+export interface RuleResult {
+
+
+    passed:boolean;
+
+
+    score:number;
+
+
+    reason:string;
+
+}
+
+
+
+export interface StrategyRule {
+
+
+    readonly name:string;
+
+
+    evaluate(
+
+        context:StrategyContext
+
+    ):RuleResult;
 
 }
 
@@ -188,9 +312,6 @@ export interface StrategyEvaluation {
 
 
 
-
-
-
 /*
 ==========================================================
 Strategy Decision
@@ -225,13 +346,7 @@ export interface StrategyDecision {
 
 
 
-    riskLevel:
-
-        | "LOW"
-
-        | "MEDIUM"
-
-        | "HIGH";
+    riskLevel:RiskLevel;
 
 
 
@@ -239,9 +354,6 @@ export interface StrategyDecision {
 
 
 }
-
-
-
 
 
 
@@ -281,12 +393,7 @@ export interface StrategyDefinition {
     )=>StrategyDecision;
 
 
-
 }
-
-
-
-
 
 
 
@@ -317,9 +424,6 @@ export interface StrategyConfig {
 
 
 }
-
-
-
 
 
 
@@ -366,9 +470,6 @@ export interface StrategyPerformance {
 
 
 }
-
-
-
 
 
 
