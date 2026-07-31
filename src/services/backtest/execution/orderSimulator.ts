@@ -9,7 +9,7 @@ Virtual Market Order Execution
 */
 
 import type {
-    TradeAction as StrategyAction
+    StrategyAction
 }
 from "@/services/strategy";
 
