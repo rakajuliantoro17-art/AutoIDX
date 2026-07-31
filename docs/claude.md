@@ -2,7 +2,7 @@
 
 **Project:** AURA Trade OS
 
-**Version:** 0.1.0 Alpha
+**Version:** 0.1.2 Alpha
 
 ---
 
@@ -158,6 +158,8 @@ types.ts
 
 Jangan mendefinisikan ulang interface yang sama di banyak file.
 
+**Kalau sebuah tipe (mis. `OrderSide`, `PositionSide`) sudah ada di `types.ts` folder tersebut, file lain WAJIB `import type` dari sana, bukan menulis ulang union type yang sama.** Ini pernah menyebabkan build gagal berkali-kali karena TypeScript menganggap dua definisi dengan nama sama sebagai konflik ambigu saat di-barrel-export bersamaan.
+
 ---
 
 ## 5. Barrel Export
@@ -169,6 +171,8 @@ index.ts
 ```
 
 untuk public export.
+
+**Barrel `index.ts` harus dibuat BERSAMAAN saat folder baru dibuat, bukan belakangan.** Folder tanpa `index.ts` yang di-`export * from` dari barrel level atas akan langsung gagal build ("Cannot find module").
 
 ---
 
@@ -211,220 +215,4 @@ Referensi konfigurasi:
 docs/vercel/environment-variables.md
 ```
 
----
-
-# Logging
-
-Jangan menggunakan:
-
-```ts
-console.log()
-```
-
-untuk production.
-
-Gunakan Logger Service proyek.
-
----
-
-# Error Handling
-
-Semua asynchronous function harus menggunakan:
-
-* try/catch
-
-atau
-
-* Result Object
-
-Jangan membiarkan Promise gagal tanpa penanganan.
-
----
-
-# Import Rules
-
-Gunakan import yang konsisten.
-
-Contoh:
-
-```ts
-import type { LiveOrder } from "../types";
-```
-
-Gunakan `import type` untuk tipe.
-
----
-
-# Folder Convention
-
-```text
-services/
-
-api/
-
-auth/
-
-market/
-
-indicator/
-
-strategy/
-
-backtest/
-
-paperTrading/
-
-liveTrading/
-
-database/
-
-logger/
-
-utils/
-```
-
----
-
-# Naming Convention
-
-Class
-
-```text
-PascalCase
-```
-
-Contoh
-
-```text
-RiskManager
-```
-
-Function
-
-```text
-camelCase
-```
-
-Contoh
-
-```text
-calculateExposure()
-```
-
-Constant
-
-```text
-UPPER_CASE
-```
-
-Contoh
-
-```text
-MAX_POSITION_PERCENT
-```
-
-File
-
-```text
-camelCase.ts
-```
-
-Contoh
-
-```text
-riskManager.ts
-```
-
----
-
-# Trading Principles
-
-Semua keputusan trading mengikuti alur:
-
-```text
-Market
-
-↓
-
-Indicator
-
-↓
-
-Strategy
-
-↓
-
-Risk
-
-↓
-
-Execution
-```
-
-Jangan melewati Risk Layer.
-
----
-
-# Risk Rules
-
-Order tidak boleh dieksekusi apabila:
-
-* confidence di bawah minimum
-* exposure melebihi batas
-* position limit terlampaui
-* saldo tidak cukup
-* health monitor critical
-
----
-
-# Current Project Status
-
-Selesai:
-
-* Market Engine
-* Indicator Engine
-* Strategy Engine
-* Backtesting
-* Paper Trading
-* Live Trading Foundation
-
-Sedang berjalan:
-
-Production Safety Layer
-
----
-
-# Code Quality Rules
-
-Ketika mengubah kode:
-
-* jangan mengubah API publik tanpa alasan
-* jangan membuat duplicate class
-* jangan membuat duplicate interface
-* jangan membuat duplicate folder
-* jangan membuat engine baru jika sudah ada
-* gunakan struktur yang telah ada
-
----
-
-# Build Requirements
-
-Perubahan dianggap selesai apabila:
-
-* TypeScript compile tanpa error
-* Next.js build berhasil
-* Tidak menambah circular dependency
-* Tidak membuat dead code baru
-
----
-
-# AI Assistant Guidelines
-
-Saat menghasilkan kode:
-
-* Ikuti struktur proyek yang sudah ada.
-* Gunakan modul yang telah tersedia sebelum membuat modul baru.
-* Hindari duplikasi implementasi.
-* Pertahankan kompatibilitas dengan arsitektur AURA Trade OS.
-* Jika perlu melakukan refactor besar, jelaskan alasan dan dampaknya sebelum mengubah struktur proyek.
-
+**Catatan:** GitHub Actions (
