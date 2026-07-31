@@ -24,11 +24,6 @@ import {
 
 } from "../signals/neutralSignal";
 
-import {
-
-    ConfidenceEngine,
-
-} from "./confidence";
 
 import type {
 
@@ -37,6 +32,8 @@ import type {
     StrategyDecision,
 
     RiskLevel,
+
+    ConfidenceLevel,
 
 } from "../types";
 
@@ -110,13 +107,55 @@ export class ScoreEngine {
 
 
 
-        const confidence =
+        const passedCount =
 
-            ConfidenceEngine.calculate(
+            results.filter(
 
-                results
+                rule => rule.passed
 
-            );
+            ).length;
+
+        const confidenceScore =
+
+            results.length === 0
+
+                ? 0
+
+                : Math.round(
+
+                    (passedCount / results.length) * 100
+
+                );
+
+        const confidenceLevel:
+
+            ConfidenceLevel =
+
+            confidenceScore >= 85
+
+                ? "VERY_HIGH"
+
+                : confidenceScore >= 70
+
+                    ? "HIGH"
+
+                    : confidenceScore >= 50
+
+                        ? "MEDIUM"
+
+                        : confidenceScore >= 30
+
+                            ? "LOW"
+
+                            : "VERY_LOW";
+
+        const confidence = {
+
+            confidence: confidenceScore,
+
+            level: confidenceLevel,
+
+        };
 
 
 
