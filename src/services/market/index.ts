@@ -139,3 +139,5 @@ export type {
     PriceUpdate
 
 } from "./ticker/tickerService";
+
+export * from "./types";
