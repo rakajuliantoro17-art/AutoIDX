@@ -64,11 +64,11 @@ export class OrderBookSnapshot {
 
         const bids = orderBook.bids.map(
 
-            ([price, volume]) => ({
+            (level) => ({
 
-                price,
+                price: level.price,
 
-                volume,
+                volume: level.quantity,
 
             })
 
@@ -77,11 +77,11 @@ export class OrderBookSnapshot {
 
         const asks = orderBook.asks.map(
 
-            ([price, volume]) => ({
+            (level) => ({
 
-                price,
+                price: level.price,
 
-                volume,
+                volume: level.quantity,
 
             })
 
