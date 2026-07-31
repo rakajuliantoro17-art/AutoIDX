@@ -13,6 +13,8 @@ import indodaxClient
 
 from "./indodaxClient";
 
+import { TRADING_CONFIG } from "@/config/trading";
+
 
 
 import type {
@@ -34,7 +36,6 @@ from "../types";
 
 
 export class OrderExecutor {
-
 
 
 
@@ -110,6 +111,48 @@ export class OrderExecutor {
 
 
 
+        /**
+         * PENGAMAN KESELAMATAN (jangan dihapus):
+         * Order hanya benar-benar dikirim ke Indodax kalau
+         * TRADING_CONFIG.mode === "live". Folder liveTrading/
+         * ini sebelumnya TIDAK punya pengecekan mode sama
+         * sekali -- ditambahkan supaya konsisten dengan
+         * pengaman yang sama di services/exchange/adapters/indodax.ts.
+         */
+        if (TRADING_CONFIG.mode !== "live") {
+
+            return {
+
+                success: false,
+
+                symbol: request.symbol,
+
+                side: request.side,
+
+                orderId: null,
+
+                status: "REJECTED",
+
+                executedPrice: null,
+
+                executedQuantity: 0,
+
+                fee: 0,
+
+                message:
+
+                    "[SAFETY] Order ditolak: TRADING_CONFIG.mode bukan 'live'. " +
+                    "Jalur liveTrading/ ini tidak akan mengirim order asli selama " +
+                    "masih mode paper.",
+
+                timestamp: Date.now(),
+
+            };
+
+        }
+
+
+
         const params = {
 
 
@@ -178,10 +221,11 @@ export class OrderExecutor {
 
 
 
-
         return this.normalize(
 
-            response
+            response,
+
+            request
 
         );
 
@@ -201,7 +245,9 @@ export class OrderExecutor {
      */
     private normalize(
 
-        response:ExchangeResponse
+        response:ExchangeResponse,
+
+        request:LiveOrderRequest
 
     ):LiveExecutionResult {
 
@@ -219,6 +265,12 @@ export class OrderExecutor {
 
 
                 success:false,
+
+                symbol:
+                    request.symbol,
+
+                side:
+                    request.side,
 
 
                 orderId:null,
@@ -238,7 +290,7 @@ export class OrderExecutor {
 
                 message:
 
-                    response.message,
+                    response.message ?? "Order rejected by exchange.",
 
 
                 timestamp:
@@ -246,12 +298,10 @@ export class OrderExecutor {
                     Date.now()
 
 
-
             };
 
 
         }
-
 
 
 
@@ -273,6 +323,12 @@ export class OrderExecutor {
 
 
             success:true,
+
+            symbol:
+                request.symbol,
+
+            side:
+                request.side,
 
 
             orderId:
@@ -344,12 +400,10 @@ export class OrderExecutor {
                 Date.now()
 
 
-
         };
 
 
     }
-
 
 
 
@@ -365,7 +419,6 @@ export class OrderExecutor {
 const orderExecutor =
 
     new OrderExecutor();
-
 
 
 
