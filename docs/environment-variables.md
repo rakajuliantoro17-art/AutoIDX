@@ -1,92 +1,131 @@
-Jangan pernah melewati Risk Layer.
+# Environment Variables Reference
 
-**Order tidak boleh dieksekusi apabila:** confidence di bawah minimum · exposure melebihi batas · position limit terlampaui · saldo tidak cukup · health monitor critical.
-
----
-
-# Live Trading Safety — WAJIB DIBACA SEBELUM SENTUH KODE EKSEKUSI
-
-Ada **tiga** jalur eksekusi order paralel di codebase ini (hasil kerja beberapa tool AI berbeda tanpa koordinasi):
-
-1. `services/exchange/adapters/indodax.ts` — `placeOrder()` sudah dikunci: menolak eksekusi kecuali `TRADING_CONFIG.mode === "live"`.
-2. `services/execution/adapters/indodaxAdapter.ts` — delegasi ke nomor 1.
-3. `services/liveTrading/exchange/orderExecutor.ts` — client HTTP terpisah sendiri (`indodaxClient.ts`, langsung ke `https://indodax.com/tapi`). **Sudah ada pengaman mode paper/live juga**, terverifikasi memblokir sebelum request asli terkirim.
-
-**Status saat ini (per audit terakhir):** bot berjalan mode **paper trading**, API key production belum diisi. Kedua jalur di atas yang aktif (1 dan 3) sudah punya pengaman. **Belum ada logic position-sizing yang menghitung dari saldo/exposure asli** — `execution/engine.ts` masih punya `quantity: 0` dengan TODO(SAFETY) di jalur ketiga yang belum tersambung.
-
-**Sebelum mengklaim "live trading siap" ke user:** telusuri end-to-end sendiri, jangan percaya klaim dokumen atau status build-passing saja.
+**Project:** AURA Trade OS
 
 ---
 
-# Keamanan — Item Terbuka Prioritas Tinggi
+Semua environment variable diisi **HANYA** di:
 
-**`src/components/IndodaxAccountManager.tsx` + `src/services/firebase/indodaxAccounts.ts`** (fitur multi-akun: user login → input API key/secret Indodax sendiri) **menyimpan API key & secret KE FIRESTORE DALAM BENTUK POLOS (plaintext)**, langsung dari client-side Firestore SDK di browser. Tidak ada enkripsi AES-256-GCM (padahal itu rencana awal). Tidak ada file `firestore.rules` di repo — aturan keamanan Firestore (kalau ada) hanya ada di Firebase Console, tidak ter-review di git.
+**JANGAN** membuat file `.env`, `.env.local`, atau `.env.example` di repo ini. File dotenv pernah menyebabkan kebocoran kredensial live (API key Indodax, Firebase Admin private key) dua kali di proyek ini. Dokumen ini murni referensi nama variabel — bukan tempat menyimpan nilai asli.
 
-**Belum diperbaiki.** Rencana perbaikan: pindahkan alur ke API route server-side (`/api/accounts/indodax`) yang enkripsi dengan master key dari `process.env` sebelum simpan ke Firestore — client tidak pernah kirim key mentah langsung ke Firestore. Plus tulis `firestore.rules` yang benar (`allow read, write: if request.auth.uid == uid;`).
-
-**Kalau API key asli sudah pernah dicoba lewat form ini** (bukan cuma testing kosong), perlakukan seperti insiden `.env.local` sebelumnya — revoke & regenerate dari Indodax.
+Setiap kali menambah `process.env.X` baru di kode, tambahkan juga barisnya di tabel bawah pada PR yang sama.
 
 ---
 
-# Known Duplication — Perlu Keputusan Konsolidasi
+## Firebase (Client)
 
-| Konsep | Implementasi paralel | Status |
+Wajib prefix `NEXT_PUBLIC_` karena dibaca di browser.
+
+| Variabel | Wajib | Keterangan |
 |---|---|---|
-| Exchange API client | `services/indodax/` (lama, stub) vs `services/exchange/` (scaffolding luas, 44+ file) | `IndodaxAdapter` private ops (`placeOrder`, `getBalance`) sudah terisi (bukan lagi `AdapterNotImplementedError` seperti versi lama) |
-| Trading execution | `services/trading/` (aktif, Firebase) vs `services/paperTrading/` (in-memory, TIDAK persisten lintas cold-start) vs `services/liveTrading/` (scaffolding lengkap 15 file/6400 baris, aman tapi belum tersambung ke cron/dispatcher manapun) | Ketiganya hidup berdampingan, belum ada keputusan mana kanonik |
-| Strategy execution | `services/strategy/core/strategyEngine.ts` + `strategies/*.ts` (auraTrend, emaCrossover, momentum) — **ini yang tersambung ke `execution/engine.ts`, jalur nyata** | vs `services/strategy/rules/*.ts` (momentumRule, trendRule, volatilityRule, volumeRule) + `StrategyContext` — **orphan total, tidak dipanggil dari manapun**, mirip pola lapisan AI/ML |
-| AI/ML layer | `services/ml/` + `services/intelligence/` (~10.000 baris, 63 file) | **Orphan total** — nol import dari luar foldernya sendiri. `ModelTrainer.train()` cuma `sleep(300ms)` + fake success. Tidak ada library ML di `package.json`. |
-| Dashboard pages | `src/pages/dashboard/*` (Pages Router — `index.tsx`, `settings.tsx` pakai `IndodaxAccountManager`, lebih matang) vs `src/app/dashboard/{portfolio,scanner,settings}.tsx` (App Router draft, cuma widget statis) | Draft App Router sudah diarsipkan ke `_legacy-pages-reference/app-dashboard-draft/` supaya tidak bentrok build. **Belum diporting dengan benar** — App Router harus tetap kanonik, tapi kontennya perlu diambil dari versi Pages Router yang lebih lengkap. Sidebar link ke `/dashboard/portfolio` dll saat ini akan 404. |
-| Portfolio service | `services/portfolio/` sempat diarsipkan sebagai non-kanonik, lalu aktif lagi (regresi dari tool AI lain) | `portfolioRegistry` sudah diperbaiki (kurang named export) |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Ya | Dari Firebase Console → Project Settings → General |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Ya | Biasanya `<project-id>.firebaseapp.com` |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | Ya | ID project Firebase |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Ya | Biasanya `<project-id>.appspot.com` |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Ya | Dari Firebase Console |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | Ya | Dari Firebase Console |
 
-**Sebelum membuat engine/adapter/service baru untuk konsep yang sudah ada implementasinya (aktif maupun scaffolding), WAJIB cek dulu — kalau ragu, tanya pemilik project sebelum menambah cabang baru.**
+## Firebase Admin (Server-side only)
+
+**Jangan pernah** diberi prefix `NEXT_PUBLIC_` — kalau ini bocor ke client bundle, siapa saja bisa mengambil alih seluruh project Firebase.
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `FIREBASE_ADMIN_PROJECT_ID` | Ya | Sama dengan project ID di atas |
+| `FIREBASE_ADMIN_CLIENT_EMAIL` | Ya | Dari file service account JSON |
+| `FIREBASE_ADMIN_PRIVATE_KEY` | Ya | Dari file service account JSON. Di Vercel, newline (`\n`) di key harus tetap tersimpan literal — cek dengan `.replace(/\\n/g, '\n')` saat dibaca di kode kalau Vercel mem-flatten-nya |
+
+## Indodax Exchange
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `INDODAX_API_KEY` | Ya (untuk live trading) | Dari Indodax → Pengaturan → API Management |
+| `INDODAX_SECRET_KEY` | Ya (untuk live trading) | **Nama variabelnya `INDODAX_SECRET_KEY`, BUKAN `INDODAX_SECRET`** — pernah salah tulis dan menyebabkan client baca `undefined` |
+| `INDODAX_API_URL` | Tidak (ada default) | Default: `https://indodax.com` |
+
+## AI Providers
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `OPENAI_API_KEY` | Kalau pakai fitur AI OpenAI | |
+| `CLAUDE_API_KEY` | Kalau pakai fitur AI Anthropic/Claude | |
+| `GEMINI_API_KEY` | Kalau pakai fitur AI Gemini | Dipanggil lewat raw REST fetch, bukan SDK |
+| `DEEPSEEK_API_KEY` | Kalau pakai fitur AI DeepSeek | |
+
+## Cron / Scheduled Jobs
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `CRON_SECRET` | Ya | Dicocokkan di `/api/cron/scan` untuk memvalidasi request dari cron-job.org bukan dari publik |
+
+## Bot Mode & Safety
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `BOT_MODE` | Ya | `paper` (aman, tidak kirim order asli) atau `live` (order asli, uang sungguhan). **Default harus `paper`.** |
+| `BOT_AUTO_TRADE` | Tidak | `true`/`false` — apakah bot boleh eksekusi otomatis tanpa konfirmasi manual |
+| `BOT_EMERGENCY_STOP` | Tidak | `true`/`false` — kill switch, set `true` untuk hentikan semua trading tanpa redeploy |
+| `BOT_INTERVAL` | Tidak | Interval scan dalam milidetik |
+| `BOT_PAIR` | Tidak | Pair default, mis. `btc_idr` |
+
+## Bot Trade Sizing
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `BOT_DEFAULT_TRADE_AMOUNT` | Ya | Nominal default per transaksi |
+| `BOT_MAX_TRADE_AMOUNT` | Ya | Batas maksimum per transaksi |
+| `MIN_ORDER_AMOUNT` | Ya | Minimum order Indodax (cek syarat exchange) |
+| `ORDER_TYPE` | Tidak | `limit` atau `market` |
+
+## Risk Management
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `BOT_TARGET_PROFIT` | Ya | Target profit per transaksi (%) |
+| `BOT_STOP_LOSS` | Ya | Stop loss per transaksi (%) |
+| `BOT_MAX_DAILY_LOSS` | Ya | Batas rugi harian sebelum bot berhenti otomatis |
+| `BOT_MAX_EXPOSURE` | Ya | Batas total eksposur (% dari saldo) |
+| `BOT_MAX_OPEN_POSITION` | Ya | Jumlah maksimum posisi terbuka bersamaan |
+| `BOT_COOLDOWN` | Tidak | Jeda wajib (ms) antar transaksi pada pair yang sama |
+| `TRAILING_STOP_ENABLED` | Tidak | `true`/`false` |
+| `TRAILING_STOP_PERCENT` | Tidak | Dipakai kalau trailing stop aktif |
+
+## Indicator Settings
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `EMA_FAST` | Tidak (ada default) | Periode EMA cepat |
+| `EMA_SLOW` | Tidak (ada default) | Periode EMA lambat |
+| `RSI_PERIOD` | Tidak (ada default) | Periode RSI |
+| `RSI_OVERBOUGHT` | Tidak (ada default) | Ambang overbought, biasanya 70 |
+| `RSI_OVERSOLD` | Tidak (ada default) | Ambang oversold, biasanya 30 |
+
+## Fees
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `EXCHANGE_FEE` | Ya | Fee taker/maker Indodax, dipakai untuk hitung profit bersih |
+
+## Runtime
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `NODE_ENV` | Otomatis | Diset otomatis oleh Vercel (`production`/`development`), jangan diisi manual |
 
 ---
 
-# Code Quality Rules
+## GitHub Actions
 
-- Jangan ubah API publik tanpa alasan.
-- Jangan buat duplicate class/interface/folder/engine kalau sudah ada.
-- Setiap folder baru di `services/*/` wajib langsung punya `index.ts` barrel saat dibuat.
-- Sebelum redefine type/interface: cek dulu `types.ts`, `models/`, `core/` folder terkait.
+GitHub Actions (`ci.yml`, `deploy.yml`) **tidak otomatis mewarisi** Environment Variables dari Vercel. Kalau ada workflow yang menjalankan `npm run build` atau `type-check` sendiri (bukan lewat `vercel build`), variabel yang dibutuhkan build — terutama semua `NEXT_PUBLIC_FIREBASE_*` — harus di-set terpisah sebagai **GitHub Secrets** (Repo → Settings → Secrets and variables → Actions).
 
 ---
 
-# Build Requirements
+## Checklist Sebelum Deploy
 
-Perubahan dianggap selesai apabila:
-- TypeScript compile tanpa error
-- Next.js build berhasil
-- Tidak menambah circular dependency
-- Tidak membuat dead code baru
-- **Perubahan benar-benar ter-commit ke branch `main`** — verifikasi lewat commit history sebelum melaporkan hasil build (karena workflow ini browser-only, gampang lupa satu file belum di-apply)
+- [ ] Semua variabel "Wajib" di atas sudah diisi di Vercel (Production environment)
+- [ ] `BOT_MODE` = `paper` kecuali memang sengaja mau live trading
+- [ ] `INDODAX_SECRET_KEY` (bukan `INDODAX_SECRET`) sudah benar
+- [ ] `FIREBASE_ADMIN_PRIVATE_KEY` ter-paste utuh termasuk `-----BEGIN PRIVATE KEY-----` dan newline-nya
+- [ ] Tidak ada file `.env*` (kecuali `.env` bawaan yang sudah di-`.gitignore`) ikut ter-commit ke repo
 
----
-
-# AI Assistant Guidelines
-
-- Ikuti struktur proyek yang sudah ada. Gunakan modul yang tersedia sebelum membuat modul baru.
-- Kalau perlu refactor besar, jelaskan alasan dan dampaknya SEBELUM mengubah struktur — jangan langsung eksekusi keputusan arsitektur besar secara sepihak.
-- Sebelum menulis ulang (regenerate) file dari nol, cek riwayat/versi sebelumnya — regenerasi tanpa referensi berisiko mengembalikan bug yang sudah pernah diperbaiki.
-- Jangan asumsikan angka/formula untuk logic yang menyangkut uang (position sizing, risk limit) — cari config yang sudah ada atau tanya pemilik project.
-- **Kalau menemukan isu keamanan (kredensial plaintext, key ter-commit, dst): laporkan dulu ke user secara eksplisit sebelum lanjut kerja lain, jangan diam-diam ditambal atau diabaikan.**
-
----
-
-# Session Log
-
-*(Ringkas, bukan pengganti commit history. Update di akhir tiap sesi build-fix besar.)*
-
-**Sesi build-fix marathon (v0.1.0 Alpha, "Phase 17" audit):**
-- Ditemukan: lapisan `services/intelligence/` + `services/ml/` (~10rb baris) orphan total, banyak tipe (`AIRequest`, `FeatureVector`, `MarketContext`, `MarketMomentum`, `FusionDecision`) tidak pernah didefinisikan sama sekali di `types.ts` masing-masing — sudah dilengkapi.
-- `services/liveTrading/` (jalur eksekusi order ketiga) diverifikasi: sudah ada pengaman mode paper/live, aman. Bug tipe minor (`symbol`/`side` hilang di return object, `orderId` nullable) sudah diperbaiki.
-- `services/market/`: pola bug berulang — order book level (`{price, quantity}`) salah diasumsikan sebagai tuple `[price, volume]` di banyak file (`orderBookAggregator`, `liquidityFilter`, `spreadFilter`, `orderBookSnapshot`). Semua sudah diperbaiki. `Ticker` field name mismatch (`ticker.last`→`lastPrice`, `.open`→`openPrice`, dst) juga diperbaiki.
-- `services/strategy/`: ditemukan **dua sistem strategi paralel** dengan kontrak berbeda — (a) `core/strategyEngine.ts` family (dipakai nyata, tersambung ke `execution/engine.ts`) dan (b) `types.ts`+`rules/*.ts` family via `StrategyContext` (orphan total). `StrategyDecision`/`TradeAction` yang didefinisikan ulang di (a) sudah disatukan ke versi kanonik `types.ts`, 5 file disesuaikan. Lapisan (b) — `rules/*.ts` — **belum selesai diperbaiki**, masih ada type error (`RuleResult` belum didefinisikan di `types.ts`), tapi karena orphan total, tidak mendesak.
-- File dashboard App Router yang 404 (`portfolio`, `scanner`, `settings` — salah nama, seharusnya `page.tsx` di dalam folder) diarsipkan ke `_legacy-pages-reference/app-dashboard-draft/`. **Belum dibuat ulang dengan benar** dari versi Pages Router yang lebih lengkap.
-- Env var mismatch `INDODAX_SECRET` vs `INDODAX_SECRET_KEY` diperbaiki di `src/lib/validators/env.ts`.
-- **Temuan keamanan belum diperbaiki:** `IndodaxAccountManager` simpan API key/secret plaintext ke Firestore, tidak ada `firestore.rules` di repo. Lihat bagian "Keamanan" di atas.
-- `docs/environment-variables.md` dibuat (dokumentasi nama variabel, bukan file `.env`).
-
-**Status build saat log ini ditulis:** BELUM 100% bersih. Error terakhir: `src/services/strategy/rules/momentumRule.ts:11` — `RuleResult` belum ada di `strategy/types.ts` (bagian dari sistem strategi orphan (b) di atas, lihat "Known Duplication").
-
-**Next step:** lengkapi `RuleResult` + sisa tipe di `strategy/rules/*.ts` (orphan, aman diperbaiki cepat), lanjut sampai `npm run build` 100% bersih, baru commit per-file via GitHub browser.
+- [ ] 
