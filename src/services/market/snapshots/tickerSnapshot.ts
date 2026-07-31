@@ -59,7 +59,7 @@ export class TickerSnapshot {
 
         const changePercent =
 
-            ticker.open === 0
+            ticker.openPrice === 0
 
                 ? 0
 
@@ -69,15 +69,15 @@ export class TickerSnapshot {
 
                     (
 
-                        ticker.last -
+                        ticker.lastPrice -
 
-                        ticker.open
+                        ticker.openPrice
 
                     )
 
                     /
 
-                    ticker.open
+                    ticker.openPrice
 
                 )
 
@@ -92,23 +92,23 @@ export class TickerSnapshot {
 
             lastPrice:
 
-                ticker.last,
+                ticker.lastPrice,
 
             bidPrice:
 
-                ticker.bid,
+                ticker.bidPrice,
 
             askPrice:
 
-                ticker.ask,
+                ticker.askPrice,
 
             high24h:
 
-                ticker.high,
+                ticker.highPrice,
 
             low24h:
 
-                ticker.low,
+                ticker.lowPrice,
 
             volume24h:
 
@@ -116,9 +116,9 @@ export class TickerSnapshot {
 
             change24h:
 
-                ticker.last -
+                ticker.lastPrice -
 
-                ticker.open,
+                ticker.openPrice,
 
             changePercent24h:
 
@@ -188,7 +188,7 @@ export class TickerSnapshot {
 
         return (
 
-            this.data.changePercent24h <
+            this.data.changePercent24h 
 
             0
 
