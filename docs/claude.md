@@ -197,3 +197,15 @@ Perubahan dianggap selesai apabila:
 **Status build saat log ini ditulis:** BELUM 100% bersih. Error terakhir: `src/services/strategy/rules/momentumRule.ts:11` — `RuleResult` belum ada di `strategy/types.ts` (bagian dari sistem strategi orphan (b) di atas, lihat "Known Duplication").
 
 **Next step:** lengkapi `RuleResult` + sisa tipe di `strategy/rules/*.ts` (orphan, aman diperbaiki cepat), lanjut sampai `npm run build` 100% bersih, baru commit per-file via GitHub browser.
+
+---
+
+**Update — file-by-file delivery selesai diterapkan (23 file + 1 arsip 3-file):**
+
+`docs/claude.md`, `docs/environment-variables.md`, `src/lib/validators/env.ts`, arsip 3 file dashboard App Router (`portfolio.tsx`/`scanner.tsx`/`settings.tsx` → `_legacy-pages-reference/app-dashboard-draft/`), `services/portfolio/registry.ts`, `services/paperTrading/simulator.ts`, `services/market/aggregators/tradeAggregator.ts`, `services/market/aggregators/orderBookAggregator.ts`, `services/market/feeds/tickerFeed.ts`, `services/market/filters/liquidityFilter.ts`, `services/market/filters/spreadFilter.ts`, `services/market/snapshots/orderBookSnapshot.ts`, `services/market/snapshots/tickerSnapshot.ts`, `services/market/index.ts`, `services/strategy/core/strategyEngine.ts`, `services/strategy/index.ts`, `services/strategy/manager.ts`, `services/strategy/registry.ts`, `services/intelligence/types.ts`, `services/intelligence/ai/explanation.ts`, `services/liveTrading/exchange/orderExecutor.ts`, `services/liveTrading/execution/fillHandler.ts`, `services/indicators/index.ts`.
+
+**Sudah dicek, TIDAK perlu diubah** (sudah sama dengan versi terbaru di repo, kemungkinan diperbaiki di sesi lain): `services/backtest/execution/orderSimulator.ts`, `services/liveTrading/engine.ts`, `services/liveTrading/types.ts`, `.gitignore`.
+
+**Status build masih sama seperti di atas — BELUM 100% bersih.** 23 file di atas menyelesaikan seluruh lapisan `intelligence/`, `market/`, `liveTrading/` (bug type-level), dan sebagian besar `strategy/` (family yang aktif/nyata). Sisa satu-satunya blocker yang diketahui: `strategy/rules/*.ts` (family kedua, orphan total — lihat "Known Duplication"). **Belum dikerjakan** di sesi ini karena orientasi kerja berubah ke pengiriman file-per-file di tengah proses.
+
+**Cara pakai workflow sekarang (mulai sesi ini):** perubahan dikirim satu file per pesan chat (bukan zip), lalu diterapkan manual satu-satu lewat GitHub browser oleh Raka. Kalau sesi Claude lain melanjutkan: cek dulu file mana di atas yang sudah live di repo (tanya user, jangan asumsi) sebelum lanjut kerja supaya tidak duplikat usaha.
