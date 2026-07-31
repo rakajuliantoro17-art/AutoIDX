@@ -19,13 +19,15 @@ from "@/services/indicators";
 
 
 
-import strategyEngine, {
+import strategyEngine from "./core/strategyEngine";
+
+import type {
 
     StrategyDecision
 
 }
 
-from "./core/strategyEngine";
+from "./types";
 
 
 
