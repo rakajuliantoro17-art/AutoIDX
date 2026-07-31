@@ -212,7 +212,7 @@ export class PortfolioServiceRegistry {
 
 
 
-const portfolioRegistry =
+export const portfolioRegistry =
 
     new PortfolioServiceRegistry();
 
