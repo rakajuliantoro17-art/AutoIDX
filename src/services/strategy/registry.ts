@@ -11,13 +11,33 @@ Dynamic Strategy Plugin Registry
 
 import type {
 
-    StrategyDefinition,
+    StrategyDefinition
 
-    StrategyRegistryItem
+}
+
+from "./core/strategyEngine";
+
+import type {
+
+    StrategyStatus
 
 }
 
 from "./types";
+
+export interface StrategyRegistryItem {
+
+    name:string;
+
+    description:string;
+
+    version:string;
+
+    status:StrategyStatus;
+
+    strategy:StrategyDefinition;
+
+}
 
 
 
