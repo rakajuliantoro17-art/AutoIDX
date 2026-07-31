@@ -567,3 +567,79 @@ export interface IntelligenceCacheEntry<T>{
     expiresAt:number;
 
 }
+
+/**
+==========================================================
+AI Analyzer (rule-based scoring, bukan model ML terlatih)
+==========================================================
+*/
+
+export type TradingSignal =
+    | "STRONG_BUY"
+    | "BUY"
+    | "HOLD"
+    | "SELL"
+    | "STRONG_SELL";
+
+export interface AIRequest {
+    pair?: string;
+    featureVector: FeatureVector;
+    context: MarketContext;
+}
+
+export interface AIAnalysis {
+    signal: TradingSignal;
+    confidence: number;
+    summary: string;
+    reasoning: string[];
+    risks: string[];
+    recommendation: string;
+    timestamp: string;
+}
+
+/**
+==========================================================
+Shared Feature Vector & Market Context
+(dipakai lintas context/*, features/*, ai/*)
+==========================================================
+*/
+
+export type MarketMomentum =
+    | "STRONG"
+    | "NORMAL"
+    | "WEAK";
+
+export interface FeatureVector {
+    pair?: string;
+    price: number;
+    volume: number;
+    emaFast: number;
+    emaSlow: number;
+    rsi: number;
+    macd: number;
+    macdSignal: number;
+    macdHistogram: number;
+    atr: number;
+    adx: number;
+    stochasticK: number;
+    stochasticD: number;
+    bollingerUpper: number;
+    bollingerMiddle: number;
+    bollingerLower: number;
+}
+
+export interface MarketContext {
+    pair: string;
+    trend: MarketTrend;
+    momentum: MarketMomentum;
+    volatility: MarketVolatility;
+    liquidity: LiquidityLevel;
+    confidence: number;
+    timestamp: string;
+}
+
+/**
+ * Alias -- FusionDecision merujuk ke DecisionFusionResult
+ * (definisi asli ada di fusion/decision.ts).
+ */
+export type { DecisionFusionResult as FusionDecision } from "./fusion/decision";
