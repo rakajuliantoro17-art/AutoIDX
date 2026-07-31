@@ -192,7 +192,7 @@ export class AIExplanationEngine {
     }
 
     const signal =
-      decision?.finalSignal ??
+      decision?.decision ??
       analysis.signal;
 
     const confidence =
