@@ -110,6 +110,8 @@ export class TickerFeed {
 
         }
 
+        const ticker = this.ticker;
+
         this.listeners.forEach(
 
             listener =>
@@ -118,7 +120,7 @@ export class TickerFeed {
 
                     Object.freeze({
 
-                        ...this.ticker,
+                        ...ticker,
 
                     })
 
