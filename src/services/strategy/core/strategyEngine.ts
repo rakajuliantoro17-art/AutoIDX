@@ -17,6 +17,14 @@ import {
 
 from "@/services/indicators";
 
+import type {
+
+    StrategyAction,
+
+    StrategyDecision
+
+} from "../types";
+
 
 
 import evaluator, {
@@ -28,21 +36,6 @@ import evaluator, {
 }
 
 from "./evaluator";
-
-
-
-
-
-
-export type TradeAction =
-
-
-    | "BUY"
-
-    | "SELL"
-
-    | "HOLD";
-
 
 
 
@@ -67,42 +60,7 @@ export interface StrategyDefinition {
 
         features:IndicatorFeatureVector
 
-    )=>TradeAction;
-
-
-}
-
-
-
-
-
-
-
-export interface StrategyDecision {
-
-
-    pair:string;
-
-
-    strategy:string;
-
-
-    action:TradeAction;
-
-
-    confidence:number;
-
-
-    score:number;
-
-
-    evaluation:EvaluationResult;
-
-
-    reasons:string[];
-
-
-    timestamp:number;
+    )=>StrategyAction;
 
 
 }
@@ -124,7 +82,6 @@ export class StrategyEngine {
 
 
 
-
     constructor(){
 
 
@@ -134,7 +91,6 @@ export class StrategyEngine {
 
 
     }
-
 
 
 
@@ -162,7 +118,6 @@ export class StrategyEngine {
 
 
     }
-
 
 
 
@@ -225,7 +180,7 @@ export class StrategyEngine {
 
         let action:
 
-            TradeAction = "HOLD";
+            StrategyAction = "HOLD";
 
 
 
@@ -276,7 +231,7 @@ export class StrategyEngine {
 
             pair:
 
-                features.pair,
+                features.pair ?? "UNKNOWN",
 
 
 
@@ -302,7 +257,18 @@ export class StrategyEngine {
 
 
 
-            evaluation,
+            riskLevel:
+
+                evaluation.confidence >= 70
+
+                    ? "LOW"
+
+                    : evaluation.confidence >= 40
+
+                        ? "MEDIUM"
+
+                        : "HIGH",
+
 
 
 
@@ -332,7 +298,6 @@ export class StrategyEngine {
 
 
 
-
     /**
      * Evaluate all strategies
      */
@@ -347,7 +312,6 @@ export class StrategyEngine {
         const results:
 
             StrategyDecision[]=[];
-
 
 
 
@@ -385,9 +349,7 @@ export class StrategyEngine {
 
         return results;
 
-
     }
-
 
 
 
@@ -402,7 +364,7 @@ export class StrategyEngine {
 
         evaluation:EvaluationResult
 
-    ):TradeAction {
+    ):StrategyAction {
 
 
 
@@ -417,7 +379,6 @@ export class StrategyEngine {
 
 
         }
-
 
 
 
@@ -437,9 +398,7 @@ export class StrategyEngine {
 
 
 
-
         return "HOLD";
-
 
     }
 
@@ -457,7 +416,6 @@ export class StrategyEngine {
 const strategyEngine =
 
     new StrategyEngine();
-
 
 
 
