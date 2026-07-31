@@ -41,3 +41,26 @@ export function analyzeTechnicalIndicators(prices: number[]): TechnicalIndicator
     trend,
   };
 }
+
+/**
+ * Shared feature vector shape consumed by services/strategy/*
+ * (scoring, evaluator, engine) for signal generation.
+ */
+export interface IndicatorFeatureVector {
+    pair?: string;
+    price: number;
+    volume: number;
+    emaFast: number;
+    emaSlow: number;
+    rsi: number;
+    macd: number;
+    macdSignal: number;
+    macdHistogram: number;
+    atr: number;
+    adx: number;
+    stochasticK: number;
+    stochasticD: number;
+    bollingerUpper: number;
+    bollingerMiddle: number;
+    bollingerLower: number;
+}
