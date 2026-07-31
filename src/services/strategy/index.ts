@@ -67,15 +67,22 @@ Strategy Types
 
 export type {
 
-    StrategyDefinition,
-
-    StrategyDecision,
-
-    TradeAction
+    StrategyDefinition
 
 }
 
 from "./core/strategyEngine";
+
+
+export type {
+
+    StrategyDecision,
+
+    StrategyAction
+
+}
+
+from "./types";
 
 
 
