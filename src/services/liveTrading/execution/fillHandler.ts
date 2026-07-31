@@ -13,9 +13,7 @@ import type {
 
     LiveExecutionResult,
 
-    LiveTrade,
-
-    FillEvent
+    LiveTrade
 
 }
 
@@ -80,7 +78,7 @@ export class FillHandler {
 
             orderId:
 
-                execution.orderId,
+                execution.orderId ?? "",
 
 
 
@@ -173,7 +171,7 @@ export class FillHandler {
 
             orderId:
 
-                execution.orderId,
+                execution.orderId ?? "",
 
 
 
