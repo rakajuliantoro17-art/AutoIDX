@@ -133,7 +133,7 @@ export class ExecutionEngine {
 
         if (
 
-            request.strategy?.signal === "HOLD"
+            request.strategy?.action === "HOLD"
 
         ) {
 
