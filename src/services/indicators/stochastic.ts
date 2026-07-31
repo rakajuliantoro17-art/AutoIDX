@@ -6,15 +6,7 @@ Version : 0.0.6 Alpha
 ==========================================================
 */
 
-export interface OHLC {
-
-  high: number;
-
-  low: number;
-
-  close: number;
-
-}
+import type { OHLC } from "./atr";
 
 export interface StochasticResult {
 
