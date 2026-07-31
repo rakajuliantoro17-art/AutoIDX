@@ -2,7 +2,7 @@
 ==========================================================
 AURA Trade OS
 Base Exchange Adapter
-Version : 0.1.2 Alpha
+Version : 0.1.3 Alpha
 ==========================================================
 */
 
@@ -30,7 +30,7 @@ export interface ExchangeCapabilities {
   paperTrading: boolean;
 }
 
-export interface ExchangeHealth {
+export interface AdapterHealthResult {
   healthy: boolean;
   latency: number;
   message: string;
@@ -60,7 +60,7 @@ export interface IExchangeAdapter {
   initialize(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
-  health(): Promise<ExchangeHealth>;
+  health(): Promise<AdapterHealthResult>;
 
   // -- Auth --
   validateCredential(): Promise<boolean>;
@@ -93,7 +93,7 @@ implements IExchangeAdapter {
   abstract initialize(): Promise<void>;
   abstract start(): Promise<void>;
   abstract stop(): Promise<void>;
-  abstract health(): Promise<ExchangeHealth>;
+  abstract health(): Promise<AdapterHealthResult>;
 
   /**
    * Convenience helper.
