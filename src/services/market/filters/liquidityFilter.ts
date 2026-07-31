@@ -1,7 +1,7 @@
 /**
 ==========================================================
 AURA Trade OS
-Liquidity Filter
+Spread Filter
 Version : 0.1.1 Alpha
 ==========================================================
 */
@@ -12,105 +12,70 @@ import type {
 
 } from "@/services/exchange";
 
-export interface LiquidityFilterOptions {
+export interface SpreadFilterOptions {
 
     /**
-     * Minimum total bid volume.
+     * Maximum allowed spread (absolute price).
      */
-    minimumBidVolume?: number;
+    maximumSpread?: number;
 
     /**
-     * Minimum total ask volume.
+     * Maximum allowed spread percentage.
      */
-    minimumAskVolume?: number;
-
-    /**
-     * Minimum combined liquidity.
-     */
-    minimumTotalLiquidity?: number;
+    maximumSpreadPercent?: number;
 
 }
 
-export interface LiquidityFilterResult {
+export interface SpreadFilterResult {
 
     passed: boolean;
 
-    bidLiquidity: number;
+    bestBid: number;
 
-    askLiquidity: number;
+    bestAsk: number;
 
-    totalLiquidity: number;
+    spread: number;
 
-    imbalance: number;
+    spreadPercent: number;
 
     reason?: string;
 
 }
 
-export class LiquidityFilter {
+export class SpreadFilter {
 
     /**
-     * Evaluate market liquidity.
+     * Evaluate current market spread.
      */
     static evaluate(
 
         orderBook: OrderBook,
 
-        options: LiquidityFilterOptions = {}
+        options: SpreadFilterOptions = {}
 
-    ): LiquidityFilterResult {
+    ): SpreadFilterResult {
 
-        const bidLiquidity =
+        const bestBid =
 
-            orderBook.bids.reduce(
+            orderBook.bids.length > 0
 
-                (sum, level) =>
+                ? orderBook.bids[0].price
 
-                    sum + level.quantity,
+                : 0;
 
-                0
+        const bestAsk =
 
-            );
+            orderBook.asks.length > 0
 
-        const askLiquidity =
+                ? orderBook.asks[0].price
 
-            orderBook.asks.reduce(
-
-                (sum, level) =>
-
-                    sum + level.quantity,
-
-                0
-
-            );
-
-        const totalLiquidity =
-
-            bidLiquidity +
-
-            askLiquidity;
-
-        const imbalance =
-
-            totalLiquidity === 0
-
-                ? 0
-
-                : (
-
-                    bidLiquidity -
-
-                    askLiquidity
-
-                ) / totalLiquidity;
+                : 0;
 
         if (
 
-            options.minimumBidVolume !== undefined &&
+            bestBid === 0 ||
 
-            bidLiquidity 
-
-            options.minimumBidVolume
+            bestAsk === 0
 
         ) {
 
@@ -118,17 +83,55 @@ export class LiquidityFilter {
 
                 passed: false,
 
-                bidLiquidity,
+                bestBid,
 
-                askLiquidity,
+                bestAsk,
 
-                totalLiquidity,
+                spread: 0,
 
-                imbalance,
+                spreadPercent: 0,
 
                 reason:
 
-                    "Bid liquidity below threshold.",
+                    "Incomplete order book.",
+
+            };
+
+        }
+
+        const spread =
+
+            bestAsk - bestBid;
+
+        const spreadPercent =
+
+            (spread / bestBid) * 100;
+
+        if (
+
+            options.maximumSpread !== undefined &&
+
+            spread >
+
+                options.maximumSpread
+
+        ) {
+
+            return {
+
+                passed: false,
+
+                bestBid,
+
+                bestAsk,
+
+                spread,
+
+                spreadPercent,
+
+                reason:
+
+                    "Spread exceeds maximum threshold.",
 
             };
 
@@ -136,41 +139,11 @@ export class LiquidityFilter {
 
         if (
 
-            options.minimumAskVolume !== undefined &&
+            options.maximumSpreadPercent !== undefined &&
 
-            askLiquidity 
+            spreadPercent >
 
-            options.minimumAskVolume
-
-        ) {
-
-            return {
-
-                passed: false,
-
-                bidLiquidity,
-
-                askLiquidity,
-
-                totalLiquidity,
-
-                imbalance,
-
-                reason:
-
-                    "Ask liquidity below threshold.",
-
-            };
-
-        }
-
-        if (
-
-            options.minimumTotalLiquidity !== undefined &&
-
-            totalLiquidity 
-
-            options.minimumTotalLiquidity
+                options.maximumSpreadPercent
 
         ) {
 
@@ -178,17 +151,17 @@ export class LiquidityFilter {
 
                 passed: false,
 
-                bidLiquidity,
+                bestBid,
 
-                askLiquidity,
+                bestAsk,
 
-                totalLiquidity,
+                spread,
 
-                imbalance,
+                spreadPercent,
 
                 reason:
 
-                    "Total liquidity below threshold.",
+                    "Spread percentage exceeds maximum threshold.",
 
             };
 
@@ -198,13 +171,13 @@ export class LiquidityFilter {
 
             passed: true,
 
-            bidLiquidity,
+            bestBid,
 
-            askLiquidity,
+            bestAsk,
 
-            totalLiquidity,
+            spread,
 
-            imbalance,
+            spreadPercent,
 
         };
 
