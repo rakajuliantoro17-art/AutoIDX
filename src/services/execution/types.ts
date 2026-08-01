@@ -80,6 +80,8 @@ export interface ExecutionRequest {
 
     price?:number;
 
+    stopPrice?:number;
+
     orderType:OrderType;
 
     confidence:number;
