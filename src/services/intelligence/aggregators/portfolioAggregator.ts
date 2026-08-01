@@ -37,13 +37,23 @@ export class PortfolioAggregator {
 
         const coinStats =
 
-            providers.coinstats ?? {};
+            (providers.coinstats ?? {}) as {
+                assets?: PortfolioAsset[];
+                portfolioValue?: number;
+                totalPnL?: number;
+                totalPnLPercent?: number;
+            };
 
 
 
         const zerion =
 
-            providers.zerion ?? {};
+            (providers.zerion ?? {}) as {
+                assets?: PortfolioAsset[];
+                portfolioValue?: number;
+                totalPnL?: number;
+                totalPnLPercent?: number;
+            };
 
 
 
@@ -134,7 +144,7 @@ export class PortfolioAggregator {
 
         ...sources:
 
-        Array<
+        Array
 
             PortfolioAsset[] |
 
@@ -146,7 +156,7 @@ export class PortfolioAggregator {
 
         const map =
 
-            new Map<
+            new Map
 
                 string,
 
