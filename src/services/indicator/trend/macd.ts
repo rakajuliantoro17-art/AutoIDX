@@ -501,10 +501,5 @@ export class MACDIndicator {
 
 
 
-const macd =
-
-    new MACDIndicator();
-
-
-
+const macd = new MACDIndicator();
 export default macd;
