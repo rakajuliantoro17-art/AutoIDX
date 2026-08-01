@@ -6,7 +6,34 @@ Version : 0.0.3 Alpha
 ==========================================================
 */
 import { adminDb } from "@/services/firebase/admin";
-import { PaperPosition, PaperPortfolio, PaperTradeLog } from "@/services/paperTrading/types";
+
+export interface PaperPosition {
+  pair: string;
+  inPosition: boolean;
+  entryPrice: number;
+  coinAmount: number;
+  entryValue: number;
+  entryTime: number;
+  stopLossPrice: number;
+  takeProfitPrice: number;
+  updatedAt: number;
+}
+
+export interface PaperPortfolio {
+  startingBalance: number;
+  availableBalance: number;
+  equityIdr: number;
+  updatedAt: number;
+}
+
+export interface PaperTradeLog {
+  pair: string;
+  side: "BUY" | "SELL";
+  price: number;
+  quantity: number;
+  timestamp?: number;
+  [key: string]: unknown;
+}
 
 const POSITIONS_COLLECTION = "paper_positions";
 const PORTFOLIO_DOC_PATH = "paper_portfolio/default";
