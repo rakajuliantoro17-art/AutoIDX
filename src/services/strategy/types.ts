@@ -309,7 +309,49 @@ export interface StrategyEvaluation {
 
 }
 
+/*
+==========================================================
+Score Signal Result (services/strategy/scoring + signals/*.ts)
+Subsistem terpisah dari StrategyDecision kanonik di atas --
+dipakai hanya oleh ScoreEngine + BuySignal/SellSignal/NeutralSignal,
+belum tersambung ke core/strategyEngine.ts.
+==========================================================
+*/
 
+
+export interface ScoreSignalResult {
+
+
+    signal:
+
+        | "BUY"
+
+        | "SELL"
+
+        | "HOLD";
+
+
+    bias:MarketBias;
+
+
+    confidence:number;
+
+
+    confidenceLevel:ConfidenceLevel;
+
+
+    score:number;
+
+
+    risk:RiskLevel;
+
+
+    reasons:string[];
+
+
+    timestamp:number;
+
+}
 
 
 /*
