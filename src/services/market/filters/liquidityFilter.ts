@@ -104,15 +104,13 @@ export class LiquidityFilter {
 
                 ) / totalLiquidity;
 
-        if (
+        const bidVolumeTooLow =
 
             options.minimumBidVolume !== undefined &&
 
-            bidLiquidity 
+            bidLiquidity < options.minimumBidVolume;
 
-            options.minimumBidVolume
-
-        ) {
+        if (bidVolumeTooLow) {
 
             return {
 
@@ -134,15 +132,13 @@ export class LiquidityFilter {
 
         }
 
-        if (
+        const askVolumeTooLow =
 
             options.minimumAskVolume !== undefined &&
 
-            askLiquidity 
+            askLiquidity < options.minimumAskVolume;
 
-            options.minimumAskVolume
-
-        ) {
+        if (askVolumeTooLow) {
 
             return {
 
@@ -164,15 +160,13 @@ export class LiquidityFilter {
 
         }
 
-        if (
+        const totalLiquidityTooLow =
 
             options.minimumTotalLiquidity !== undefined &&
 
-            totalLiquidity 
+            totalLiquidity < options.minimumTotalLiquidity;
 
-            options.minimumTotalLiquidity
-
-        ) {
+        if (totalLiquidityTooLow) {
 
             return {
 
