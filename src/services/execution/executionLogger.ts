@@ -12,7 +12,7 @@ import type {
 
     ExecutionResult,
 
-} from "./executionEngine";
+} from "./types";
 
 
 
@@ -52,11 +52,8 @@ export class ExecutionLogger {
             id:
 
                 `LOG-${Date.now()}-${Math.random()
-
                     .toString(36)
-
                     .substring(2,8)
-
                 }`,
 
             request,
