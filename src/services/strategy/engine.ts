@@ -71,12 +71,12 @@ export interface StrategyEngineResult {
 
 
 
+
 export class StrategyServiceEngine {
 
 
 
     private ready:boolean;
-
 
 
 
@@ -108,9 +108,7 @@ export class StrategyServiceEngine {
             return;
 
 
-
         this.ready=true;
-
 
 
     }
@@ -128,7 +126,9 @@ export class StrategyServiceEngine {
      */
     execute(
 
-        features:IndicatorFeatureVector
+        features:IndicatorFeatureVector,
+
+        position:"NONE"|"LONG" = "NONE"
 
     ):StrategyEngineResult {
 
@@ -139,15 +139,15 @@ export class StrategyServiceEngine {
 
 
 
-
         const result =
 
             strategyManager.evaluate(
 
-                features
+                features,
+
+                position
 
             );
-
 
 
 
@@ -270,7 +270,6 @@ export class StrategyServiceEngine {
 
 
 
-
 }
 
 
@@ -282,7 +281,6 @@ export class StrategyServiceEngine {
 const strategyEngine =
 
     new StrategyServiceEngine();
-
 
 
 
