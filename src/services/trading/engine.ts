@@ -3,18 +3,15 @@
 AURA Trade OS
 Trading Engine
 Version : 0.0.8 Alpha
-
-Perubahan dari 0.0.7: Risk gate ditambahkan SEBELUM eksekusi
-BUY - emergencyStop, allowAutoTrade, cooldown, maxOpenPosition,
-dan validateTradeAmount sekarang benar-benar dicek (sebelumnya
-logic-nya ada di risk.ts tapi tidak pernah dipanggil).
-
-Prinsip desain: emergencyStop/allowAutoTrade/cooldown/
-maxOpenPosition HANYA memblokir BUY baru. SELL (baik dari
-DecisionEngine maupun stop-loss/take-profit RiskManager)
-TIDAK PERNAH diblokir -- supaya bot tetap bisa keluar dari
-posisi yang sudah terbuka untuk melindungi modal, bahkan
-saat emergency stop aktif atau auto-trade dimatikan.
+(Gabungan 2 perubahan:
+1. Validasi risk sebelum eksekusi - emergency stop, batas rugi
+   harian, cooldown, max exposure, dan stop-loss/take-profit
+   paksa yang jalan terpisah dari sinyal strategi.
+2. BOT_MODE sekarang benar-benar jadi switch paper/live. Live
+   trading TIDAK akan pernah jalan kecuali DUA syarat terpenuhi:
+   BOT_MODE=live DAN BOT_LIVE_CONFIRM=true. Ini sengaja dibuat
+   dua gerbang terpisah supaya tidak ada yang "kepencet" masuk
+   mode live tanpa sadar - salah satu env var saja tidak cukup.)
 ==========================================================
 */
 
@@ -24,45 +21,93 @@ import DecisionEngine, {
 } from "./decision";
 
 import PaperTradingService from "./paper";
+import LiveTradingService from "./live";
 
-import riskManager from "./risk";
-
-import { RISK_CONFIG } from "@/config/risk";
-import { BOT_CONFIG } from "@/config/bot";
+import RiskManager from "./risk";
 
 import {
   getBotState,
   updateBotState,
-  getOpenPositionsCount,
 } from "@/services/firebase/botState";
 
 import {
   recordLog,
 } from "@/services/firebase/logService";
 
+import {
+  getRiskState,
+  recordRealizedPnl,
+} from "@/services/firebase/riskState";
+
+import {
+  getPaperPortfolio,
+} from "@/services/firebase/paperTradingStore";
+
+import { BOT_CONFIG } from "@/config/bot";
+import { RISK_CONFIG } from "@/config/risk";
+import { TRADING_CONFIG } from "@/config/trading";
+
 export interface TradingEngineInput {
+
   pair: string;
+
   price: number;
+
   rsi: number;
+
   emaFast: number;
+
   emaSlow: number;
+
 }
 
 export interface TradingEngineResult {
+
   success: boolean;
+
   signal: "BUY" | "SELL" | "HOLD";
+
   confidence: number;
+
   reason: string;
+
   actionExecuted: boolean;
-  riskTriggered: boolean;
-  /**
-   * True kalau sinyal BUY sebenarnya muncul dari
-   * DecisionEngine, tapi diblokir oleh risk gate
-   * (emergency stop / auto-trade off / cooldown /
-   * max open position / trade amount invalid).
-   */
-  riskBlocked: boolean;
+
+  riskBlocked?: boolean;
+
+  mode?: "paper" | "live";
+
   timestamp: string;
+
+}
+
+function toMillis(value: any): number {
+
+  if (!value) return 0;
+
+  if (typeof value.toMillis === "function") return value.toMillis();
+
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+
+  if (value instanceof Date) return value.getTime();
+
+  return 0;
+
+}
+
+/**
+ * Live trading HANYA aktif kalau DUA syarat terpenuhi:
+ * BOT_MODE=live DAN BOT_LIVE_CONFIRM=true. Salah satu saja
+ * tidak cukup - ini sengaja jadi dua gerbang terpisah supaya
+ * tidak ada yang "kepencet" masuk live tanpa sadar.
+ */
+function isLiveModeActive(): boolean {
+
+  return (
+    TRADING_CONFIG.mode === "live" &&
+    process.env.BOT_LIVE_CONFIRM === "true"
+  );
+
 }
 
 export class TradingEngine {
@@ -74,198 +119,388 @@ export class TradingEngine {
     input: TradingEngineInput
   ): Promise<TradingEngineResult> {
 
+    const liveActive = isLiveModeActive();
+
+    const tradingService = liveActive
+      ? LiveTradingService
+      : PaperTradingService;
+
+    const modeLabel: "paper" | "live" =
+      liveActive ? "live" : "paper";
+
+    // Peringatan kalau BOT_MODE=live di-set tapi BOT_LIVE_CONFIRM
+    // belum - supaya user tahu kenapa masih paper trading.
+    if (
+      TRADING_CONFIG.mode === "live" &&
+      !liveActive
+    ) {
+
+      await recordLog(
+        "SYSTEM",
+        "warning",
+        `BOT_MODE=live tapi BOT_LIVE_CONFIRM belum "true" - tetap jalan PAPER trading sebagai fail-safe.`
+      );
+
+    }
+
     try {
+
+      // --- 1. Emergency Stop (paling prioritas) ---
+      if (RISK_CONFIG.emergencyStop) {
+
+        await recordLog(
+          "RISK",
+          "danger",
+          `Emergency stop aktif — ${input.pair.toUpperCase()} di-HOLD paksa.`
+        );
+
+        return {
+
+          success: true,
+
+          signal: "HOLD",
+
+          confidence: 0,
+
+          reason: "Emergency stop aktif (RISK_CONFIG.emergencyStop).",
+
+          actionExecuted: false,
+
+          riskBlocked: true,
+
+          mode: modeLabel,
+
+          timestamp: new Date().toISOString(),
+
+        };
+
+      }
 
       const state =
         await getBotState(input.pair);
 
-      /*
-      ==========================================
-      RISK CHECK (Stop Loss / Take Profit)
-      Dijalankan LEBIH DULU, sebelum DecisionEngine.
-      ==========================================
-      */
-      let decision: DecisionResult;
-      let riskTriggered = false;
+      const portfolio =
+        await getPaperPortfolio(BOT_CONFIG.startingBalance);
 
+      const riskState =
+        await getRiskState();
+
+      // --- 2. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
+      // Ini dicek TERPISAH dari sinyal strategi, supaya posisi tetap
+      // ditutup walau EMA/RSI belum kasih sinyal SELL.
       if (state.inPosition) {
 
-        const riskEval = riskManager.evaluate({
+        const riskEval = RiskManager.evaluate({
+
           buyPrice: state.entryPrice,
+
           currentPrice: input.price,
-          inPosition: state.inPosition,
+
+          inPosition: true,
+
         });
 
         if (riskEval.shouldStopLoss || riskEval.shouldTakeProfit) {
 
-          riskTriggered = true;
+          const result = await tradingService.sell({
 
-          decision = {
-            signal: "SELL",
-            confidence: 1,
-            reason: riskEval.reason,
-          };
+            pair: input.pair,
 
-        } else {
-
-          const decisionInput: DecisionInput = {
             price: input.price,
-            rsi: input.rsi,
-            emaFast: input.emaFast,
-            emaSlow: input.emaSlow,
-            inPosition: state.inPosition,
-          };
 
-          decision = DecisionEngine.evaluate(decisionInput);
+            amount: state.coinAmount,
 
-        }
+          });
 
-      } else {
+          const pnlIdr =
+            (input.price - state.entryPrice) * state.coinAmount;
 
-        const decisionInput: DecisionInput = {
-          price: input.price,
-          rsi: input.rsi,
-          emaFast: input.emaFast,
-          emaSlow: input.emaSlow,
-          inPosition: state.inPosition,
-        };
+          await recordRealizedPnl(pnlIdr);
 
-        decision = DecisionEngine.evaluate(decisionInput);
+          await updateBotState({
 
-      }
+            pair: input.pair,
 
-      /*
-      ==========================================
-      RISK GATE (khusus BUY baru)
-      ==========================================
-      */
-      let riskBlocked = false;
+            inPosition: false,
 
-      if (decision.signal === "BUY") {
+            entryPrice: 0,
 
-        let blockReason = "";
+            coinAmount: 0,
 
-        if (riskManager.isEmergencyStopped()) {
-          riskBlocked = true;
-          blockReason = "Emergency stop aktif - BUY baru diblokir.";
-        }
-        else if (!BOT_CONFIG.allowAutoTrade) {
-          riskBlocked = true;
-          blockReason = "Auto trade dinonaktifkan (BOT_AUTO_TRADE=false).";
-        }
-        else if (riskManager.isCooldownActive(state.lastTradeAt)) {
-          riskBlocked = true;
-          blockReason = `Masih dalam cooldown (${RISK_CONFIG.cooldownSeconds} detik sejak trade terakhir).`;
-        }
-        else if (!riskManager.validateTradeAmount(BOT_CONFIG.defaultTradeAmount)) {
-          riskBlocked = true;
-          blockReason = `Trade amount (${BOT_CONFIG.defaultTradeAmount}) melebihi batas maksimum (${BOT_CONFIG.maxTradeAmount}).`;
-        }
-        else {
-
-          const openPositions = await getOpenPositionsCount();
-
-          if (!riskManager.canOpenPosition(openPositions)) {
-            riskBlocked = true;
-            blockReason = `Batas maksimum posisi terbuka (${RISK_CONFIG.maxOpenPosition}) tercapai.`;
-          }
-
-        }
-
-        if (riskBlocked) {
+          });
 
           await recordLog(
             "RISK",
-            "warning",
-            `BUY ${input.pair.toUpperCase()} diblokir - ${blockReason}`
+            riskEval.shouldStopLoss ? "warning" : "success",
+            `[${modeLabel.toUpperCase()}] ${riskEval.reason} ${input.pair.toUpperCase()} @ ${input.price}`
           );
 
-          decision = {
-            signal: "HOLD",
-            confidence: decision.confidence,
-            reason: blockReason,
+          return {
+
+            success: true,
+
+            signal: "SELL",
+
+            confidence: 1,
+
+            reason: riskEval.reason,
+
+            actionExecuted: result.success,
+
+            mode: modeLabel,
+
+            timestamp: new Date().toISOString(),
+
           };
 
         }
 
       }
+
+      // --- 3. Evaluasi sinyal strategi seperti biasa ---
+      const decisionInput: DecisionInput = {
+
+        price: input.price,
+
+        rsi: input.rsi,
+
+        emaFast: input.emaFast,
+
+        emaSlow: input.emaSlow,
+
+        inPosition: state.inPosition,
+
+      };
+
+      const decision: DecisionResult =
+        DecisionEngine.evaluate(
+          decisionInput
+        );
 
       let actionExecuted = false;
 
       switch (decision.signal) {
 
-        case "BUY":
+        case "BUY": {
 
-          await PaperTradingService.buy({
+          const tradeAmountIdr =
+            BOT_CONFIG.defaultTradeAmount;
+
+          // --- Batas rugi harian ---
+          const maxDailyLossIdr =
+            (RISK_CONFIG.maxDailyLossPercent / 100) *
+            portfolio.startingBalance;
+
+          if (riskState.dailyPnlIdr <= -maxDailyLossIdr) {
+
+            await recordLog(
+              "RISK",
+              "warning",
+              `Batas rugi harian tercapai (${riskState.dailyPnlIdr.toFixed(
+                0
+              )} IDR) — BUY ${input.pair.toUpperCase()} diblokir.`
+            );
+
+            return {
+
+              success: true,
+
+              signal: "HOLD",
+
+              confidence: decision.confidence,
+
+              reason: "Batas rugi harian tercapai — BUY baru diblokir sampai besok.",
+
+              actionExecuted: false,
+
+              riskBlocked: true,
+
+              mode: modeLabel,
+
+              timestamp: new Date().toISOString(),
+
+            };
+
+          }
+
+          // --- Cooldown antar trade ---
+          const lastUpdatedMs = toMillis(state.updatedAt);
+
+          const secondsSinceLastUpdate =
+            lastUpdatedMs > 0
+              ? (Date.now() - lastUpdatedMs) / 1000
+              : Infinity;
+
+          if (secondsSinceLastUpdate < RISK_CONFIG.cooldownSeconds) {
+
+            await recordLog(
+              "RISK",
+              "info",
+              `Cooldown aktif — BUY ${input.pair.toUpperCase()} ditunda (${Math.round(
+                RISK_CONFIG.cooldownSeconds - secondsSinceLastUpdate
+              )} detik lagi).`
+            );
+
+            return {
+
+              success: true,
+
+              signal: "HOLD",
+
+              confidence: decision.confidence,
+
+              reason: "Cooldown antar trade masih berjalan.",
+
+              actionExecuted: false,
+
+              riskBlocked: true,
+
+              mode: modeLabel,
+
+              timestamp: new Date().toISOString(),
+
+            };
+
+          }
+
+          // --- Max exposure per trade ---
+          const maxExposureIdr =
+            (RISK_CONFIG.maxExposurePercent / 100) *
+            portfolio.equityIdr;
+
+          if (
+            tradeAmountIdr > BOT_CONFIG.maxTradeAmount ||
+            tradeAmountIdr > maxExposureIdr ||
+            tradeAmountIdr > portfolio.availableBalance
+          ) {
+
+            await recordLog(
+              "RISK",
+              "warning",
+              `Exposure/saldo tidak cukup — BUY ${input.pair.toUpperCase()} diblokir.`
+            );
+
+            return {
+
+              success: true,
+
+              signal: "HOLD",
+
+              confidence: decision.confidence,
+
+              reason: "Nominal trade melebihi batas exposure atau saldo tidak cukup.",
+
+              actionExecuted: false,
+
+              riskBlocked: true,
+
+              mode: modeLabel,
+
+              timestamp: new Date().toISOString(),
+
+            };
+
+          }
+
+          const result = await tradingService.buy({
+
             pair: input.pair,
+
             price: input.price,
+
           });
 
           await updateBotState({
+
             pair: input.pair,
+
             inPosition: true,
-            entryPrice: input.price,
-            lastTradeAt: Date.now(),
+
+            entryPrice: result.price,
+
+            coinAmount: result.amount,
+
           });
 
           await recordLog(
             "BOT",
             "success",
-            `BUY ${input.pair.toUpperCase()} @ ${input.price} - ${decision.reason}`
+            `[${modeLabel.toUpperCase()}] BUY ${input.pair.toUpperCase()} @ ${result.price}`
           );
 
           actionExecuted = true;
 
           break;
 
-        case "SELL":
+        }
 
-          await PaperTradingService.sell({
+        case "SELL": {
+
+          const result = await tradingService.sell({
+
             pair: input.pair,
+
             price: input.price,
+
+            amount: state.coinAmount,
+
           });
 
+          const pnlIdr =
+            (input.price - state.entryPrice) * state.coinAmount;
+
+          await recordRealizedPnl(pnlIdr);
+
           await updateBotState({
+
             pair: input.pair,
+
             inPosition: false,
+
             entryPrice: 0,
+
             coinAmount: 0,
-            lastTradeAt: Date.now(),
+
           });
 
           await recordLog(
             "BOT",
-            riskTriggered ? "warning" : "success",
-            `SELL ${input.pair.toUpperCase()} @ ${input.price} - ${decision.reason}${
-              riskTriggered ? " (RISK MANAGER)" : ""
-            }`
+            "success",
+            `[${modeLabel.toUpperCase()}] SELL ${input.pair.toUpperCase()} @ ${result.price}`
           );
 
-          actionExecuted = true;
+          actionExecuted = result.success;
 
           break;
+
+        }
 
         default:
 
           await recordLog(
             "BOT",
             "info",
-            `HOLD ${input.pair.toUpperCase()}${
-              riskBlocked ? " (RISK BLOCKED)" : ""
-            }`
+            `HOLD ${input.pair.toUpperCase()}`
           );
 
       }
 
       return {
+
         success: true,
+
         signal: decision.signal,
+
         confidence: decision.confidence,
+
         reason: decision.reason,
+
         actionExecuted,
-        riskTriggered,
-        riskBlocked,
+
+        mode: modeLabel,
+
         timestamp: new Date().toISOString(),
+
       };
 
     } catch (error) {
@@ -278,18 +513,27 @@ export class TradingEngine {
       await recordLog(
         "SYSTEM",
         "danger",
-        "Trading Engine Error"
+        `Trading Engine Error (${modeLabel}): ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
       );
 
       return {
+
         success: false,
+
         signal: "HOLD",
+
         confidence: 0,
+
         reason: "Trading engine failed.",
+
         actionExecuted: false,
-        riskTriggered: false,
-        riskBlocked: false,
+
+        mode: modeLabel,
+
         timestamp: new Date().toISOString(),
+
       };
 
     }
