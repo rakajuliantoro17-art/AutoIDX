@@ -30,20 +30,18 @@ export * from "./registry";
 /*
 ==========================================================
 Singletons
+
+Catatan: ExecutionEngine & ExecutionManager (executionEngine.ts,
+manager.ts) butuh adapter di constructor-nya, jadi tidak bisa
+dibuat singleton default di sini -- instantiate manual dengan
+adapter pilihan saat benar-benar mau dipakai, contoh:
+
+  import { ExecutionManager } from "@/services/execution";
+  import { IndodaxExecutionAdapter } from "@/services/execution/adapters/indodaxAdapter";
+
+  const manager = new ExecutionManager(new IndodaxExecutionAdapter(...));
 ==========================================================
 */
-
-export {
-
-    default as executionEngine,
-
-} from "./executionEngine";
-
-export {
-
-    default as executionManager,
-
-} from "./manager";
 
 export {
 
