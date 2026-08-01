@@ -475,6 +475,10 @@ export class LiveTradingEngine {
                     signal.symbol,
 
 
+                side:
+
+                    "BUY",
+
                 type:
 
                     "MARKET",
