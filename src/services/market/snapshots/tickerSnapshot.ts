@@ -170,13 +170,9 @@ export class TickerSnapshot {
      */
     isBullish(): boolean {
 
-        return (
+        const change = this.data.changePercent24h;
 
-            this.data.changePercent24h >
-
-            0
-
-        );
+        return change > 0;
 
     }
 
@@ -186,13 +182,9 @@ export class TickerSnapshot {
      */
     isBearish(): boolean {
 
-        return (
+        const change = this.data.changePercent24h;
 
-            this.data.changePercent24h 
-
-            0
-
-        );
+        return change < 0;
 
     }
 
