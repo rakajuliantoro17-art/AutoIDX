@@ -64,9 +64,7 @@ const emaEntryRules:EvaluationRule[] = [
 
             return (
 
-                features.emaFast >
-
-                features.emaSlow
+                features.emaFast > features.emaSlow
 
             );
 
@@ -111,9 +109,7 @@ const emaExitRules:EvaluationRule[] = [
 
             return (
 
-                features.emaFast <
-
-                features.emaSlow
+                features.emaFast < features.emaSlow
 
             );
 
@@ -144,11 +140,9 @@ const emaCrossover:StrategyDefinition = {
 
 
 
-
     description:
 
         "Simple EMA Fast Slow Trend Following Strategy",
-
 
 
 
@@ -161,35 +155,42 @@ const emaCrossover:StrategyDefinition = {
 
 
 
-
-    execute:(features)=>{
-
-
-
-        const exit =
-
-            evaluator.evaluate(
-
-                features,
-
-                emaExitRules
-
-            );
+    execute:(features, position)=>{
 
 
 
-
-
+        /**
+         * PENGAMAN POSITION-AWARENESS:
+         * jangan pernah SELL kalau tidak sedang
+         * punya posisi (position !== "LONG").
+         */
         if(
 
-            exit.status === "PASS"
+            position === "LONG"
 
         ){
 
-            return "SELL";
+            const exit =
+
+                evaluator.evaluate(
+
+                    features,
+
+                    emaExitRules
+
+                );
+
+            if(
+
+                exit.status === "PASS"
+
+            ){
+
+                return "SELL";
+
+            }
 
         }
-
 
 
 
@@ -208,7 +209,6 @@ const emaCrossover:StrategyDefinition = {
 
 
 
-
         if(
 
             entry.status === "PASS"
@@ -222,7 +222,6 @@ const emaCrossover:StrategyDefinition = {
 
 
 
-
         return "HOLD";
 
 
@@ -231,7 +230,6 @@ const emaCrossover:StrategyDefinition = {
 
 
 };
-
 
 
 
