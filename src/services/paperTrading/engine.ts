@@ -86,10 +86,11 @@ export class PaperTradingEngine {
         /**
          * Confidence filter
          */
-        if (
-            request.confidence 
-            this.config.minimumConfidence
-        ) {
+       if(
+
+            request.confidence < this.config.minimumConfidence
+
+        ){
             return this.record({
                 success: false,
                 action: "HOLD",
