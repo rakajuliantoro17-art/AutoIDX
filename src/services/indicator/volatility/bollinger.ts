@@ -547,3 +547,7 @@ export class BollingerBandsIndicator {
 
 
 }
+
+
+const bollinger = new BollingerBandsIndicator();
+export default bollinger;
