@@ -2,7 +2,10 @@
 ==========================================================
 AURA Trade OS
 Paper Trading Service
-Version : 0.0.6 Alpha
+Version : 0.0.7 Alpha
+(Ditambahkan: sinkronisasi ke paperTradingStore.ts / Firestore
+supaya dashboard /dashboard/paper-trading menampilkan data asli,
+bukan selalu kosong)
 ==========================================================
 */
 
@@ -19,6 +22,13 @@ import {
   recordTrade,
   recordLog,
 } from "@/services/firebase/logService";
+
+import {
+  getPaperPortfolio,
+  savePaperPortfolio,
+  savePaperPosition,
+  logPaperTrade,
+} from "@/services/firebase/paperTradingStore";
 
 export interface PaperTradeRequest {
   pair: string;
@@ -100,6 +110,80 @@ class PaperTradingService {
         "id-ID"
       )}`
     );
+
+    // --- Sinkronisasi ke paperTradingStore (Firestore, dibaca dashboard) ---
+    try {
+
+      const portfolio =
+        await getPaperPortfolio(BOT_CONFIG.startingBalance);
+
+      const newAvailableBalance =
+        portfolio.availableBalance - total;
+
+      await savePaperPortfolio({
+
+        ...portfolio,
+
+        availableBalance: newAvailableBalance,
+
+        equityIdr: newAvailableBalance + total,
+
+        updatedAt: Date.now(),
+
+      });
+
+      const entryTime = Date.now();
+
+      await savePaperPosition({
+
+        pair: request.pair,
+
+        inPosition: true,
+
+        entryPrice: request.price,
+
+        coinAmount: amount,
+
+        entryValue: total,
+
+        entryTime,
+
+        stopLossPrice:
+          request.price * (1 - BOT_CONFIG.stopLoss / 100),
+
+        takeProfitPrice:
+          request.price * (1 + BOT_CONFIG.targetProfit / 100),
+
+        updatedAt: entryTime,
+
+      });
+
+      await logPaperTrade({
+
+        pair: request.pair,
+
+        side: "BUY",
+
+        price: request.price,
+
+        quantity: amount,
+
+        idrValue: total,
+
+        timestamp: entryTime,
+
+        executedAt: entryTime,
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "[PAPER TRADING STORE SYNC ERROR - BUY]",
+        error
+      );
+
+    }
 
     return {
 
@@ -185,6 +269,90 @@ class PaperTradingService {
         "id-ID"
       )}`
     );
+
+    // --- Sinkronisasi ke paperTradingStore (Firestore, dibaca dashboard) ---
+    try {
+
+      const pnlIdr =
+        (request.price - state.entryPrice) * amount;
+
+      const pnlPercent =
+        state.entryPrice > 0
+          ? ((request.price - state.entryPrice) / state.entryPrice) * 100
+          : 0;
+
+      const portfolio =
+        await getPaperPortfolio(BOT_CONFIG.startingBalance);
+
+      const newAvailableBalance =
+        portfolio.availableBalance + total;
+
+      await savePaperPortfolio({
+
+        ...portfolio,
+
+        availableBalance: newAvailableBalance,
+
+        equityIdr: newAvailableBalance,
+
+        updatedAt: Date.now(),
+
+      });
+
+      const closedAt = Date.now();
+
+      await savePaperPosition({
+
+        pair: request.pair,
+
+        inPosition: false,
+
+        entryPrice: 0,
+
+        coinAmount: 0,
+
+        entryValue: 0,
+
+        entryTime: 0,
+
+        stopLossPrice: 0,
+
+        takeProfitPrice: 0,
+
+        updatedAt: closedAt,
+
+      });
+
+      await logPaperTrade({
+
+        pair: request.pair,
+
+        side: "SELL",
+
+        price: request.price,
+
+        quantity: amount,
+
+        idrValue: total,
+
+        pnlIdr,
+
+        pnlPercent,
+
+        timestamp: closedAt,
+
+        executedAt: closedAt,
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "[PAPER TRADING STORE SYNC ERROR - SELL]",
+        error
+      );
+
+    }
 
     return {
 
