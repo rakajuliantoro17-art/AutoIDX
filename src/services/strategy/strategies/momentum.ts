@@ -30,7 +30,6 @@ from "../core/evaluator";
 
 
 
-
 /*
 ==========================================================
 Momentum Entry Rules
@@ -91,9 +90,7 @@ const momentumEntryRules:EvaluationRule[] = [
 
             return (
 
-                features.stochasticK >
-
-                features.stochasticD
+                features.stochasticK > features.stochasticD
 
             );
 
@@ -122,9 +119,7 @@ const momentumEntryRules:EvaluationRule[] = [
 
             return (
 
-                features.macd >
-
-                features.macdSignal
+                features.macd > features.macdSignal
 
             );
 
@@ -202,9 +197,7 @@ const momentumExitRules:EvaluationRule[] = [
 
             return (
 
-                features.stochasticK <
-
-                features.stochasticD
+                features.stochasticK < features.stochasticD
 
             );
 
@@ -233,9 +226,7 @@ const momentumExitRules:EvaluationRule[] = [
 
             return (
 
-                features.macd <
-
-                features.macdSignal
+                features.macd < features.macdSignal
 
             );
 
@@ -268,7 +259,6 @@ const momentumStrategy:StrategyDefinition = {
 
 
 
-
     description:
 
         "RSI Stochastic MACD Momentum Strategy",
@@ -287,42 +277,47 @@ const momentumStrategy:StrategyDefinition = {
 
 
 
-
-    execute:(features)=>{
+    execute:(features, position)=>{
 
 
 
         /*
         ==================================
         Exit Priority
+
+        PENGAMAN POSITION-AWARENESS:
+        jangan pernah SELL kalau tidak sedang
+        punya posisi (position !== "LONG").
         ==================================
         */
 
-
-        const exit =
-
-            evaluator.evaluate(
-
-                features,
-
-                momentumExitRules
-
-            );
-
-
-
-
-
         if(
 
-            exit.status === "PASS"
+            position === "LONG"
 
         ){
 
-            return "SELL";
+            const exit =
+
+                evaluator.evaluate(
+
+                    features,
+
+                    momentumExitRules
+
+                );
+
+            if(
+
+                exit.status === "PASS"
+
+            ){
+
+                return "SELL";
+
+            }
 
         }
-
 
 
 
