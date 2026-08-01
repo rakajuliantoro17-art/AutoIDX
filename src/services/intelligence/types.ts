@@ -209,6 +209,16 @@ export interface MarketSnapshot {
 
         LiquidityLevel;
 
+    portfolioValue?:
+
+        number |
+
+        null;
+
+
+    assets?:
+
+        unknown[];
 
 
     providers:
