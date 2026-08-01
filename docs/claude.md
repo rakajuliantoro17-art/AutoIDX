@@ -117,7 +117,9 @@ Ada **tiga** jalur eksekusi order paralel di codebase ini (hasil kerja beberapa 
 
 1. `services/exchange/adapters/indodax.ts` — `placeOrder()` sudah dikunci: menolak eksekusi kecuali `TRADING_CONFIG.mode === "live"`.
 2. `services/execution/adapters/indodaxAdapter.ts` — delegasi ke nomor 1.
-3. `services/liveTrading/exchange/orderExecutor.ts` — client HTTP terpisah sendiri (`indodaxClient.ts`, langsung ke `https://indodax.com/tapi`). **Sudah ada pengaman mode paper/live juga**, terverifikasi memblokir sebelum request asli terkirim.
+3. services/liveTrading/exchange/orderExecutor.ts — client HTTP terpisah sendiri (indodaxClient.ts, langsung ke https://indodax.com/tapi). Sudah ada pengaman mode paper/live, terverifikasi memblokir sebelum request asli terkirim.
+
+⚠️ KOREKSI (audit terbaru): klaim sebelumnya bahwa services/exchange/adapters/indodax.ts → placeOrder() "sudah dikunci" adalah salah. Verifikasi langsung ke kode menunjukkan IndodaxAdapter di services/exchange/adapters/indodax.ts hanya berisi initialize(), start(), stop(), health() — semuanya cuma pakai publicClient (market data publik). Tidak ada implementasi placeOrder, getBalance, atau method private lainnya sama sekali — jadi bukan "dikunci aman", tapi memang belum ditulis. RequestSigner (HMAC-SHA512) yang disebut "siap pakai" juga belum ada di repo.
 
 **Status saat ini (per audit terakhir):** bot berjalan mode **paper trading**, API key production belum diisi. Kedua jalur di atas yang aktif (1 dan 3) sudah punya pengaman. **Belum ada logic position-sizing yang menghitung dari saldo/exposure asli** — `execution/engine.ts` masih punya `quantity: 0` dengan TODO(SAFETY) di jalur ketiga yang belum tersambung.
 
@@ -356,3 +358,34 @@ Sebelumnya `RiskManager`/`RISK_CONFIG` sudah lengkap (stop loss, take profit, ma
 **Belum dikerjakan / catatan terbuka:**
 - `RiskManager.validateTradeAmount(amount)` di `services/trading/risk.ts` kemungkinan bug lama: membandingkan `amount` (nominal trade, IDR) dengan `RISK_CONFIG.maxOpenPosition` (jumlah posisi maksimal) — dua satuan berbeda, method ini kemungkinan tidak pernah dipanggil di jalur manapun (perlu diverifikasi) jadi belum terasa dampaknya. **Belum diperbaiki**, sengaja tidak disentuh karena di luar scope task saat ditemukan — tanya pemilik project sebelum ubah formula.
 - Stop Loss / Take Profit / Max Position belum bisa diatur dari UI (masih env var only) — kalau mau dibuatkan slider serupa, tinggal ikuti pola `tradeAmountIdr` di atas.
+
+---
+
+**Update — sesi audit Settings API + awal implementasi Indodax Private API**
+
+**Bug build diperbaiki: `src/api/settings/route.ts` self-import.**
+File ini mengimpor `GET`/`PUT` dari dirinya sendiri lalu mendefinisikan ulang keduanya di bawahnya — `PUT redefined`. Fix: hapus 2 baris self-import (`import { GET, PUT } from "@/api/settings/route"; export { GET, PUT };`), sisakan definisi asli yang manggil `getSettings()`/`saveSettings()`.
+
+**Bug terkait ditemukan sekaligus: wrapper `src/app/api/settings/route.ts` cuma re-export `GET`, tidak `PUT`.**
+Kalau tidak diperbaiki bareng, slider Trade Amount tetap gagal simpan (404/405) walau build sudah lolos, karena App Router tidak tahu route ini punya handler `PUT`. Fix: tambahkan `PUT` ke import & export di wrapper.
+
+**Audit `IndodaxAdapter` / private API Indodax — task paling kritis, BELUM dikerjakan:**
+Verifikasi langsung ke kode (lihat koreksi di "Live Trading Safety" di atas) — private API Indodax (HMAC signing, `getBalance`, `placeOrder`, `getOrder`, `cancelOrder`) **belum ada implementasinya sama sekali** di `IndodaxAdapter`. Yang sudah dikonfirmasi ADA dan siap dipakai sebagai fondasi:
+- `services/exchange/adapters/base.ts` — `IExchangeAdapter` interface lengkap (semua method operasional sudah punya signature) + `BaseExchangeAdapter` dengan default `AdapterNotImplementedError` per method (pola: jangan pura-pura berhasil).
+- Models lengkap: `models/account.ts` (`ExchangeAccount`), `models/balance.ts` (`Balance`, `AccountBalance`), `models/order.ts` (`Order`, `OrderStatus`), `models/trade.ts` (`Trade`).
+- Errors: `errors/ExchangeError.ts` (base, punya `recoverable`/`severity`/`timestamp`/`toJSON()`), `errors/AuthenticationError.ts` (extends `ExchangeError`), `errors/NetworkError.ts`, `errors/RateLimitError.ts` (dipakai `public/client.ts`).
+- `services/exchange/public/client.ts` — pola HTTP client (`PublicClient` base class + `IndodaxPublicClient`), base URL `https://indodax.com`, GET dengan `AbortController`/timeout, error mapping ke `RateLimitError`/`NetworkError`. Private client (`services/exchange/private/`, belum ada) sebaiknya ikuti pola/gaya yang sama.
+- `config/trading.ts` — `TRADING_CONFIG` (mode paper/live, pair, trade amount, order config, fee) sudah ada, baca dari env var `BOT_*`.
+- **`RequestSigner` (HMAC-SHA512) — TIDAK ada di repo**, meski klaim sebelumnya bilang "siap pakai". Harus dibuat dari nol. Referensi resmi: Indodax Trade API — endpoint `POST https://indodax.com/tapi`, header `Key` (API key) + `Sign` (HMAC-SHA512 dari `totalParams` = query string + request body, pakai secret key), plus parameter `timestamp`/`recvWindow` (atau `nonce` versi lama, integer selalu naik).
+
+**Keputusan arsitektur TERBUKA — belum diputuskan, jangan asumsikan:**
+Kredensial Indodax (API key + secret) akan **diinput per-user lewat dashboard**, dan **satu user bisa punya multi-akun Indodax**. Ini tidak cocok dengan pola `IndodaxAdapter` saat ini yang diekspor sebagai **singleton** (`export default indodaxAdapter`, satu instance global) dan `IExchangeAdapter` interface yang method-nya (`getBalance()`, `placeOrder(order)`, dll) **tidak menerima parameter kredensial sama sekali**.
+
+Dua opsi yang diidentifikasi (belum dipilih):
+- **Opsi A** — Adapter per-akun: `IndodaxAdapter` terima `{apiKey, secretKey}` di constructor, instance baru dibuat per-akun saat butuh operasi private. Singleton lama tetap untuk publik/health-check saja.
+- **Opsi B** — Kredensial per-panggilan: ubah signature `IExchangeAdapter` supaya tiap method terima parameter kredensial, instance tetap satu. Dampak lebih luas karena `services/execution/adapters/indodaxAdapter.ts` sudah delegasi ke adapter ini.
+
+**JANGAN mulai menulis `RequestSigner`/private client/`IndodaxAdapter` real sebelum keputusan A/B ini diambil oleh pemilik project** — menyangkut struktur data kredensial per-user yang akan dipakai di banyak file turunan.
+
+**Keamanan — eskalasi prioritas:**
+Isu lama (`IndodaxAccountManager` simpan API key/secret plaintext ke Firestore, tanpa `firestore.rules`) yang sebelumnya "belum mendesak karena belum tersambung ke eksekusi asli" **sekarang jadi prioritas tinggi** — begitu `IndodaxAdapter` bisa `placeOrder`/`getBalance` pakai kredensial dari Firestore, plaintext storage ini jadi jalur pencurian API key trading/withdraw milik semua user. Rekomendasi: kerjakan enkripsi server-side (lihat bagian "Keamanan" di atas) **bersamaan atau sebelum** private API ini live, bukan sesudahnya.
