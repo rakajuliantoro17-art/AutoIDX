@@ -87,9 +87,7 @@ export class ExecutionEngine {
 
         if (
 
-            request.confidence 
-
-            this.minimumConfidence
+            request.confidence < this.minimumConfidence
 
         ) {
 
@@ -194,9 +192,7 @@ export class ExecutionEngine {
 
         const latency =
 
-            performance.now() -
-
-            start;
+            performance.now() - start;
 
 
 
