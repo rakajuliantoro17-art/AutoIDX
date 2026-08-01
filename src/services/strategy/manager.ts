@@ -98,12 +98,10 @@ export interface StrategyManagerResult {
 export class StrategyManager {
 
 
-
     private initialized:boolean;
 
 
     private activeMode:StrategyMode;
-
 
 
 
@@ -140,7 +138,6 @@ export class StrategyManager {
 
 
 
-
         strategyEngine.register(
 
             auraTrend
@@ -148,13 +145,11 @@ export class StrategyManager {
         );
 
 
-
         strategyEngine.register(
 
             emaCrossover
 
         );
-
 
 
         strategyEngine.register(
@@ -166,9 +161,7 @@ export class StrategyManager {
 
 
 
-
         this.initialized=true;
-
 
 
     }
@@ -227,7 +220,6 @@ export class StrategyManager {
 
 
 
-
             case "AGGRESSIVE":
 
 
@@ -235,15 +227,12 @@ export class StrategyManager {
 
 
 
-
             case "BALANCED":
-
 
             default:
 
 
                 return "AURA_TREND";
-
 
         }
 
@@ -263,14 +252,15 @@ export class StrategyManager {
      */
     evaluate(
 
-        features:IndicatorFeatureVector
+        features:IndicatorFeatureVector,
+
+        position:"NONE"|"LONG" = "NONE"
 
     ):StrategyManagerResult {
 
 
 
         this.initialize();
-
 
 
 
@@ -282,20 +272,17 @@ export class StrategyManager {
 
 
 
-
         const decision =
 
             strategyEngine.evaluate(
 
                 strategy,
 
-                features
+                features,
+
+                position
 
             );
-
-
-
-
 
 
 
@@ -308,13 +295,10 @@ export class StrategyManager {
                 this.activeMode,
 
 
-
             strategy,
 
 
-
             decision,
-
 
 
             timestamp:
@@ -351,7 +335,6 @@ export class StrategyManager {
 
 
 
-
         return (
 
             strategyEngine.evaluateAll(
@@ -366,7 +349,6 @@ export class StrategyManager {
     }
 
 
-
 }
 
 
@@ -378,7 +360,6 @@ export class StrategyManager {
 const strategyManager =
 
     new StrategyManager();
-
 
 
 
