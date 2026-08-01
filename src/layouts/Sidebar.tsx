@@ -15,11 +15,11 @@ interface MenuItem {
 
 const menus: MenuItem[] = [
   { name: "Dashboard", path: "/dashboard" },
-  { name: "Scanner", path: "/dashboard/scanner" },
+  { name: "Scanner", path: "/scanner" },
   { name: "Paper Trading", path: "/dashboard/paper-trading" },
-  { name: "Portfolio", path: "/dashboard/portfolio" },
-  { name: "Activity", path: "/dashboard/activity" },
-  { name: "Backtest", path: "/dashboard/backtest" },
+  { name: "Portfolio", path: "/portfolio" },
+  { name: "Activity", path: "/activity" },
+  { name: "Backtest", path: "/backtest" },
   { name: "Settings", path: "/dashboard/settings" },
 ];
 
