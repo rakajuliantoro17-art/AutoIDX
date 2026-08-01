@@ -1,0 +1,69 @@
+"use client";
+
+/**
+==========================================================
+AURA Trade OS
+Dashboard Sidebar (App Router)
+Version : 0.0.1 Alpha
+==========================================================
+*/
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+interface MenuItem {
+  name: string;
+  path: string;
+}
+
+const menus: MenuItem[] = [
+  { name: "Dashboard", path: "/dashboard" },
+  { name: "Scanner", path: "/scanner" },
+  { name: "Paper Trading", path: "/dashboard/paper-trading" },
+  { name: "Portfolio", path: "/portfolio" },
+  { name: "Activity", path: "/activity" },
+  { name: "Backtest", path: "/backtest" },
+  { name: "Settings", path: "/dashboard/settings" },
+];
+
+export default function SidebarAppRouter() {
+
+  const pathname = usePathname();
+
+  return (
+    <aside className="hidden md:block w-64 border-r border-white/10 min-h-[calc(100vh-64px)] p-4">
+      <nav className="space-y-2">
+        {menus.map((menu) => {
+
+          const isActive =
+            menu.path === "/dashboard"
+              ? pathname === menu.path
+              : pathname?.startsWith(menu.path) ?? false;
+
+          return (
+            <Link
+              key={menu.path}
+              href={menu.path}
+              aria-current={isActive ? "page" : undefined}
+              className={`
+                block
+                px-4
+                py-3
+                rounded-xl
+                text-sm
+                transition
+                ${
+                  isActive
+                    ? "bg-sky-500/10 text-sky-400 font-medium"
+                    : "text-slate-300 hover:bg-white/10"
+                }
+              `}
+            >
+              {menu.name}
+            </Link>
+          );
+        })}
+      </nav>
+    </aside>
+  );
+}
