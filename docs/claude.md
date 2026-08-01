@@ -254,3 +254,18 @@ Rencana konsolidasi:
 ## Catatan proses konsolidasi
 
 Migrasi di atas dikerjakan **bertahap per sesi**, bukan sekaligus — supaya risiko terhadap fitur yang sudah live (login, dashboard, cron, scanner) tetap terkendali. Urutan disarankan: mulai dari #3 (lingkup paling kecil, risiko paling rendah), lalu #2 (hapus `paperTrading/`, aman karena belum dipakai apapun), terakhir #1 (paling besar dampaknya, karena scanner yang live perlu dipindah hati-hati).
+
+## ⚠️ REVISI: `services/paperTrading/`
+
+Rekomendasi sebelumnya ("hapus paperTrading/, redundan") **DITARIK/BATAL**.
+Ternyata folder ini jauh lebih lengkap dari yang diperkirakan (types.ts, index.ts,
+orders.ts, tracker.ts, simulator.ts) dan kemungkinan besar TERHUBUNG ke:
+- src/pages/dashboard/paper-trading.tsx (halaman live)
+- src/pages/api/paper-trading/status.ts (API live)
+- src/services/firebase/paperTradingStore.ts (kemungkinan Firestore-backed, BUKAN in-memory)
+
+JANGAN hapus folder ini sampai investigasi lengkap selesai — cek apakah
+paperTradingStore.ts benar-benar persisten ke Firestore, dan apakah ini
+sebenarnya sistem paper-trading yang aktif dipakai (terpisah dari
+services/trading/paper.ts). Kemungkinan kesimpulan "trading/ jadi kanonik"
+sebelumnya perlu ditinjau ulang.
