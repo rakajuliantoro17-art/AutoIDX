@@ -76,7 +76,7 @@ EMA
 */
 
 
-export interface EMAResult {
+export interface EMAResultSummary {
 
 
     fast:number;
@@ -110,7 +110,7 @@ MACD
 */
 
 
-export interface MACDResult {
+export interface MACDResultSummary {
 
 
     macd:number;
@@ -147,7 +147,7 @@ ADX
 */
 
 
-export interface ADXResult {
+export interface ADXResultSummary {
 
 
     adx:number;
@@ -184,7 +184,7 @@ RSI
 */
 
 
-export interface RSIResult {
+export interface RSIResultSummary {
 
 
     value:number;
@@ -215,7 +215,7 @@ Stochastic
 */
 
 
-export interface StochasticResult {
+export interface StochasticResultSummary {
 
 
     k:number;
@@ -249,7 +249,7 @@ ATR
 */
 
 
-export interface ATRResult {
+export interface ATRResultSummary {
 
 
     value:number;
@@ -280,7 +280,7 @@ Bollinger Band
 */
 
 
-export interface BollingerResult {
+export interface BollingerResultSummary {
 
 
     upper:number;
