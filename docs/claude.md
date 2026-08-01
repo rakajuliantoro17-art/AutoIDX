@@ -269,3 +269,70 @@ paperTradingStore.ts benar-benar persisten ke Firestore, dan apakah ini
 sebenarnya sistem paper-trading yang aktif dipakai (terpisah dari
 services/trading/paper.ts). Kemungkinan kesimpulan "trading/ jadi kanonik"
 sebelumnya perlu ditinjau ulang.
+# Session Log — Build Stabilization & Architecture Audit
+
+*(Ringkasan kerja dari sesi debugging panjang. Baca ini dulu sebelum melanjutkan
+supaya tidak mengulang investigasi atau kesalahan yang sudah pernah terjadi.)*
+
+## Ringkasan apa yang sudah dikerjakan
+
+**Build & Deployment:**
+* Puluhan bug TypeScript diperbaiki secara berurutan sampai `next build` lolos bersih di Vercel (barrel export yang hilang/salah, duplikasi tipe seperti `ExchangeHealth`/`StrategyAction`/`OHLC`, import path salah, syntax error `<` hilang saat copy-paste, dll)
+* `cron-scan.yml` diperbaiki (URL rusak `https://https://...`)
+* Masalah billing GitHub Actions diselesaikan
+* Firebase Auth, dashboard, Firestore data flow — terverifikasi live dan berfungsi
+
+**Exchange Layer (`services/exchange/`):**
+* Sistem adapter (`IExchangeAdapter`, `BaseExchangeAdapter`) dilengkapi dengan method operasional (`getAccount`, `getBalance`, `placeOrder`, dll) — sengaja melempar `AdapterNotImplementedError` yang jelas untuk method yang belum diimplementasikan (BUKAN implementasi palsu)
+* Barrel `index.ts` untuk `adapters/`, `models/`, `errors/`, `utils/` dibuat lengkap
+* `services/execution/adapters/indodaxAdapter.ts` disambungkan ke `ExchangeManager`, termasuk mapping `OrderStatus` → `ExecutionStatus`
+
+**Execution Layer:**
+* `execution/engine.ts` dan `execution/executionEngine.ts` **sudah digabung** jadi satu (`executionEngine.ts` v0.3.0) — method `executeDecision()` (position sizing dari `TRADING_CONFIG`) + `execute()` (validasi confidence/quantity + logging via `executionLogger`)
+* `execution/engine.ts` **sudah dihapus**
+
+**Strategy Engine — Review Mendalam (`services/strategy/`):**
+* 3 strategi (`auraTrend`, `emaCrossover`, `momentum`) di-review formula & bobotnya secara matematis:
+  - `auraTrend`: paling matang — filter pasar → exit priority → entry (efektif butuh 4/5 indikator) → validasi skor independen kedua (`strategyScore`)
+  - `momentum`: secara tidak sengaja jadi "unanimous gate" (butuh 3/3 indikator setuju, bukan voting mayoritas seperti niat desainnya)
+  - `emaCrossover`: paling berisiko whipsaw (1 kondisi tunggal, rawan tergerus fee di pasar sideways)
+* **Bug terbuka yang PENTING dan BELUM diperbaiki**: ketiga strategi tidak memeriksa posisi aktual sebelum mengeluarkan sinyal SELL — bisa SELL walau belum pernah BUY. `StrategyContext.position` sudah ada di `types.ts` tapi tidak pernah dialirkan ke `execute()` (signature-nya cuma terima `features`, tidak terima context/posisi).
+
+**Indicators (`services/indicators/`):**
+* Barrel `index.ts` dilengkapi export MACD/ATR/ADX/Stochastic (sebelumnya cuma EMA/SMA/RSI/Bollinger)
+* Konflik `interface OHLC` (didefinisikan identik di `atr.ts`, `adx.ts`, `stochastic.ts`) diselesaikan — `atr.ts` jadi sumber tunggal, `adx.ts`/`stochastic.ts` import dari situ
+* Duplikasi ditemukan (belum dibereskan): `ema.ts` vs `movingAverage.ts` (sama persis), `bollinger.ts` vs `bollingerBands.ts` (beda file, fungsi nama sama `calculateBollingerBands`)
+* Formula MACD, ATR, ADX, Stochastic sudah diverifikasi benar secara matematis (standar textbook)
+
+**App Router Layout:**
+* Ditemukan: `src/app/layout.tsx` (root App Router) punya header/footer custom sendiri, TIDAK pakai `layouts/Header.tsx`/`Footer.tsx`, dan awalnya tidak ada sidebar sama sekali
+* Fix: `SidebarAppRouter.tsx` (pakai `usePathname` dari `next/navigation`, bukan `next/router`) dibuat dan disambungkan LANGSUNG ke `app/layout.tsx` (bukan wrap per-halaman, supaya tidak dobel header/footer)
+* Belum selesai: penyamaan visual antara desain header Pages Router vs App Router (beda desain, disengaja ditunda)
+
+## ⚠️ Investigasi terbuka — JANGAN diasumsikan selesai
+
+**`services/paperTrading/` vs `services/trading/paper.ts`:** Rekomendasi awal sesi ini ("hapus `paperTrading/`, redundan & in-memory") **SALAH/DITARIK**. Setelah dicek lebih lanjut, `services/paperTrading/` ternyata punya struktur lengkap (`types.ts`, `index.ts`, `orders.ts`, `tracker.ts`, `simulator.ts`) dan kemungkinan besar terhubung ke:
+* `src/pages/dashboard/paper-trading.tsx` (halaman live, ada di menu sidebar)
+* `src/pages/api/paper-trading/status.ts` (API endpoint)
+* `src/services/firebase/paperTradingStore.ts` (kemungkinan Firestore-backed — BUKAN in-memory seperti yang diasumsikan dari `engine.ts` versi lama)
+
+**Yang perlu dilakukan sebelum ambil keputusan apapun soal folder ini:**
+1. Baca isi `paperTradingStore.ts`, `paper-trading.tsx`, `index.ts`, `status.ts`
+2. Pastikan apakah ini sistem paper trading yang AKTIF dipakai user (terpisah dari `trading/paper.ts`), atau memang legacy yang sudah digantikan
+3. BARU putuskan konsolidasi — jangan hapus dulu sebelum ini jelas
+
+## Roadmap menuju Real Trading
+
+| # | Tahap | Status |
+|---|---|---|
+| 1 | Gabungkan `execution/engine.ts` + `executionEngine.ts` | ✅ Selesai |
+| 2 | Investigasi & putuskan `paperTrading/` vs `trading/paper.ts` | 🔄 Sedang berjalan |
+| 3 | Implementasi private API Indodax asli (HMAC, `getBalance`, `placeOrder`, dll di `IndodaxAdapter`) | ⏳ Belum — paling kritis, menyangkut API key & uang asli |
+| 4 | Perbaiki position-awareness di `auraTrend`/`emaCrossover`/`momentum` | ⏳ Belum |
+| 5 | Pastikan `RISK_CONFIG` (stop loss, max exposure, max daily loss, emergency stop) benar-benar divalidasi di jalur eksekusi | ⏳ Belum — saat ini belum ada validasi risk config di `ExecutionEngine`/`TradingEngine` |
+| 6 | Testing menyeluruh mode PAPER dengan strategi live beberapa hari/minggu | ⏳ Belum |
+| 7 | Aktifkan `BOT_MODE=live` dengan nominal kecil | ⏳ Belum |
+
+## Cara pakai log ini untuk sesi Claude berikutnya
+
+Sebelum menyarankan perubahan besar, baca dulu seluruh bagian ini + "Known Duplication" di atas. Jangan re-investigasi dari nol hal yang statusnya sudah "Selesai" di atas, dan jangan berasumsi soal `paperTrading/` sebelum item investigasi terbuka itu dijawab tuntas.
