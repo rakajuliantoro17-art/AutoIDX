@@ -34,20 +34,25 @@ export class MarketAggregator {
 
 
         const coinGecko =
-
-            providers.coingecko ?? {};
-
-
+            (providers.coingecko ?? {}) as {
+                marketCap?: number;
+                btcDominance?: number;
+                fearGreed?: number;
+                trendingCoins?: string[];
+                totalVolume?: number;
+            };
 
         const coinStats =
-
-            providers.coinstats ?? {};
-
-
+            (providers.coinstats ?? {}) as {
+                portfolioValue?: number;
+                assets?: unknown[];
+            };
 
         const zerion =
-
-            providers.zerion ?? {};
+            (providers.zerion ?? {}) as {
+                portfolioValue?: number;
+                assets?: unknown[];
+            };
 
 
 
