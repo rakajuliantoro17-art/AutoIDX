@@ -458,3 +458,6 @@ export class RSIIndicator {
 
 
 }
+
+const rsi = new RSIIndicator();
+export default rsi;
