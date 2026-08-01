@@ -320,7 +320,7 @@ Trading Signal
 */
 
 
-export type IndicatorSignal =
+export type IndicatorSignalType =
 
     | "STRONG_BUY"
 
@@ -346,7 +346,7 @@ Signal Result
 export interface SignalResult {
 
 
-    signal:IndicatorSignal;
+    signal:IndicatorSignalType;
 
 
     confidence:number;
