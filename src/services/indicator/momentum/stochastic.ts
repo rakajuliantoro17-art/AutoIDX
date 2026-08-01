@@ -367,10 +367,5 @@ export class StochasticIndicator {
 
 
 
-const stochastic =
-
-    new StochasticIndicator();
-
-
-
+const stochastic = new StochasticIndicator();
 export default stochastic;
