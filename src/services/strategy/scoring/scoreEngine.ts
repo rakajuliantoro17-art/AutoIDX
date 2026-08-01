@@ -29,7 +29,7 @@ import type {
 
     RuleResult,
 
-    StrategyDecision,
+    ScoreSignalResult,
 
     RiskLevel,
 
@@ -84,7 +84,7 @@ export class ScoreEngine {
 
         results: readonly RuleResult[]
 
-    ): StrategyDecision {
+    ): ScoreSignalResult {
 
 
         const score =
