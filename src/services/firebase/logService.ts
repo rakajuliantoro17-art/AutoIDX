@@ -2,56 +2,22 @@
 ==========================================================
 AURA Trade OS
 Firebase Logging Service
-Version : 0.0.1 Alpha
+Version : 0.0.2 Alpha
+(Diperbaiki: pakai Admin SDK, bukan client SDK, karena file ini
+dipanggil dari server/API route yang tidak punya Firebase Auth
+context. Client SDK di server selalu kena block Firestore
+Security Rules karena request.auth selalu null.)
 ==========================================================
 */
 
-
-import {
-
-db
-
-}
-
-from "./config";
-
-
-import {
-
-collection,
-
-addDoc,
-
-query,
-
-orderBy,
-
-limit,
-
-getDocs,
-
-serverTimestamp
-
-}
-
-from "firebase/firestore";
-
-
-
-
-
-
+import { adminDb } from "./admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 export interface TradeLog {
 
-
 id?:string;
 
-
-
 pair:string;
-
-
 
 type:
 
@@ -61,27 +27,15 @@ type:
 
 "SELL";
 
-
-
 price:number;
-
-
 
 amount:number;
 
-
-
 totalIdr:number;
-
-
 
 fee?:number;
 
-
-
 orderId?:string;
-
-
 
 strategySignal?:
 
@@ -95,15 +49,9 @@ strategySignal?:
 
 "HOLD";
 
-
-
 aiConfidence?:number;
 
-
-
 reason:string;
-
-
 
 mode:
 
@@ -113,25 +61,13 @@ mode:
 
 "live";
 
-
-
 timestamp?:any;
-
 
 }
 
-
-
-
-
-
-
 export interface ActivityLog {
 
-
 id?:string;
-
-
 
 source:
 
@@ -153,8 +89,6 @@ source:
 
 "API";
 
-
-
 type:
 
 "info"
@@ -171,40 +105,19 @@ type:
 
 "danger";
 
-
-
 message:string;
-
-
 
 timestamp?:any;
 
-
 }
-
-
-
-
-
-
 
 const TRADES_COLLECTION="trades";
 
-
 const LOGS_COLLECTION="activity_logs";
-
-
-
-
-
-
-
-
 
 /**
  * Record executed trade
  */
-
 
 export async function recordTrade(
 
@@ -212,53 +125,29 @@ trade:Omit<TradeLog,"timestamp">
 
 ):Promise<string|null>{
 
-
-
 try{
-
 
 const ref=
 
-await addDoc(
-
-collection(
-
-db,
-
-TRADES_COLLECTION
-
-),
-
+await adminDb.collection(TRADES_COLLECTION).add(
 
 {
 
-
 ...trade,
-
 
 timestamp:
 
-serverTimestamp()
-
-
+FieldValue.serverTimestamp()
 
 }
 
-
-
 );
 
-
-
 return ref.id;
-
-
 
 }
 
 catch(error){
-
-
 
 console.error(
 
@@ -268,30 +157,15 @@ error
 
 );
 
-
-
 return null;
 
-
 }
 
-
-
 }
-
-
-
-
-
-
-
-
-
 
 /**
  * Record bot activity
  */
-
 
 export async function recordLog(
 
@@ -303,24 +177,11 @@ message:string
 
 ):Promise<void>{
 
-
-
 try{
 
-
-await addDoc(
-
-collection(
-
-db,
-
-LOGS_COLLECTION
-
-),
-
+await adminDb.collection(LOGS_COLLECTION).add(
 
 {
-
 
 source,
 
@@ -328,25 +189,17 @@ type,
 
 message,
 
-
 timestamp:
 
-serverTimestamp()
-
-
+FieldValue.serverTimestamp()
 
 }
 
-
-
 );
-
-
 
 }
 
 catch(error){
-
 
 console.error(
 
@@ -356,26 +209,13 @@ error
 
 );
 
-
 }
 
-
-
 }
-
-
-
-
-
-
-
-
-
 
 /**
  * Get latest logs
  */
-
 
 export async function getRecentLogs(
 
@@ -383,77 +223,35 @@ maxLogs=20
 
 ):Promise<ActivityLog[]>{
 
-
-
 try{
-
-
-const q=
-
-query(
-
-collection(
-
-db,
-
-LOGS_COLLECTION
-
-),
-
-
-orderBy(
-
-"timestamp",
-
-"desc"
-
-),
-
-
-limit(maxLogs)
-
-);
-
-
-
-
-
 
 const snapshot=
 
-await getDocs(q);
+await adminDb
 
+.collection(LOGS_COLLECTION)
 
+.orderBy("timestamp","desc")
 
+.limit(maxLogs)
 
-
+.get();
 
 return snapshot.docs.map(doc=>(
 
-
-
 {
-
 
 id:doc.id,
 
-
 ...(doc.data() as Omit<ActivityLog,"id">)
-
-
 
 }
 
-
-
 ));
-
-
 
 }
 
 catch(error){
-
 
 console.error(
 
@@ -463,13 +261,8 @@ error
 
 );
 
-
-
 return [];
 
-
 }
-
-
 
 }
