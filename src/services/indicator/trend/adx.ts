@@ -439,10 +439,5 @@ export class ADXIndicator {
 
 
 
-const adx =
-
-    new ADXIndicator();
-
-
-
+const adx = new ADXIndicator();
 export default adx;
