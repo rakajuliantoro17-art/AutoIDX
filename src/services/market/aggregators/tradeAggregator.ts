@@ -1,135 +1,181 @@
 /**
 ==========================================================
 AURA Trade OS
-Order Book Aggregator
+Trade Aggregator
 Version : 0.1.1 Alpha
 ==========================================================
 */
 
-import type { OrderBook } from "@/services/exchange";
+import type { Trade } from "@/services/exchange";
 
-export interface OrderBookStatistics {
+export interface TradeStatistics {
 
-    bidLevels: number;
+    tradeCount: number;
 
-    askLevels: number;
+    totalVolume: number;
 
-    totalBidVolume: number;
+    averagePrice: number;
 
-    totalAskVolume: number;
+    averageSize: number;
 
-    bestBid: number;
+    highestPrice: number;
 
-    bestAsk: number;
+    lowestPrice: number;
 
-    spread: number;
+    latestPrice: number;
 
-    spreadPercent: number;
+    buyVolume: number;
 
-    imbalance: number;
+    sellVolume: number;
+
+    buyRatio: number;
+
+    sellRatio: number;
 
 }
 
-export class OrderBookAggregator {
+export class TradeAggregator {
 
     /**
-     * Aggregate order book statistics.
+     * Aggregate trade statistics.
      */
     static aggregate(
 
-        orderBook: OrderBook
+        trades: readonly Trade[]
 
-    ): OrderBookStatistics {
+    ): TradeStatistics {
 
-        const bids = orderBook.bids;
+        if (trades.length === 0) {
 
-        const asks = orderBook.asks;
+            return {
 
-        const totalBidVolume = bids.reduce(
+                tradeCount: 0,
 
-            (sum, level) => sum + level.quantity,
+                totalVolume: 0,
 
-            0
+                averagePrice: 0,
 
-        );
+                averageSize: 0,
 
-        const totalAskVolume = asks.reduce(
+                highestPrice: 0,
 
-            (sum, level) => sum + level.quantity,
+                lowestPrice: 0,
 
-            0
+                latestPrice: 0,
 
-        );
+                buyVolume: 0,
 
-        const bestBid =
+                sellVolume: 0,
 
-            bids.length > 0
+                buyRatio: 0,
 
-                ? bids[0].price
+                sellRatio: 0,
 
-                : 0;
+            };
 
-        const bestAsk =
+        }
 
-            asks.length > 0
+        let totalVolume = 0;
 
-                ? asks[0].price
+        let weightedPrice = 0;
 
-                : 0;
+        let highestPrice = trades[0].price;
 
-        const spread =
+        let lowestPrice = trades[0].price;
 
-            bestAsk - bestBid;
+        let buyVolume = 0;
 
-        const spreadPercent =
+        let sellVolume = 0;
 
-            bestBid === 0
+        for (const trade of trades) {
 
-                ? 0
+            totalVolume += trade.quantity;
 
-                : (spread / bestBid) * 100;
+            weightedPrice +=
 
-        const totalVolume =
+                trade.price * trade.quantity;
 
-            totalBidVolume +
+            if (trade.price > highestPrice) {
 
-            totalAskVolume;
+                highestPrice = trade.price;
 
-        const imbalance =
+            }
+
+            if (trade.price < lowestPrice) {
+
+                lowestPrice = trade.price;
+
+            }
+
+            if (
+
+                trade.side === "BUY"
+
+            ) {
+
+                buyVolume += trade.quantity;
+
+            } else {
+
+                sellVolume += trade.quantity;
+
+            }
+
+        }
+
+        const averagePrice =
 
             totalVolume === 0
 
                 ? 0
 
-                : (totalBidVolume -
+                : weightedPrice / totalVolume;
 
-                    totalAskVolume) /
+        const averageSize =
 
-                  totalVolume;
+            totalVolume / trades.length;
+
+        const buyRatio =
+
+            totalVolume === 0
+
+                ? 0
+
+                : buyVolume / totalVolume;
+
+        const sellRatio =
+
+            totalVolume === 0
+
+                ? 0
+
+                : sellVolume / totalVolume;
 
         return {
 
-            bidLevels:
+            tradeCount: trades.length,
 
-                bids.length,
+            totalVolume,
 
-            askLevels:
+            averagePrice,
 
-                asks.length,
+            averageSize,
 
-            totalBidVolume,
+            highestPrice,
 
-            totalAskVolume,
+            lowestPrice,
 
-            bestBid,
+            latestPrice:
 
-            bestAsk,
+                trades[trades.length - 1].price,
 
-            spread,
+            buyVolume,
 
-            spreadPercent,
+            sellVolume,
 
-            imbalance,
+            buyRatio,
+
+            sellRatio,
 
         };
 
