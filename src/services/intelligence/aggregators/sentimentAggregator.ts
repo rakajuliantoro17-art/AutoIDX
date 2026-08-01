@@ -34,25 +34,25 @@ export class SentimentAggregator {
 
         const coinGecko =
 
-            providers.coingecko ?? {};
+            (providers.coingecko ?? {}) as { fearGreed?: number };
 
 
 
         const news =
 
-            providers.news ?? {};
+            (providers.news ?? {}) as { sentiment?: number };
 
 
 
         const social =
 
-            providers.social ?? {};
+            (providers.social ?? {}) as { sentiment?: number };
 
 
 
         const onchain =
 
-            providers.onchain ?? {};
+            (providers.onchain ?? {}) as { sentiment?: number };
 
 
 
