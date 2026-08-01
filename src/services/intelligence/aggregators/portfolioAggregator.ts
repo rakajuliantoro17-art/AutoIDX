@@ -35,25 +35,29 @@ export class PortfolioAggregator {
 
 
 
-        const coinStats =
+        const coinStatsRaw =
 
-            (providers.coinstats ?? {}) as {
-                assets?: PortfolioAsset[];
-                portfolioValue?: number;
-                totalPnL?: number;
-                totalPnLPercent?: number;
-            };
+            providers.coinstats ?? {};
+
+        const coinStats = coinStatsRaw as {
+            assets?: PortfolioAsset[];
+            portfolioValue?: number;
+            totalPnL?: number;
+            totalPnLPercent?: number;
+        };
 
 
 
-        const zerion =
+        const zerionRaw =
 
-            (providers.zerion ?? {}) as {
-                assets?: PortfolioAsset[];
-                portfolioValue?: number;
-                totalPnL?: number;
-                totalPnLPercent?: number;
-            };
+            providers.zerion ?? {};
+
+        const zerion = zerionRaw as {
+            assets?: PortfolioAsset[];
+            portfolioValue?: number;
+            totalPnL?: number;
+            totalPnLPercent?: number;
+        };
 
 
 
@@ -138,73 +142,68 @@ export class PortfolioAggregator {
 
 
     /**
-     * Merge duplicated assets.
+     * Merge duplicated assets by symbol.
+     * Ditulis tanpa generic angle-bracket syntax
+     * (Map/Array<...>) supaya aman dari masalah
+     * copy-paste yang menghilangkan tanda kurung siku.
      */
     private mergeAssets(
 
-        ...sources:
+        sourceA: PortfolioAsset[] | undefined,
 
-        Array
-
-            PortfolioAsset[] |
-
-            undefined
-
-        >
+        sourceB: PortfolioAsset[] | undefined
 
     ): PortfolioAsset[] {
 
-        const map =
+        const combined: PortfolioAsset[] = [];
 
-            new Map
+        if (sourceA) {
 
-                string,
+            for (const asset of sourceA) {
 
-                PortfolioAsset
-
-            >();
-
-
-
-        for (
-
-            const source of sources
-
-        ) {
-
-            if (!source) {
-
-                continue;
-
-            }
-
-
-
-            for (
-
-                const asset of source
-
-            ) {
-
-                map.set(
-
-                    asset.symbol,
-
-                    asset
-
-                );
+                combined.push(asset);
 
             }
 
         }
 
+        if (sourceB) {
 
+            for (const asset of sourceB) {
 
-        return [
+                combined.push(asset);
 
-            ...map.values()
+            }
 
-        ];
+        }
+
+        const seenSymbols: string[] = [];
+
+        const result: PortfolioAsset[] = [];
+
+        for (
+
+            let i = combined.length - 1;
+
+            i >= 0;
+
+            i--
+
+        ) {
+
+            const asset = combined[i];
+
+            if (seenSymbols.indexOf(asset.symbol) === -1) {
+
+                seenSymbols.push(asset.symbol);
+
+                result.unshift(asset);
+
+            }
+
+        }
+
+        return result;
 
     }
 
