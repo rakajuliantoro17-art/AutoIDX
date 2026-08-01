@@ -2,17 +2,16 @@
 ==========================================================
 AURA Trade OS
 Root Layout
-Version : 0.0.2 Alpha
+Version : 0.0.3 Alpha
 ==========================================================
 */
-
 import type { Metadata } from "next";
 import Image from "next/image";
 import "./globals.css";
-
 import { AuthProvider } from "@/services/auth/AuthContext";
 import RouteGuard from "@/components/auth/RouteGuard";
 import UserMenu from "@/components/auth/UserMenu";
+import SidebarAppRouter from "@/layouts/SidebarAppRouter";
 
 export const metadata: Metadata = {
   title: "AutoIDX • Automated Indodax Trading Engine",
@@ -48,40 +47,38 @@ export default function RootLayout({
                     height={42}
                     priority
                   />
-
                   <div>
                     <h1 className="text-lg font-bold tracking-wide">
                       <span className="brand-gradient">AutoIDX</span>
                     </h1>
-
                     <p className="text-xs text-slate-400">
                       Automated Trading Engine
                     </p>
                   </div>
                 </div>
-
                 {/* SYSTEM STATUS + USER MENU */}
                 <div className="flex items-center gap-5">
                   <div className="flex items-center gap-3">
                     <span className="status-dot status-online" />
-
                     <div className="text-right">
                       <p className="text-sm text-slate-300">Paper Trading</p>
                       <p className="text-xs text-slate-500">v0.0.2 Alpha</p>
                     </div>
                   </div>
-
                   <UserMenu />
                 </div>
               </div>
             </header>
 
             {/* =====================================================
-                MAIN CONTENT
+                SIDEBAR + MAIN CONTENT
             ===================================================== */}
-            <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
-              <RouteGuard>{children}</RouteGuard>
-            </main>
+            <div className="flex flex-1">
+              <SidebarAppRouter />
+              <main className="flex-1 w-full px-6 py-8">
+                <RouteGuard>{children}</RouteGuard>
+              </main>
+            </div>
 
             {/* =====================================================
                 FOOTER
@@ -91,7 +88,6 @@ export default function RootLayout({
                 <span className="text-sm text-slate-500">
                   © 2026 AutoIDX — Automated Indodax Trading Engine
                 </span>
-
                 <span className="text-xs text-slate-600">
                   Version 0.0.2 Alpha
                 </span>
