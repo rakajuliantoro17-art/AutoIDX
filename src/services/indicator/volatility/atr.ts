@@ -457,3 +457,7 @@ export class ATRIndicator {
 
 
 }
+
+
+const atr = new ATRIndicator();
+export default atr;
