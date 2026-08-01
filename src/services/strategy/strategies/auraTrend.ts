@@ -11,9 +11,7 @@ EMA + MACD + ADX + RSI + Stochastic Strategy
 
 import {
 
-    StrategyDefinition,
-
-    TradeAction
+    StrategyDefinition
 
 }
 
