@@ -47,7 +47,7 @@ export class OrderBookAggregator {
 
         const totalBidVolume = bids.reduce(
 
-            (sum, [_, volume]) => sum + volume,
+            (sum, level) => sum + level.quantity,
 
             0
 
@@ -55,7 +55,7 @@ export class OrderBookAggregator {
 
         const totalAskVolume = asks.reduce(
 
-            (sum, [_, volume]) => sum + volume,
+            (sum, level) => sum + level.quantity,
 
             0
 
@@ -65,7 +65,7 @@ export class OrderBookAggregator {
 
             bids.length > 0
 
-                ? bids[0][0]
+                ? bids[0].price
 
                 : 0;
 
@@ -73,7 +73,7 @@ export class OrderBookAggregator {
 
             asks.length > 0
 
-                ? asks[0][0]
+                ? asks[0].price
 
                 : 0;
 
