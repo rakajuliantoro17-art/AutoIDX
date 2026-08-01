@@ -22,43 +22,7 @@ export type TradingSignal =
 
 
 
-export interface IndicatorSnapshot {
-
-
-    emaFast:number;
-
-
-    emaSlow:number;
-
-
-    rsi:number;
-
-
-    macd:number;
-
-
-    macdSignal:number;
-
-
-    adx:number;
-
-
-    stochasticK:number;
-
-
-    stochasticD:number;
-
-
-    bollingerUpper?:number;
-
-
-    bollingerLower?:number;
-
-
-    price?:number;
-
-
-}
+import type { IndicatorSnapshot } from "../types";
 
 
 
@@ -85,8 +49,6 @@ export interface GeneratedSignal {
 
 
 
-
-
 export class SignalGenerator {
 
 
@@ -104,8 +66,6 @@ export class SignalGenerator {
 
 
         const reasons:string[] = [];
-
-
 
 
         /**
@@ -145,8 +105,6 @@ export class SignalGenerator {
             );
 
         }
-
-
 
 
 
@@ -215,8 +173,6 @@ export class SignalGenerator {
 
 
 
-
-
         /**
          * MACD Momentum
          */
@@ -257,8 +213,6 @@ export class SignalGenerator {
 
 
 
-
-
         /**
          * ADX Trend Strength
          */
@@ -280,8 +234,6 @@ export class SignalGenerator {
 
 
         }
-
-
 
 
 
@@ -336,8 +288,6 @@ export class SignalGenerator {
 
 
 
-
-
         /**
          * Normalize
          */
@@ -359,8 +309,6 @@ export class SignalGenerator {
 
 
 
-
-
         return {
 
 
@@ -373,17 +321,14 @@ export class SignalGenerator {
                 ),
 
 
-
             confidence:
 
                 Number(
 
                     Math.abs(score)
-
                     .toFixed(2)
 
                 ),
-
 
 
             score:
@@ -395,9 +340,7 @@ export class SignalGenerator {
                 ),
 
 
-
             reasons,
-
 
 
             timestamp:
@@ -408,8 +351,6 @@ export class SignalGenerator {
         };
 
     }
-
-
 
 
 
@@ -451,8 +392,6 @@ export class SignalGenerator {
 
 
 }
-
-
 
 
 
