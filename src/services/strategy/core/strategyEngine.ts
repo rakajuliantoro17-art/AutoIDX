@@ -58,7 +58,9 @@ export interface StrategyDefinition {
 
     (
 
-        features:IndicatorFeatureVector
+        features:IndicatorFeatureVector,
+
+        position:"NONE"|"LONG"
 
     )=>StrategyAction;
 
@@ -131,7 +133,9 @@ export class StrategyEngine {
 
         strategyName:string,
 
-        features:IndicatorFeatureVector
+        features:IndicatorFeatureVector,
+
+        position:"NONE"|"LONG" = "NONE"
 
     ):StrategyDecision|null {
 
@@ -198,7 +202,9 @@ export class StrategyEngine {
 
                 strategy.execute(
 
-                    features
+                    features,
+
+                    position
 
                 );
 
@@ -303,7 +309,9 @@ export class StrategyEngine {
      */
     evaluateAll(
 
-        features:IndicatorFeatureVector
+        features:IndicatorFeatureVector,
+
+        position:"NONE"|"LONG" = "NONE"
 
     ){
 
@@ -332,7 +340,9 @@ export class StrategyEngine {
 
                     name,
 
-                    features
+                    features,
+
+                    position
 
                 );
 
