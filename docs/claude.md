@@ -209,3 +209,48 @@ Perubahan dianggap selesai apabila:
 **Status build masih sama seperti di atas — BELUM 100% bersih.** 23 file di atas menyelesaikan seluruh lapisan `intelligence/`, `market/`, `liveTrading/` (bug type-level), dan sebagian besar `strategy/` (family yang aktif/nyata). Sisa satu-satunya blocker yang diketahui: `strategy/rules/*.ts` (family kedua, orphan total — lihat "Known Duplication"). **Belum dikerjakan** di sesi ini karena orientasi kerja berubah ke pengiriman file-per-file di tengah proses.
 
 **Cara pakai workflow sekarang (mulai sesi ini):** perubahan dikirim satu file per pesan chat (bukan zip), lalu diterapkan manual satu-satu lewat GitHub browser oleh Raka. Kalau sesi Claude lain melanjutkan: cek dulu file mana di atas yang sudah live di repo (tanya user, jangan asumsi) sebelum lanjut kerja supaya tidak duplikat usaha.
+
+# Known Duplication — Keputusan Konsolidasi
+
+*(Diputuskan pada audit menyeluruh — arah project: fokus Indodax, multi-exchange ditunda/belum diputuskan)*
+
+## 1. Exchange API Client: `services/exchange/` vs `services/indodax/`
+
+**Keputusan: `services/exchange/` jadi kanonik.**
+
+Alasan:
+* Struktur lebih matang — pemisahan public/private API, error handling class-based (`ExchangeError`, `AuthenticationError`, dll), `RequestSigner` (HMAC-SHA512) siap pakai untuk private API asli nanti.
+* Sudah tersambung ke `services/execution/` (adapter pattern `IExchangeAdapter`).
+
+Status migrasi:
+* `services/indodax/` **tetap dipakai untuk sementara** oleh Market Scanner (jangan diutak-atik, itu yang live sekarang).
+* Migrasi bertahap: pindahkan scanner dari `services/indodax/{ticker,market,candles,orderbook}` ke `services/exchange/adapters/indodax` punya public services, BARU HAPUS `services/indodax/` setelah scanner terverifikasi jalan pakai `exchange/`.
+* `services/indodax/client.ts`, `trades.ts`, `auth.ts`, `private.ts` (stub kosong) — TIDAK perlu diisi, karena private API akan diimplementasikan di `services/exchange/adapters/indodax.ts` + `services/exchange/private/*`, bukan di sini.
+
+## 2. Trading Execution: `services/trading/` vs `services/paperTrading/` vs `services/liveTrading/`
+
+**Keputusan: `services/trading/` jadi kanonik.**
+
+Alasan:
+* Satu-satunya yang live — terhubung Firebase (`botState`, `logs`), dipanggil cron (`/api/cron/scan`), sudah diverifikasi jalan di production.
+
+Status modul lain:
+* `services/paperTrading/` — **DIHAPUS.** Selain duplikat, state-nya in-memory (`Map`/variable JS biasa) yang secara fundamental tidak bisa dipakai di Vercel serverless (hilang tiap cold start). Paper trading yang benar sudah ditangani `services/trading/paper.ts` (`PaperTradingService`, Firebase-backed).
+* `services/liveTrading/` — **DIPERTAHANKAN**, tidak dihapus. Ini scaffolding untuk orchestrator live trading berkelanjutan, secara eksplisit menunggu "Strategy Engine Phase 14". Jangan diaktifkan/disambungkan sampai fase itu benar-benar tiba.
+
+## 3. Execution Layer: `services/execution/engine.ts` vs `services/execution/executionEngine.ts`
+
+**Keputusan: digabung jadi satu file, basis dari `executionEngine.ts`.**
+
+Alasan: keduanya saling melengkapi, bukan murni duplikat.
+* `engine.ts` — kuat di position sizing (`StrategyDecision` + harga pasar → `ExecutionRequest`, pakai `TRADING_CONFIG.defaultTradeAmount`/`maxTradeAmount`/`order.minimumAmount`).
+* `executionEngine.ts` (v0.2.0, lebih baru) — kuat di validasi (`minimumConfidence` bisa dikonfigurasi, cek `quantity <= 0`, latency measurement asli pakai `performance.now()`).
+
+Rencana konsolidasi:
+* `executionEngine.ts` jadi file yang dipertahankan.
+* Tambahkan method baru (mis. `executeDecision(decision, price, context)`) yang berisi logic position-sizing dari `engine.ts`, lalu delegasikan ke `execute()` yang sudah ada di `executionEngine.ts` untuk validasi + eksekusi.
+* Hapus `engine.ts` setelah `executeDecision()` terverifikasi menggantikan seluruh pemakaiannya.
+
+## Catatan proses konsolidasi
+
+Migrasi di atas dikerjakan **bertahap per sesi**, bukan sekaligus — supaya risiko terhadap fitur yang sudah live (login, dashboard, cron, scanner) tetap terkendali. Urutan disarankan: mulai dari #3 (lingkup paling kecil, risiko paling rendah), lalu #2 (hapus `paperTrading/`, aman karena belum dipakai apapun), terakhir #1 (paling besar dampaknya, karena scanner yang live perlu dipindah hati-hati).
