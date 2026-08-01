@@ -2,7 +2,14 @@
 ==========================================================
 AURA Trade OS
 Indodax Candlestick Service
-Version : 0.0.5 Alpha
+Version : 0.0.6 Alpha
+
+Perubahan dari 0.0.5: fix 2 bug yang bikin getClosePrices()
+selalu return array kosong -
+1. Symbol masih mengandung underscore ("BTC_IDR") padahal
+   API Indodax butuh tanpa underscore ("BTCIDR").
+2. Parameter query salah nama: kode kirim "resolution",
+   padahal API mewajibkan nama parameter "tf".
 ==========================================================
 */
 
@@ -67,8 +74,8 @@ export async function getCandles(
 
   const url =
     `https://indodax.com/tradingview/history_v2` +
-    `?symbol=${pair.toUpperCase()}` +
-    `&resolution=${resolution}` +
+    `?symbol=${pair.replace("_", "").toUpperCase()}` +
+    `&tf=${resolution}` +
     `&from=${from}` +
     `&to=${to}`;
 
@@ -89,6 +96,10 @@ export async function getCandles(
     const data = await response.json();
 
     if (data.s !== "ok") {
+      console.error(
+        `[Indodax Candles] Response tidak ok untuk ${pair} (tf=${resolution}):`,
+        JSON.stringify(data)
+      );
       return [];
     }
 
