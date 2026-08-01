@@ -94,11 +94,9 @@ const auraTrend:StrategyDefinition = {
 
 
 
-
     description:
 
         "EMA MACD ADX RSI Hybrid Trend Strategy",
-
 
 
 
@@ -114,10 +112,7 @@ const auraTrend:StrategyDefinition = {
 
 
 
-
-
-    execute:(features)=>{
-
+    execute:(features, position)=>{
 
 
 
@@ -138,7 +133,6 @@ const auraTrend:StrategyDefinition = {
 
 
 
-
         if(
 
             filter.status !== "PASS"
@@ -154,34 +148,40 @@ const auraTrend:StrategyDefinition = {
 
 
 
-
         /**
          * Exit Priority
+         *
+         * PENGAMAN POSITION-AWARENESS:
+         * jangan pernah SELL kalau tidak sedang
+         * punya posisi (position !== "LONG").
          */
-        const exit =
-
-            evaluator.evaluate(
-
-                features,
-
-                exitRules
-
-            );
-
-
-
-
-
         if(
 
-            exit.status === "PASS"
+            position === "LONG"
 
         ){
 
-            return "SELL";
+            const exit =
+
+                evaluator.evaluate(
+
+                    features,
+
+                    exitRules
+
+                );
+
+            if(
+
+                exit.status === "PASS"
+
+            ){
+
+                return "SELL";
+
+            }
 
         }
-
 
 
 
@@ -207,7 +207,6 @@ const auraTrend:StrategyDefinition = {
 
 
 
-
         const score =
 
             strategyScore.calculate(
@@ -215,9 +214,6 @@ const auraTrend:StrategyDefinition = {
                 features
 
             );
-
-
-
 
 
 
@@ -240,7 +236,6 @@ const auraTrend:StrategyDefinition = {
 
 
 
-
         return "HOLD";
 
     }
@@ -248,7 +243,6 @@ const auraTrend:StrategyDefinition = {
 
 
 };
-
 
 
 
