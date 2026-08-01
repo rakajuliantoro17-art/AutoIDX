@@ -336,3 +336,23 @@ supaya tidak mengulang investigasi atau kesalahan yang sudah pernah terjadi.)*
 ## Cara pakai log ini untuk sesi Claude berikutnya
 
 Sebelum menyarankan perubahan besar, baca dulu seluruh bagian ini + "Known Duplication" di atas. Jangan re-investigasi dari nol hal yang statusnya sudah "Selesai" di atas, dan jangan berasumsi soal `paperTrading/` sebelum item investigasi terbuka itu dijawab tuntas.
+
+---
+
+**Update — sesi lanjutan (v0.1.2 Alpha): RiskManager wiring, regresi static-route, fitur Trade Amount slider**
+
+**RiskManager tersambung ke jalur live (`services/trading/engine.ts` v0.0.7):**
+Sebelumnya `RiskManager`/`RISK_CONFIG` sudah lengkap (stop loss, take profit, max exposure, dst) tapi nol referensi dari `trading/engine.ts` — DecisionEngine murni EMA/RSI, tidak sadar harga SL/TP sama sekali. Sekarang: setiap siklus, kalau posisi terbuka, `riskManager.evaluate({buyPrice, currentPrice, inPosition})` dicek LEBIH DULU, sebelum tanya `DecisionEngine`. Kalau `shouldStopLoss`/`shouldTakeProfit` true → paksa SELL, DecisionEngine di-skip. Field baru `riskTriggered: boolean` ditambahkan ke `TradingEngineResult` + log, supaya kelihatan di histori mana SELL karena strategi vs karena kena SL/TP.
+
+**Bug lama regresi lagi — sudah diperbaiki ulang:** `/api/bot`, `/api/health`, `/api/settings` (App Router wrapper di `src/app/api/*/route.ts`) sempat kembali ke bug lama (di-cache statis, handler benar-benar tereksekusi saat `next build` karena wrapper tidak punya `export const dynamic = "force-dynamic"` sendiri — re-export saja tidak membawa config itu). Kemungkinan wrapper ini sempat ditulis ulang oleh sesi lain tanpa tahu soal fix sebelumnya. **Kalau nemu wrapper App Router baru yang cuma `import {GET} from ...; export {GET};` tanpa `export const dynamic`/`runtime` di atasnya — itu bug ini lagi, langsung tambahkan 2 baris itu.**
+
+**Fitur baru: Trade Amount bisa diatur lewat slider di `/settings/risk` (Rp10.500–Rp25.000), tersimpan Firestore, real-time tanpa redeploy:**
+- File baru `services/firebase/settingsService.ts` — `getBotSettings()`/`updateBotSettings()`, collection `bot_settings/default`, pola sama seperti `botState.ts` (Admin SDK, bukan Client SDK).
+- `api/settings/service.ts` — `getSettings()` sekarang benar-benar baca Firestore (sebelumnya cuma `return DEFAULT_SETTINGS` statis, stub v0.0.1). Ditambah `saveSettings(partial)`.
+- `api/settings/route.ts` + wrapper `app/api/settings/route.ts` — ditambah handler `PUT`.
+- `services/trading/paper.ts` — `buy()` sekarang ambil `tradeAmountIdr` dari `getBotSettings()`, bukan `BOT_CONFIG.defaultTradeAmount` (env var) lagi. **Catatan:** `stopLossPrice`/`takeProfitPrice` di sync ke `paperTradingStore` masih pakai `BOT_CONFIG.stopLoss`/`.targetProfit` (env var) — belum ikut dipindah ke settings dinamis, di luar scope perubahan ini.
+- `pages/settings/risk.tsx` — slider interaktif untuk `tradeAmountIdr`. Stop Loss/Take Profit/Max Position di halaman yang sama **masih read-only** (sumbernya `RISK_CONFIG` env var, belum ada UI untuk itu).
+
+**Belum dikerjakan / catatan terbuka:**
+- `RiskManager.validateTradeAmount(amount)` di `services/trading/risk.ts` kemungkinan bug lama: membandingkan `amount` (nominal trade, IDR) dengan `RISK_CONFIG.maxOpenPosition` (jumlah posisi maksimal) — dua satuan berbeda, method ini kemungkinan tidak pernah dipanggil di jalur manapun (perlu diverifikasi) jadi belum terasa dampaknya. **Belum diperbaiki**, sengaja tidak disentuh karena di luar scope task saat ditemukan — tanya pemilik project sebelum ubah formula.
+- Stop Loss / Take Profit / Max Position belum bisa diatur dari UI (masih env var only) — kalau mau dibuatkan slider serupa, tinggal ikuti pola `tradeAmountIdr` di atas.
