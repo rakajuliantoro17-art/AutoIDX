@@ -2,14 +2,15 @@
 ==========================================================
 AURA Trade OS
 Indodax Candlestick Service
-Version : 0.0.6 Alpha
-
-Perubahan dari 0.0.5: fix 2 bug yang bikin getClosePrices()
-selalu return array kosong -
-1. Symbol masih mengandung underscore ("BTC_IDR") padahal
-   API Indodax butuh tanpa underscore ("BTCIDR").
-2. Parameter query salah nama: kode kirim "resolution",
-   padahal API mewajibkan nama parameter "tf".
+Version : 0.0.7 Alpha
+Perubahan dari 0.0.6: fix bug ke-3 yang bikin getClosePrices()
+tetap selalu return array kosong walau symbol & parameter "tf"
+sudah benar - kode masih parsing respons dengan asumsi format
+TradingView UDF lama ({s,t,o,h,l,c,v}), padahal API Indodax
+yang sebenarnya balikin ARRAY POLOS
+[{Time,Open,High,Low,Close,Volume}, ...]. Dikonfirmasi lewat
+endpoint debug manual (httpStatus 200, data valid, tapi bentuknya
+array, bukan object dengan properti .s).
 ==========================================================
 */
 
@@ -95,26 +96,24 @@ export async function getCandles(
 
     const data = await response.json();
 
-    if (data.s !== "ok") {
+    // Respons asli Indodax: ARRAY POLOS [{Time,Open,High,Low,Close,Volume}, ...]
+    // BUKAN format TradingView UDF {s,t,o,h,l,c,v}
+    if (!Array.isArray(data)) {
       console.error(
-        `[Indodax Candles] Response tidak ok untuk ${pair} (tf=${resolution}):`,
-        JSON.stringify(data)
+        `[Indodax Candles] Response bukan array untuk ${pair} (tf=${resolution}):`,
+        JSON.stringify(data).slice(0, 200)
       );
       return [];
     }
 
-    const candles: Candle[] = [];
-
-    for (let i = 0; i < data.t.length; i++) {
-      candles.push({
-        time: Number(data.t[i]),
-        open: Number(data.o[i]),
-        high: Number(data.h[i]),
-        low: Number(data.l[i]),
-        close: Number(data.c[i]),
-        volume: Number(data.v[i]),
-      });
-    }
+    const candles: Candle[] = data.map((item: any) => ({
+      time: Number(item.Time),
+      open: Number(item.Open),
+      high: Number(item.High),
+      low: Number(item.Low),
+      close: Number(item.Close),
+      volume: Number(item.Volume),
+    }));
 
     return candles;
   } catch (error) {
