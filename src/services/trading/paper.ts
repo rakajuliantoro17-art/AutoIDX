@@ -19,6 +19,10 @@ import {
 } from "@/services/firebase/botState";
 
 import {
+  getBotSettings,
+} from "@/services/firebase/settingsService";
+
+import {
   recordTrade,
   recordLog,
 } from "@/services/firebase/logService";
@@ -65,9 +69,12 @@ class PaperTradingService {
       );
     }
 
+    const settings =
+      await getBotSettings();
+
     const amount =
       request.amount ??
-      BOT_CONFIG.defaultTradeAmount /
+      settings.tradeAmountIdr /
         request.price;
 
     const total =
