@@ -2,7 +2,8 @@
 ==========================================================
 AURA Trade OS
 Bot Configuration
-Version : 0.0.1 Alpha
+Version : 0.0.2 Alpha
+(Ditambahkan: startingBalance untuk portfolio paper trading)
 ==========================================================
 */
 
@@ -72,6 +73,22 @@ export const BOT_CONFIG = {
       process.env.BOT_MAX_TRADE_AMOUNT
 
       ?? 25000
+
+    ),
+
+
+
+  /**
+   * Saldo virtual awal untuk paper trading portfolio (IDR)
+   */
+
+  startingBalance:
+
+    Number(
+
+      process.env.BOT_STARTING_BALANCE
+
+      ?? 1000000
 
     ),
 
@@ -153,4 +170,3 @@ export const BOT_CONFIG = {
     process.env.BOT_AUTO_TRADE === "true"
 
 };
-
