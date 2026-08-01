@@ -508,27 +508,31 @@ export class LiveTradingEngine {
 
         return await orderManager.sell({
 
-            symbol:
+                symbol:
 
-                signal.symbol,
-
-
-            type:
-
-                "MARKET",
+                    signal.symbol,
 
 
-            quantity:
+                side:
 
-                signal.quantity,
+                    "SELL",
+
+                type:
+
+                    "MARKET",
 
 
-            price:
+                quantity:
 
-                signal.price
+                    signal.quantity,
 
 
-        });
+                price:
+
+                    signal.price
+
+
+            });
 
 
 
