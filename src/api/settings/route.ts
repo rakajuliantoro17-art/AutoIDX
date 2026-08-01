@@ -9,8 +9,11 @@ Version : 0.1.0 Alpha
 import { NextResponse } from "next/server";
 import { getSettings, saveSettings } from "./service";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+import { GET, PUT } from "@/api/settings/route";
+export { GET, PUT };
 
 export async function GET() {
 
