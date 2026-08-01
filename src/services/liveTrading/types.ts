@@ -88,8 +88,6 @@ export type EngineStatus =
 
 
 
-
-
 /**
 ==========================================================
 Live Order Request
@@ -115,8 +113,6 @@ export interface LiveOrderRequest {
 
 
 }
-
-
 
 
 
@@ -162,8 +158,6 @@ export interface LiveOrder {
 
 
 }
-
-
 
 
 
@@ -217,8 +211,6 @@ export interface LiveExecutionResult {
 
 
 
-
-
 /**
 ==========================================================
 Trade Record
@@ -258,8 +250,6 @@ export interface LiveTrade {
 
 
 
-
-
 /**
 ==========================================================
 Position
@@ -285,8 +275,6 @@ export interface LivePosition {
 
 
 }
-
-
 
 
 
@@ -318,18 +306,6 @@ export interface LiveAccountState {
 
 }
 
-
-
-
-
-
-
-/**
-==========================================================
-Market Tick
-==========================================================
-*/
-
 export interface MarketTick {
 
 
@@ -339,6 +315,12 @@ export interface MarketTick {
     price:number;
 
 
+    bid?:number;
+
+
+    ask?:number;
+
+
     volume:number;
 
 
@@ -346,8 +328,6 @@ export interface MarketTick {
 
 
 }
-
-
 
 
 
@@ -380,8 +360,6 @@ export interface RiskRequest {
 
 
 
-
-
 /**
 ==========================================================
 Risk Decision
@@ -404,8 +382,6 @@ export interface RiskDecision {
 
 
 }
-
-
 
 
 
@@ -436,8 +412,6 @@ export interface ExposureReport {
 
 
 }
-
-
 
 
 
@@ -479,8 +453,6 @@ export interface PositionLimitResult {
 
 
 
-
-
 /**
 ==========================================================
 Exchange Response
@@ -500,8 +472,6 @@ export interface ExchangeResponse {
 
 
 }
-
-
 
 
 
@@ -538,8 +508,6 @@ export interface TradingSignal {
 
 
 }
-
-
 
 
 
@@ -589,8 +557,6 @@ export interface HealthReport {
 
 
 
-
-
 /**
 ==========================================================
 Heartbeat State
@@ -618,4 +584,31 @@ export interface HeartbeatState {
     tickCount:number;
 
 
+}
+
+/**
+==========================================================
+Exchange Account / Balance
+==========================================================
+*/
+
+export interface AccountAsset {
+    symbol: string;
+    available: number;
+    locked: number;
+}
+
+export interface ExchangeBalance {
+    assets: AccountAsset[];
+    timestamp: number;
+}
+
+export interface MarketCandle {
+    symbol: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+    timestamp: number;
 }
