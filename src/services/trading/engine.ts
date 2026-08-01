@@ -2,7 +2,12 @@
 ==========================================================
 AURA Trade OS
 Trading Engine
-Version : 0.0.6 Alpha
+Version : 0.0.7 Alpha
+
+Perubahan dari 0.0.6: RiskManager (stop loss / take profit)
+sekarang divalidasi SEBELUM DecisionEngine, dan bisa memaksa
+SELL kapan saja posisi terbuka menyentuh batas risiko -
+terlepas dari sinyal indikator (EMA/RSI) DecisionEngine.
 ==========================================================
 */
 
@@ -12,6 +17,8 @@ import DecisionEngine, {
 } from "./decision";
 
 import PaperTradingService from "./paper";
+
+import riskManager from "./risk";
 
 import {
   getBotState,
@@ -48,6 +55,8 @@ export interface TradingEngineResult {
 
   actionExecuted: boolean;
 
+  riskTriggered: boolean;
+
   timestamp: string;
 
 }
@@ -66,24 +75,62 @@ export class TradingEngine {
       const state =
         await getBotState(input.pair);
 
-      const decisionInput: DecisionInput = {
+      /*
+      ==========================================
+      RISK CHECK (Stop Loss / Take Profit)
+      Dijalankan LEBIH DULU, sebelum DecisionEngine.
+      Kalau posisi terbuka menyentuh batas risiko,
+      ini memaksa SELL - tidak peduli sinyal indikator.
+      ==========================================
+      */
+      let decision: DecisionResult;
+      let riskTriggered = false;
 
-        price: input.price,
+      if (state.inPosition) {
 
-        rsi: input.rsi,
+        const riskEval = riskManager.evaluate({
+          buyPrice: state.entryPrice,
+          currentPrice: input.price,
+          inPosition: state.inPosition,
+        });
 
-        emaFast: input.emaFast,
+        if (riskEval.shouldStopLoss || riskEval.shouldTakeProfit) {
 
-        emaSlow: input.emaSlow,
+          riskTriggered = true;
 
-        inPosition: state.inPosition,
+          decision = {
+            signal: "SELL",
+            confidence: 1,
+            reason: riskEval.reason,
+          };
 
-      };
+        } else {
 
-      const decision: DecisionResult =
-        DecisionEngine.evaluate(
-          decisionInput
-        );
+          const decisionInput: DecisionInput = {
+            price: input.price,
+            rsi: input.rsi,
+            emaFast: input.emaFast,
+            emaSlow: input.emaSlow,
+            inPosition: state.inPosition,
+          };
+
+          decision = DecisionEngine.evaluate(decisionInput);
+
+        }
+
+      } else {
+
+        const decisionInput: DecisionInput = {
+          price: input.price,
+          rsi: input.rsi,
+          emaFast: input.emaFast,
+          emaSlow: input.emaSlow,
+          inPosition: state.inPosition,
+        };
+
+        decision = DecisionEngine.evaluate(decisionInput);
+
+      }
 
       let actionExecuted = false;
 
@@ -112,7 +159,7 @@ export class TradingEngine {
           await recordLog(
             "BOT",
             "success",
-            `BUY ${input.pair.toUpperCase()} @ ${input.price}`
+            `BUY ${input.pair.toUpperCase()} @ ${input.price} - ${decision.reason}`
           );
 
           actionExecuted = true;
@@ -143,8 +190,10 @@ export class TradingEngine {
 
           await recordLog(
             "BOT",
-            "success",
-            `SELL ${input.pair.toUpperCase()} @ ${input.price}`
+            riskTriggered ? "warning" : "success",
+            `SELL ${input.pair.toUpperCase()} @ ${input.price} - ${decision.reason}${
+              riskTriggered ? " (RISK MANAGER)" : ""
+            }`
           );
 
           actionExecuted = true;
@@ -172,6 +221,8 @@ export class TradingEngine {
         reason: decision.reason,
 
         actionExecuted,
+
+        riskTriggered,
 
         timestamp: new Date().toISOString(),
 
@@ -201,6 +252,8 @@ export class TradingEngine {
         reason: "Trading engine failed.",
 
         actionExecuted: false,
+
+        riskTriggered: false,
 
         timestamp: new Date().toISOString(),
 
