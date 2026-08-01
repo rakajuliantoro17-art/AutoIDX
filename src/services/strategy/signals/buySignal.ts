@@ -14,7 +14,7 @@ import type {
 
     RiskLevel,
 
-    StrategyDecision,
+    ScoreSignalResult,
 
 } from "../types";
 
@@ -47,7 +47,7 @@ export class BuySignal {
 
         options: BuySignalOptions
 
-    ): StrategyDecision {
+    ): ScoreSignalResult {
 
 
         return {
