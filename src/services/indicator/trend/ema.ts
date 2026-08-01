@@ -353,3 +353,6 @@ export class EMAIndicator {
 
 
 }
+
+const ema = new EMAIndicator();
+export default ema;
