@@ -145,36 +145,12 @@ export class TradingEngine {
 
     try {
 
-      // --- 1. Emergency Stop (paling prioritas) ---
-      if (RISK_CONFIG.emergencyStop) {
-
-        await recordLog(
-          "RISK",
-          "danger",
-          `Emergency stop aktif — ${input.pair.toUpperCase()} di-HOLD paksa.`
-        );
-
-        return {
-
-          success: true,
-
-          signal: "HOLD",
-
-          confidence: 0,
-
-          reason: "Emergency stop aktif (RISK_CONFIG.emergencyStop).",
-
-          actionExecuted: false,
-
-          riskBlocked: true,
-
-          mode: modeLabel,
-
-          timestamp: new Date().toISOString(),
-
-        };
-
-      }
+      // --- Emergency Stop ---
+      // CATATAN PENTING: emergencyStop HANYA memblokir BUY baru
+      // (dicek di bawah, di dalam case "BUY"). Emergency stop
+      // TIDAK PERNAH memblokir SELL, stop-loss, maupun take-profit
+      // paksa — supaya posisi terbuka tidak "nyangkut" kalau
+      // emergency stop sedang aktif saat harga turun.
 
       const state =
         await getBotState(input.pair);
@@ -282,6 +258,37 @@ export class TradingEngine {
       switch (decision.signal) {
 
         case "BUY": {
+
+          // --- Emergency Stop: blokir BUY baru saja ---
+          if (RISK_CONFIG.emergencyStop) {
+
+            await recordLog(
+              "RISK",
+              "warning",
+              `Emergency stop aktif — BUY ${input.pair.toUpperCase()} diblokir (SELL tetap diizinkan).`
+            );
+
+            return {
+
+              success: true,
+
+              signal: "HOLD",
+
+              confidence: decision.confidence,
+
+              reason: "Emergency stop aktif — BUY baru diblokir, posisi terbuka tetap bisa SELL.",
+
+              actionExecuted: false,
+
+              riskBlocked: true,
+
+              mode: modeLabel,
+
+              timestamp: new Date().toISOString(),
+
+            };
+
+          }
 
           const tradeAmountIdr =
             BOT_CONFIG.defaultTradeAmount;
