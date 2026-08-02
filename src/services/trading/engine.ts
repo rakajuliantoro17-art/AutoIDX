@@ -28,6 +28,7 @@ import RiskManager from "./risk";
 import {
   getBotState,
   updateBotState,
+  getOpenPositionsCount,
 } from "@/services/firebase/botState";
 
 import {
@@ -274,13 +275,19 @@ export class TradingEngine {
 
         case "BUY": {
 
-          // --- Emergency Stop: blokir BUY baru saja ---
-          if (RISK_CONFIG.emergencyStop) {
+          const tradeAmountIdr =
+            BOT_CONFIG.defaultTradeAmount;
+
+          // --- Batas jumlah posisi terbuka (lintas semua pair) ---
+          const openPositionsCount =
+            await getOpenPositionsCount();
+
+          if (openPositionsCount >= RISK_CONFIG.maxOpenPosition) {
 
             await recordLog(
               "RISK",
               "warning",
-              `Emergency stop aktif — BUY ${input.pair.toUpperCase()} diblokir (SELL tetap diizinkan).`
+              `Batas posisi terbuka tercapai (${openPositionsCount}/${RISK_CONFIG.maxOpenPosition}) — BUY ${input.pair.toUpperCase()} diblokir.`
             );
 
             return {
@@ -291,7 +298,7 @@ export class TradingEngine {
 
               confidence: decision.confidence,
 
-              reason: "Emergency stop aktif — BUY baru diblokir, posisi terbuka tetap bisa SELL.",
+              reason: "Jumlah posisi terbuka sudah mencapai batas maksimum (RISK_CONFIG.maxOpenPosition).",
 
               actionExecuted: false,
 
@@ -304,9 +311,6 @@ export class TradingEngine {
             };
 
           }
-
-          const tradeAmountIdr =
-            BOT_CONFIG.defaultTradeAmount;
 
           // --- Batas rugi harian ---
           const maxDailyLossIdr =
