@@ -2,48 +2,93 @@
 /**
 ==========================================================
 AURA Trade OS
-Indodax Account Management (Client SDK)
-Version : 0.0.2 Alpha
+Indodax Account Management (Client)
+Version : 0.0.3 Alpha
+(Diperbaiki: SEBELUMNYA nulis langsung dari browser ke
+Firestore dengan API key/secret POLOS - resiko keamanan
+serius. SEKARANG semua request lewat API route server
+(/api/settings/indodax-accounts) yang verifikasi identitas
+user via Firebase ID Token dan enkripsi secretKey sebelum
+disimpan. Secret key TIDAK PERNAH dikirim balik ke client.)
 ==========================================================
 */
-import {
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc,
-  updateDoc,
-  serverTimestamp,
-  query,
-  orderBy,
-} from "firebase/firestore";
-import { db } from "@/services/firebase/config";
+import type { User } from "firebase/auth";
 import { IndodaxAccount, NewIndodaxAccount } from "@/services/indodax/accountTypes";
 
-function accountsRef(uid: string) {
-  return collection(db, "users", uid, "indodaxAccounts");
-}
+async function authedFetch(
+  user: User,
+  method: string,
+  body?: Record<string, unknown>
+) {
 
-export async function listIndodaxAccounts(uid: string): Promise<IndodaxAccount[]> {
-  const q = query(accountsRef(uid), orderBy("createdAt", "desc"));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({
-    id: d.id,
-    ...(d.data() as Omit<IndodaxAccount, "id">),
-  }));
-}
+  const idToken = await user.getIdToken();
 
-export async function addIndodaxAccount(uid: string, data: NewIndodaxAccount) {
-  return addDoc(accountsRef(uid), {
-    ...data,
-    createdAt: serverTimestamp(),
+  const response = await fetch("/api/settings/indodax-accounts", {
+    method,
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: body ? JSON.stringify(body) : undefined,
   });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    throw new Error(json.error ?? "Request gagal.");
+  }
+
+  return json;
+
 }
 
-export async function toggleIndodaxAccountActive(uid: string, accountId: string, isActive: boolean) {
-  return updateDoc(doc(db, "users", uid, "indodaxAccounts", accountId), { isActive });
+export async function listIndodaxAccounts(
+  user: User
+): Promise<IndodaxAccount[]> {
+
+  const json = await authedFetch(user, "GET");
+
+  // Catatan: apiKey di sini SUDAH masked (dikirim server sebagai
+  // apiKeyMasked). Tidak pernah ada secretKey dalam response ini.
+  return (json.accounts ?? []).map((acc: any) => ({
+    id: acc.id,
+    label: acc.label,
+    apiKey: acc.apiKeyMasked,
+    secretKey: "",
+    isActive: acc.isActive,
+    createdAt: acc.createdAt,
+  }));
+
 }
 
-export async function deleteIndodaxAccount(uid: string, accountId: string) {
-  return deleteDoc(doc(db, "users", uid, "indodaxAccounts", accountId));
+export async function addIndodaxAccount(
+  user: User,
+  data: NewIndodaxAccount
+) {
+
+  return authedFetch(user, "POST", {
+    label: data.label,
+    apiKey: data.apiKey,
+    secretKey: data.secretKey,
+  });
+
+}
+
+export async function toggleIndodaxAccountActive(
+  user: User,
+  accountId: string,
+  isActive: boolean
+) {
+
+  return authedFetch(user, "PATCH", { accountId, isActive });
+
+}
+
+export async function deleteIndodaxAccount(
+  user: User,
+  accountId: string
+) {
+
+  return authedFetch(user, "DELETE", { accountId });
+
 }
