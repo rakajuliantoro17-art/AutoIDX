@@ -2,14 +2,15 @@
 ==========================================================
 AURA Trade OS
 Trading Scheduler (Cron)
-Version : 0.0.8 Alpha
+Version : 0.0.9 Alpha
 
-Menjalankan satu siklus penuh: ambil harga close terbaru ->
-hitung RSI & EMA -> serahkan ke TradingEngine untuk
-keputusan BUY/SELL/HOLD (paper trading).
+Perubahan dari 0.0.8: mendukung MULTI-PAIR. Loop atas
+TRADING_CONFIG.pairs (bukan cuma TRADING_CONFIG.pair
+tunggal). Setiap pair diproses dengan try/catch terpisah
+supaya satu pair gagal (mis. data candle tidak cukup)
+TIDAK menggagalkan pair lain dalam siklus yang sama.
 ==========================================================
 */
-
 import { getClosePrices } from "../indodax/candles";
 import { calculateRSI } from "../indicators/rsi";
 import { calculateEMA } from "../indicators/movingAverage";
@@ -21,19 +22,31 @@ const RSI_PERIOD = 14;
 const EMA_FAST_PERIOD = 9;
 const EMA_SLOW_PERIOD = 21;
 
+export interface CronPairResult {
+  pair: string;
+  success: boolean;
+  message: string;
+  durationMs: number;
+}
+
 export interface CronResult {
   success: boolean;
   startedAt: string;
   finishedAt: string;
   durationMs: number;
-  message: string;
+  results: CronPairResult[];
 }
 
-export async function executeCron(): Promise<CronResult> {
-  const started = Date.now();
-  const pair = TRADING_CONFIG.pair;
+/**
+ * Proses satu pair. Dipisah supaya try/catch-nya
+ * terisolasi per pair.
+ */
+async function processPair(pair: string): Promise<CronPairResult> {
+
+  const pairStarted = Date.now();
 
   try {
+
     await recordLog("SYSTEM", "info", `Cron execution started (${pair}).`);
 
     const closePrices = await getClosePrices({ pair, limit: 100 });
@@ -57,44 +70,65 @@ export async function executeCron(): Promise<CronResult> {
       emaSlow,
     });
 
-    const finished = Date.now();
-
-    const result: CronResult = {
-      success: engineResult.success,
-      startedAt: new Date(started).toISOString(),
-      finishedAt: new Date(finished).toISOString(),
-      durationMs: finished - started,
-      message: engineResult.reason,
-    };
-
     await recordLog(
       "BOT",
       engineResult.success ? "success" : "warning",
       `Trading Engine (${pair}): ${engineResult.reason}`
     );
 
-    return result;
-  } catch (error) {
-    console.error("[Scheduler]", error);
+    return {
+      pair,
+      success: engineResult.success,
+      message: engineResult.reason,
+      durationMs: Date.now() - pairStarted,
+    };
+
+  }
+  catch (error) {
+
+    console.error(`[Scheduler] ${pair}`, error);
 
     await recordLog(
       "SYSTEM",
       "danger",
-      `Cron execution failed: ${
+      `Cron execution failed for ${pair}: ${
         error instanceof Error ? error.message : "Unknown error"
       }`
     );
 
-    const finished = Date.now();
-
     return {
+      pair,
       success: false,
-      startedAt: new Date(started).toISOString(),
-      finishedAt: new Date(finished).toISOString(),
-      durationMs: finished - started,
       message: error instanceof Error ? error.message : "Unknown scheduler error",
+      durationMs: Date.now() - pairStarted,
     };
+
   }
+
+}
+
+export async function executeCron(): Promise<CronResult> {
+
+  const started = Date.now();
+  const pairs = TRADING_CONFIG.pairs;
+
+  const results: CronPairResult[] = [];
+
+  for (const pair of pairs) {
+    const result = await processPair(pair);
+    results.push(result);
+  }
+
+  const finished = Date.now();
+
+  return {
+    success: results.every((r) => r.success),
+    startedAt: new Date(started).toISOString(),
+    finishedAt: new Date(finished).toISOString(),
+    durationMs: finished - started,
+    results,
+  };
+
 }
 
 /**
