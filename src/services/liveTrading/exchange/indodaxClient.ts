@@ -28,12 +28,12 @@ export interface IndodaxGetInfoResult {
 }
 
 export interface IndodaxTradeParams {
-  pair: string; // e.g. "btc_idr"
+  pair: string;
   type: "buy" | "sell";
   orderType?: "market" | "limit";
-  price?: number; // wajib untuk limit order
-  idr?: number; // nominal IDR untuk BUY
-  coinAmount?: number; // jumlah koin untuk SELL
+  price?: number;
+  idr?: number;
+  coinAmount?: number;
   clientOrderId?: string;
 }
 
@@ -44,7 +44,7 @@ export interface IndodaxTradeResult {
   receive_rp?: number;
   fee?: number;
   remain_rp?: number;
-  [key: string]: unknown; // receive_<coin> / <coin>_remaining, field-nya dinamis sesuai coin
+  [key: string]: unknown;
 }
 
 export class IndodaxClient {
@@ -65,8 +65,6 @@ export class IndodaxClient {
       process.env.INDODAX_SECRET_KEY
       ?? "";
 
-    // INDODAX_API_URL cuma untuk override host, path /tapi
-    // selalu ditambahkan otomatis (konsisten dengan docs).
     const host =
       process.env.INDODAX_API_URL
       ?? "https://indodax.com";
@@ -198,7 +196,7 @@ export class IndodaxClient {
 
       return {
         success: false,
-        message: result.message,
+        message: result.message ?? "Unknown error",
       };
 
     }
@@ -286,7 +284,7 @@ export class IndodaxClient {
 
       return {
         success: false,
-        message: result.message,
+        message: result.message ?? "Unknown error",
       };
 
     }
