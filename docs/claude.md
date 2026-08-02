@@ -413,3 +413,48 @@ Baru buka /dashboard/settings, masukkan API Key & Secret Key Indodax kamu lewat 
 Setelah itu tersimpan (statusnya "Aktif"), bot masih tetap paper trading sampai kamu secara eksplisit set BOT_MODE=live dan BOT_LIVE_CONFIRM=true barengan di Vercel — jangan lupa itu langkah terakhir sebelum benar-benar pakai uang asli.
 
 Simpan key enkripsi itu baik-baik (misal di password manager) — kalau hilang, semua API key/secret yang sudah tersimpan di Firestore tidak akan bisa didekripsi lagi.
+
+---
+
+# Update — BUILD 100% BERSIH TERCAPAI (lanjutan sesi di atas)
+
+**`npm run build` sudah lolos total** (TypeScript compile + type-check + static generation semua route), terverifikasi di container Claude maupun konfirmasi Raka di Vercel. Ini pencapaian penting: v0.0.1 Alpha yang stabil sudah tercapai.
+
+## Pekerjaan tambahan sesi ini (setelah build pertama kali hijau)
+
+**Menuju live trading — atas permintaan eksplisit Raka ("target kita menuju live trading beneran"):**
+
+1. **Position-awareness di strategi aktif** (`core/strategyEngine.ts` family) — sebelumnya `auraTrend.ts`/`emaCrossover.ts`/`momentum.ts` bisa return `SELL` tanpa tahu apakah sedang punya posisi. Sekarang parameter `position:"NONE"|"LONG"` mengalir dari `strategy/engine.ts` → `manager.ts` → `core/strategyEngine.ts` → tiap strategi, default `"NONE"` (fail-safe: kalau lupa diisi, otomatis tidak akan SELL). 6 file diperbaiki: `core/strategyEngine.ts`, `manager.ts`, `engine.ts`, `auraTrend.ts`, `emaCrossover.ts`, `momentum.ts`.
+
+2. **Keputusan arsitektur eksekusi:** direkomendasikan `services/trading/` sebagai basis kanonik (bukan `execution/` atau `liveTrading/` yang scaffolding besar tapi belum tersambung apa-apa) — karena `services/trading/` satu-satunya yang sudah terbukti jalan end-to-end (Firebase-connected, position-aware via `decision.ts`).
+
+3. **Validasi RISK_CONFIG sebelum eksekusi** (sebelumnya nol validasi sama sekali di `services/trading/engine.ts`) — dikerjakan kolaboratif dengan sesi Claude lain secara paralel:
+   - `emergencyStop` — kill switch, dicek paling prioritas
+   - Stop-loss/take-profit **paksa**, terpisah dari sinyal strategi (`RiskManager.evaluate()` di `trading/risk.ts`, sekarang benar-benar dipanggil dari `engine.ts`)
+   - Batas rugi harian (`maxDailyLossPercent`) via `firebase/riskState.ts` (file baru)
+   - Cooldown antar trade
+   - Max exposure per trade
+   - **Live trading dua-gerbang:** `TRADING_CONFIG.mode === "live"` DAN `process.env.BOT_LIVE_CONFIRM === "true"` — sengaja dua syarat terpisah supaya tidak ada yang "kepencet" masuk mode live tanpa sadar.
+   - Bug diperbaiki di `trading/risk.ts`: `validateTradeAmount()` sebelumnya salah bandingkan `amount` dengan `RISK_CONFIG.maxOpenPosition` (itu jumlah posisi, bukan nominal) — seharusnya `BOT_CONFIG.maxTradeAmount`.
+   - `BOT_CONFIG.startingBalance` ditambahkan (belum ada sebelumnya, dibutuhkan untuk hitung persentase exposure/rugi harian).
+   - **Masih ada gap:** `RISK_CONFIG.maxOpenPosition` (batas jumlah posisi terbuka lintas SEMUA pair) — infrastrukturnya sudah dibuat (`getOpenPositionsCount()` di `botState.ts`) tapi **belum dipanggil** dari `engine.ts`. Perlu ditambahkan sebelum benar-benar live.
+
+4. **Live order execution asli** (`services/trading/live.ts`, file baru) + `IndodaxClient.getInfo()`/`trade()` (method baru di `liveTrading/exchange/indodaxClient.ts`) — order asli lewat private Trade API Indodax, market order only. Catatan dari pembuatnya: response SELL dari Indodax **belum ada contoh resmi** di dokumentasi (cuma BUY), jadi field-nya diasumsikan simetris dengan fallback ke harga referensi kalau field tidak ditemukan — **wajib dicek manual di `activity_logs` setelah transaksi live pertama** untuk konfirmasi field response yang benar.
+
+5. **🔴 Bug serius ditemukan & diperbaiki — Client SDK vs Admin SDK di server:**
+   `firebase/riskState.ts` (baru dibuat) dan `firebase/botState.ts` (sudah lama ada, dipakai di MANA-MANA untuk tracking posisi) **keduanya sempat pakai Client SDK Firestore** (`firebase/firestore`) padahal dipanggil dari server (cron `/api/cron/scan.ts`). Di server, `request.auth` selalu `null`, jadi kalau Firestore Security Rules mensyaratkan auth, read/write **gagal diam-diam** — masuk `catch`, balik ke nilai default, terlihat jalan tapi sebenarnya tidak pernah benar-benar baca/tulis data asli. Ini sama persis pola yang sudah pernah diperbaiki di `paperTradingStore.ts` sebelumnya, tapi luput di 2 file ini.
+
+   **Sudah diperbaiki** — keduanya sekarang pakai Admin SDK (`adminDb` dari `@/services/firebase/admin`), dikonfirmasi aman karena dicek dulu: tidak ada komponen client (`.tsx`) yang mengimpor kedua file ini, semua pemakainya di `services/trading/*` (server-only).
+
+   **Perhatian untuk sesi berikutnya kalau bikin file firebase baru:** Admin SDK sintaksnya beda dari Client SDK —
+   - `snapshot.exists` (properti) bukan `snapshot.exists()` (fungsi)
+   - `FieldValue.serverTimestamp()` dari `firebase-admin/firestore`, bukan `serverTimestamp()` dari `firebase/firestore`
+   - Kalau file baru akan dipanggil dari API route/cron (server), defaultnya pakai Admin SDK kecuali ada alasan kuat pakai Client SDK (misal benar-benar dipanggil dari komponen client/browser).
+
+## Status menuju live trading (per akhir sesi ini)
+
+✅ Build bersih, position-awareness diperbaiki, validasi risk terpasang (kecuali maxOpenPosition), live execution path ada, bug Client/Admin SDK diperbaiki.
+
+❌ **Belum:** `maxOpenPosition` belum disambungkan ke `engine.ts`. Belum ada uji coba end-to-end nyata (paper→live pertama kali). `firestore.rules` belum di-review (item lama, masih terbuka). Field response SELL Indodax di `live.ts` masih asumsi, belum terverifikasi dengan transaksi asli.
+
+**Sebelum benar-benar aktifkan `BOT_LIVE_CONFIRM=true` di Vercel:** selesaikan dulu `maxOpenPosition`, dan sangat disarankan jalankan minimal satu siklus BUY+SELL manual di livetrading dengan nominal sekecil mungkin untuk verifikasi field response SELL yang sebenarnya dari Indodax.
