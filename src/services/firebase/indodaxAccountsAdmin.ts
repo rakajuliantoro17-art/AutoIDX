@@ -24,9 +24,7 @@ export interface ActiveIndodaxCredentials {
   secretKey: string;
 }
 
-export async function getActiveIndodaxAccount(): Promise
-  ActiveIndodaxCredentials | null
-> {
+export async function getActiveIndodaxAccount(): Promise<ActiveIndodaxCredentials | null> {
 
   const ownerUid = process.env.BOT_OWNER_UID;
 
