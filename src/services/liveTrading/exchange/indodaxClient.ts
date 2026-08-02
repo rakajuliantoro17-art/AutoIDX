@@ -2,12 +2,13 @@
 ==========================================================
 AURA Trade OS
 Indodax API Client
-Version : 0.2.1 Alpha
+Version : 0.2.2 Alpha
 (Ditambahkan: method getInfo() untuk cek saldo, dan trade()
 untuk menempatkan order asli - market buy/sell. Base URL juga
 diperbaiki supaya konsisten dengan docs/environment-variables.md.
-Fix: return type Promise<...> multi-baris diganti type alias
-satu baris - versi sebelumnya kena bug "<" hilang saat copy-paste.)
+Fix: return type Promise<...> jadi type alias satu baris, dan
+fallback "Unknown error" untuk message yang optional dari
+ExchangeResponse.)
 ==========================================================
 Exchange Communication Layer
 ==========================================================
@@ -210,7 +211,7 @@ export class IndodaxClient {
 
       return {
         success: false,
-        message: result.message,
+        message: result.message ?? "Unknown error",
       };
 
     }
@@ -295,7 +296,7 @@ export class IndodaxClient {
 
       return {
         success: false,
-        message: result.message,
+        message: result.message ?? "Unknown error",
       };
 
     }
