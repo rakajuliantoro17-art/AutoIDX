@@ -30,7 +30,7 @@ export default function IndodaxAccountManager() {
   async function loadAccounts() {
     if (!user) return;
     setLoading(true);
-    const data = await listIndodaxAccounts(user.uid);
+    const data = await listIndodaxAccounts(user);
     setAccounts(data);
     setLoading(false);
   }
@@ -45,7 +45,7 @@ export default function IndodaxAccountManager() {
 
     setSaving(true);
     try {
-      await addIndodaxAccount(user.uid, {
+      await addIndodaxAccount(user, {
         label,
         apiKey,
         secretKey,
@@ -65,13 +65,13 @@ export default function IndodaxAccountManager() {
   async function handleDelete(accountId: string) {
     if (!user) return;
     if (!confirm("Hapus akun Indodax ini?")) return;
-    await deleteIndodaxAccount(user.uid, accountId);
+    await deleteIndodaxAccount(user, accountId);
     await loadAccounts();
   }
 
   async function handleToggle(accountId: string, current: boolean) {
     if (!user) return;
-    await toggleIndodaxAccountActive(user.uid, accountId, !current);
+    await toggleIndodaxAccountActive(user, accountId, !current);
     await loadAccounts();
   }
 
@@ -136,7 +136,7 @@ export default function IndodaxAccountManager() {
             >
               <div>
                 <p className="font-medium">{acc.label}</p>
-                <p className="text-slate-500 text-xs mt-1">{maskKey(acc.apiKey)}</p>
+                <p className="text-slate-500 text-xs mt-1">{acc.apiKey}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
