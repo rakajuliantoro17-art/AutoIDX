@@ -2,89 +2,167 @@
 ==========================================================
 AURA Trade OS
 Executive Dashboard
-Version : 0.0.2 Alpha
+Version : 0.1.0 Alpha
+
+Perubahan dari 0.0.2:
+1. Sebelumnya fetch ke /api/market (MarketScanner - tujuan
+   beda, cari peluang lintas-pair) dan membaca field
+   (lastPrice/rsi/signal/inPosition) yang TIDAK ADA di response
+   itu - selalu jatuh ke default (price selalu Rp 0). Sekarang
+   fetch ke /api/bot/state (bot_state Firestore, sumber
+   kebenaran status bot sebenarnya, di-update tiap siklus cron
+   oleh services/trading/engine.ts, termasuk saat HOLD).
+2. `logs` sebelumnya array statis hardcode 3 baris, tidak pernah
+   berubah. Sekarang fetch dari /api/logs/recent (endpoint yang
+   sama dipakai src/app/activity/page.tsx), auto-refresh.
+
+CATATAN: bot_state tidak simpan RSI (dihitung ulang tiap siklus
+dari candle, tidak disimpan) - RSI card dihapus dari tampilan
+sementara sampai ada tempat penyimpanan snapshot RSI terakhir.
+Menampilkan RSI palsu/statis lebih menyesatkan daripada tidak
+menampilkannya sama sekali.
 ==========================================================
 */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import StatusCard from "@/components/StatusCard";
 import RiskBadge from "@/components/RiskBadge";
 import PriceChart from "@/components/PriceChart";
 import ActivityLogs from "@/components/ActivityLogs";
+import { useAuth } from "@/services/auth/AuthContext";
 
 interface DashboardData {
   price: number;
-  rsi: number;
   signal: "BUY" | "SELL" | "HOLD";
   position: string;
+  stopLoss: number;
+  takeProfit: number;
   loading: boolean;
   error: string | null;
 }
 
+interface LogItem {
+  id: string;
+  timestamp: string;
+  message: string;
+  type: "info" | "success" | "warning" | "danger";
+}
+
+const REFRESH_INTERVAL_MS = 10000;
+
+function formatClock(iso: string | null): string {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleTimeString("id-ID", { hour12: false });
+}
+
 export default function DashboardPage() {
+
+  const { user } = useAuth();
+
   const [data, setData] = useState<DashboardData>({
     price: 0,
-    rsi: 50,
     signal: "HOLD",
     position: "OUT OF POSITION",
+    stopLoss: 1,
+    takeProfit: 3,
     loading: true,
     error: null,
   });
 
-  const logs = [
-    {
-      id: "1",
-      timestamp: "16:00:00",
-      message: "Vercel Cron triggered",
-      type: "info" as const,
-    },
-    {
-      id: "2",
-      timestamp: "16:00:02",
-      message: "BTC/IDR market data received",
-      type: "success" as const,
-    },
-    {
-      id: "3",
-      timestamp: "16:00:03",
-      message: "Strategy result HOLD",
-      type: "info" as const,
-    },
-  ];
+  const [logs, setLogs] = useState<LogItem[]>([]);
 
-  useEffect(() => {
-    async function loadMarket() {
-      try {
-        const res = await fetch("/api/market");
+  const loadBotState = useCallback(async () => {
 
-        if (!res.ok) {
-          throw new Error(`Market API failed: ${res.status}`);
-        }
+    if (!user) return;
 
-        const json = await res.json();
+    try {
 
-        setData({
-          price: json.lastPrice ?? 0,
-          rsi: json.rsi ?? 50,
-          signal: json.signal ?? "HOLD",
-          position: json.inPosition ? "ACTIVE POSITION" : "OUT OF POSITION",
-          loading: false,
-          error: null,
-        });
-      } catch (error) {
-        console.error("[Dashboard] Failed to load market data:", error);
-        setData((prev) => ({
-          ...prev,
-          loading: false,
-          error: "Gagal memuat data market",
-        }));
+      const idToken = await user.getIdToken();
+
+      const res = await fetch("/api/bot/state?pair=btc_idr", {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error ?? `Bot State API failed: ${res.status}`);
       }
+
+      const json = await res.json();
+
+      setData({
+        price: json.currentPrice ?? 0,
+        signal: json.lastSignal ?? "HOLD",
+        position: json.inPosition ? "ACTIVE POSITION" : "OUT OF POSITION",
+        stopLoss: json.stopLoss ?? 1,
+        takeProfit: json.takeProfit ?? 3,
+        loading: false,
+        error: null,
+      });
+
+    } catch (error) {
+
+      console.error("[Dashboard] Failed to load bot state:", error);
+
+      setData((prev) => ({
+        ...prev,
+        loading: false,
+        error: "Gagal memuat status bot",
+      }));
+
     }
 
-    loadMarket();
-  }, []);
+  }, [user]);
+
+  const loadLogs = useCallback(async () => {
+
+    if (!user) return;
+
+    try {
+
+      const idToken = await user.getIdToken();
+
+      const res = await fetch("/api/logs/recent?limit=10", {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+
+      if (!res.ok) return;
+
+      const json = await res.json();
+
+      setLogs(
+        (json.logs ?? []).map((log: any) => ({
+          id: log.id,
+          timestamp: formatClock(log.timestamp),
+          message: log.message,
+          type:
+            log.type === "success" || log.type === "warning" || log.type === "danger"
+              ? log.type
+              : "info",
+        }))
+      );
+
+    } catch (error) {
+      console.error("[Dashboard] Failed to load logs:", error);
+    }
+
+  }, [user]);
+
+  useEffect(() => {
+
+    loadBotState();
+    loadLogs();
+
+    const interval = setInterval(() => {
+      loadBotState();
+      loadLogs();
+    }, REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+
+  }, [loadBotState, loadLogs]);
 
   return (
     <DashboardLayout>
@@ -106,21 +184,19 @@ export default function DashboardPage() {
         )}
 
         {/* Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <StatusCard
             title="BTC/IDR Price"
             value={data.loading ? "..." : `Rp ${(data.price ?? 0).toLocaleString("id-ID")}`}
-            subtext="Indodax ticker"
-            loading={data.loading}
-          />
-          <StatusCard
-            title="RSI"
-            value={data.loading ? "..." : data.rsi}
-            subtext="Period 14"
+            subtext="bot_state (siklus terakhir)"
             loading={data.loading}
           />
           <StatusCard title="Position" value={data.position} />
-          <StatusCard title="Risk" value="1% / 3%" subtext="SL / TP" />
+          <StatusCard
+            title="Risk"
+            value={`${data.stopLoss}% / ${data.takeProfit}%`}
+            subtext="SL / TP"
+          />
         </div>
 
         {/* Main Area */}
