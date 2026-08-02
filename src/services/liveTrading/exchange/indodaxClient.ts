@@ -7,12 +7,8 @@ Version : 0.2.0 Alpha
 untuk menempatkan order asli - market buy/sell. Base URL juga
 diperbaiki supaya konsisten dengan docs/environment-variables.md
 - INDODAX_API_URL sekarang cuma untuk host, path /tapi selalu
-ditambahkan otomatis.)
-
-v0.2.1: Restrukturisasi return type getInfo()/trade() pakai
-`type` alias terpisah (bukan union type inline multi-baris di
-dalam Promise<...>) - supaya lebih tahan kalau proses copy-paste
-menghapus karakter tertentu secara tidak sengaja.
+ditambahkan otomatis. Constructor sekarang bisa terima
+kredensial dinamis (untuk multi-account), fallback ke env var.)
 ==========================================================
 Exchange Communication Layer
 ==========================================================
@@ -33,12 +29,12 @@ export interface IndodaxGetInfoResult {
 }
 
 export interface IndodaxTradeParams {
-  pair: string;
+  pair: string; // e.g. "btc_idr"
   type: "buy" | "sell";
   orderType?: "market" | "limit";
-  price?: number;
-  idr?: number;
-  coinAmount?: number;
+  price?: number; // wajib untuk limit order
+  idr?: number; // nominal IDR untuk BUY
+  coinAmount?: number; // jumlah koin untuk SELL
   clientOrderId?: string;
 }
 
@@ -49,16 +45,13 @@ export interface IndodaxTradeResult {
   receive_rp?: number;
   fee?: number;
   remain_rp?: number;
-  [key: string]: unknown;
+  [key: string]: unknown; // receive_<coin> / <coin>_remaining, field-nya dinamis sesuai coin
 }
 
-type IndodaxGetInfoResponse =
-  | { success: true; data: IndodaxGetInfoResult }
-  | { success: false; message: string };
-
-type IndodaxTradeResponse =
-  | { success: true; data: IndodaxTradeResult }
-  | { success: false; message: string };
+export interface IndodaxCredentials {
+  apiKey: string;
+  secretKey: string;
+}
 
 export class IndodaxClient {
 
@@ -68,16 +61,20 @@ export class IndodaxClient {
 
   private baseURL: string;
 
-  constructor() {
+  constructor(credentials?: IndodaxCredentials) {
 
     this.apiKey =
-      process.env.INDODAX_API_KEY
+      credentials?.apiKey
+      ?? process.env.INDODAX_API_KEY
       ?? "";
 
     this.secretKey =
-      process.env.INDODAX_SECRET_KEY
+      credentials?.secretKey
+      ?? process.env.INDODAX_SECRET_KEY
       ?? "";
 
+    // INDODAX_API_URL cuma untuk override host, path /tapi
+    // selalu ditambahkan otomatis (konsisten dengan docs).
     const host =
       process.env.INDODAX_API_URL
       ?? "https://indodax.com";
@@ -198,7 +195,10 @@ export class IndodaxClient {
   /**
    * Ambil informasi saldo akun (view permission)
    */
-  async getInfo(): Promise<IndodaxGetInfoResponse> {
+  async getInfo(): Promise
+    { success: true; data: IndodaxGetInfoResult }
+    | { success: false; message: string }
+  > {
 
     const result = await this.privateRequest("getInfo");
 
@@ -206,7 +206,7 @@ export class IndodaxClient {
 
       return {
         success: false,
-        message: result.message ?? "Unknown error",
+        message: result.message,
       };
 
     }
@@ -226,7 +226,10 @@ export class IndodaxClient {
    */
   async trade(
     params: IndodaxTradeParams
-  ): Promise<IndodaxTradeResponse> {
+  ): Promise
+    { success: true; data: IndodaxTradeResult }
+    | { success: false; message: string }
+  > {
 
     const orderType = params.orderType ?? "market";
 
@@ -291,7 +294,7 @@ export class IndodaxClient {
 
       return {
         success: false,
-        message: result.message ?? "Unknown error",
+        message: result.message,
       };
 
     }
