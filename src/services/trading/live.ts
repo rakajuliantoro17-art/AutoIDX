@@ -2,9 +2,11 @@
 ==========================================================
 AURA Trade OS
 Live Trading Service (REAL MONEY)
-Version : 0.0.1 Alpha
+Version : 0.0.2 Alpha
 Menempatkan order ASLI ke Indodax lewat private Trade API.
 Selalu market order untuk konsistensi dengan paper trading.
+Kredensial diambil dari akun aktif di Firestore (terenkripsi),
+bukan dari env var statis - lihat indodaxAccountsAdmin.ts.
 
 CATATAN PENTING SOAL RESIKO:
 - Dokumentasi resmi Indodax cuma kasih contoh response untuk
@@ -21,7 +23,8 @@ CATATAN PENTING SOAL RESIKO:
 ==========================================================
 */
 
-import indodaxClient from "@/services/liveTrading/exchange/indodaxClient";
+import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
+import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
 import { recordTrade, recordLog } from "@/services/firebase/logService";
 import { BOT_CONFIG } from "@/config/bot";
 
@@ -45,6 +48,31 @@ export interface LiveTradeResult {
 class LiveTradingService {
 
   /**
+   * Ambil client Indodax dengan kredensial akun yang sedang
+   * aktif (didekripsi dari Firestore). Kalau tidak ada akun
+   * aktif, lempar error - JANGAN fallback diam-diam ke env var,
+   * supaya jelas kalau memang belum ada akun yang dikonfigurasi.
+   */
+  private async getClient(): Promise<IndodaxClient> {
+
+    const account = await getActiveIndodaxAccount();
+
+    if (!account) {
+
+      throw new Error(
+        "Tidak ada akun Indodax aktif yang ditemukan (cek BOT_OWNER_UID & isActive di dashboard settings)."
+      );
+
+    }
+
+    return new IndodaxClient({
+      apiKey: account.apiKey,
+      secretKey: account.secretKey,
+    });
+
+  }
+
+  /**
    * BUY asli - market order, nominal IDR = BOT_CONFIG.defaultTradeAmount
    */
   async buy(
@@ -53,8 +81,10 @@ class LiveTradingService {
 
     const tradeAmountIdr = BOT_CONFIG.defaultTradeAmount;
 
+    const client = await this.getClient();
+
     // --- Cek saldo IDR cukup sebelum order ---
-    const info = await indodaxClient.getInfo();
+    const info = await client.getInfo();
 
     if (!info.success) {
 
@@ -85,7 +115,7 @@ class LiveTradingService {
     }
 
     // --- Tempatkan order asli ---
-    const result = await indodaxClient.trade({
+    const result = await client.trade({
       pair: request.pair,
       type: "buy",
       orderType: "market",
@@ -195,7 +225,9 @@ class LiveTradingService {
 
     }
 
-    const result = await indodaxClient.trade({
+    const client = await this.getClient();
+
+    const result = await client.trade({
       pair: request.pair,
       type: "sell",
       orderType: "market",
