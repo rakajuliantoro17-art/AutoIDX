@@ -389,3 +389,27 @@ Dua opsi yang diidentifikasi (belum dipilih):
 
 **Keamanan — eskalasi prioritas:**
 Isu lama (`IndodaxAccountManager` simpan API key/secret plaintext ke Firestore, tanpa `firestore.rules`) yang sebelumnya "belum mendesak karena belum tersambung ke eksekusi asli" **sekarang jadi prioritas tinggi** — begitu `IndodaxAdapter` bisa `placeOrder`/`getBalance` pakai kredensial dari Firestore, plaintext storage ini jadi jalur pencurian API key trading/withdraw milik semua user. Rekomendasi: kerjakan enkripsi server-side (lihat bagian "Keamanan" di atas) **bersamaan atau sebelum** private API ini live, bukan sesudahnya.
+
+
+Untuk BOT_OWNER_UID, cara dapatnya: buka Firebase Console → Authentication → Users, cari akun kamu (yang dipakai login ke dashboard AutoIDX), copy kolom User UID-nya.
+
+Untuk ACCOUNT_ENCRYPTION_KEY, saya generate sekarang biar tinggal pakai:
+
+Ini key-nya (32 byte, format hex):
+
+1f595b4d3257964d2059e53592f36328759fe4df199cb187a354cea0a25a056e
+
+Key final (sudah saya verifikasi persis 64 karakter):
+
+73d080ecd7a04b748311227d7bc9af6eff300d94a08f3a48be294a7b7170857d
+
+Langkah selanjutnya:
+
+Di Vercel, set env var ACCOUNT_ENCRYPTION_KEY = key di atas
+Set env var BOT_OWNER_UID = User UID kamu dari Firebase Console → Authentication
+Redeploy (otomatis kalau kamu commit sesuatu, atau trigger manual redeploy di Vercel)
+Baru buka /dashboard/settings, masukkan API Key & Secret Key Indodax kamu lewat form "Akun Trade API Indodax"
+
+Setelah itu tersimpan (statusnya "Aktif"), bot masih tetap paper trading sampai kamu secara eksplisit set BOT_MODE=live dan BOT_LIVE_CONFIRM=true barengan di Vercel — jangan lupa itu langkah terakhir sebelum benar-benar pakai uang asli.
+
+Simpan key enkripsi itu baik-baik (misal di password manager) — kalau hilang, semua API key/secret yang sudah tersimpan di Firestore tidak akan bisa didekripsi lagi.
