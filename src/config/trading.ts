@@ -9,6 +9,10 @@ export type TradingMode = "paper" | "live";
 
 export const TRADING_CONFIG = {
   pair: process.env.BOT_PAIR ?? "btc_idr",
+  pairs: (process.env.BOT_PAIRS ?? process.env.BOT_PAIR ?? "btc_idr")
+    .split(",")
+    .map((p) => p.trim().toLowerCase())
+    .filter(Boolean),
 
   defaultTradeAmount: Number(process.env.BOT_DEFAULT_TRADE_AMOUNT ?? 10000),
 
