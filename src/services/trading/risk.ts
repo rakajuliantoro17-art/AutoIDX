@@ -103,10 +103,7 @@ class RiskManager {
    * yang sedang terbuka, RISK_CONFIG.maxOpenPosition)
    */
   canOpenPosition(currentOpenPositions: number): boolean {
-    return (
-      currentOpenPositions 
-      RISK_CONFIG.maxOpenPosition
-    );
+    return currentOpenPositions < RISK_CONFIG.maxOpenPosition;
   }
 
   /**
