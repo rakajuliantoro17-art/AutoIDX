@@ -8,6 +8,11 @@ untuk menempatkan order asli - market buy/sell. Base URL juga
 diperbaiki supaya konsisten dengan docs/environment-variables.md
 - INDODAX_API_URL sekarang cuma untuk host, path /tapi selalu
 ditambahkan otomatis.)
+
+v0.2.1: Restrukturisasi return type getInfo()/trade() pakai
+`type` alias terpisah (bukan union type inline multi-baris di
+dalam Promise<...>) - supaya lebih tahan kalau proses copy-paste
+menghapus karakter tertentu secara tidak sengaja.
 ==========================================================
 Exchange Communication Layer
 ==========================================================
@@ -46,6 +51,14 @@ export interface IndodaxTradeResult {
   remain_rp?: number;
   [key: string]: unknown;
 }
+
+type IndodaxGetInfoResponse =
+  | { success: true; data: IndodaxGetInfoResult }
+  | { success: false; message: string };
+
+type IndodaxTradeResponse =
+  | { success: true; data: IndodaxTradeResult }
+  | { success: false; message: string };
 
 export class IndodaxClient {
 
@@ -185,10 +198,7 @@ export class IndodaxClient {
   /**
    * Ambil informasi saldo akun (view permission)
    */
-  async getInfo(): Promise
-    { success: true; data: IndodaxGetInfoResult }
-    | { success: false; message: string }
-  > {
+  async getInfo(): Promise<IndodaxGetInfoResponse> {
 
     const result = await this.privateRequest("getInfo");
 
@@ -216,10 +226,7 @@ export class IndodaxClient {
    */
   async trade(
     params: IndodaxTradeParams
-  ): Promise
-    { success: true; data: IndodaxTradeResult }
-    | { success: false; message: string }
-  > {
+  ): Promise<IndodaxTradeResponse> {
 
     const orderType = params.orderType ?? "market";
 
