@@ -203,6 +203,10 @@ export class TradingEngine {
 
             coinAmount: 0,
 
+            currentPrice: input.price,
+
+            lastSignal: "SELL",
+
           });
 
           await recordLog(
@@ -252,6 +256,17 @@ export class TradingEngine {
         DecisionEngine.evaluate(
           decisionInput
         );
+
+      // --- Persist currentPrice/lastSignal SETIAP siklus ---
+      // (sebelumnya cuma di-update saat BUY/SELL, jadi nilai ini
+      // nyangkut di lama/default kalau hasil siklus HOLD - yang
+      // paling sering terjadi. Dashboard butuh nilai ini selalu
+      // segar untuk tampilkan harga/sinyal terkini.)
+      await updateBotState({
+        pair: input.pair,
+        currentPrice: input.price,
+        lastSignal: decision.signal,
+      });
 
       let actionExecuted = false;
 
