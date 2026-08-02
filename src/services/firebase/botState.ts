@@ -1,115 +1,402 @@
 /**
 ==========================================================
 AURA Trade OS
-Firebase Bot State Manager
-Version : 0.0.3 Alpha
-(Ditambahkan: lastTradeAt untuk cooldown, getOpenPositionsCount
-untuk validasi maxOpenPosition lintas-pair)
+Firebase Bot State Manager (Admin SDK, server-only)
+Version : 0.0.2 Alpha
+==========================================================
+CATATAN PENTING: file ini sebelumnya pakai Client SDK
+("firebase/firestore"), yang di-block Firestore Security
+Rules saat dipanggil dari server (request.auth selalu null
+di context ini) -- sama persis masalah yang sudah pernah
+diperbaiki di paperTradingStore.ts. Query/write gagal diam-
+diam, masuk catch, balik ke default state -- artinya
+tracking posisi (inPosition dkk) kelihatan terpasang tapi
+berisiko tidak pernah benar-benar tersimpan/terbaca dari
+Firestore. Sudah diperbaiki pakai Admin SDK. Dicek dulu
+(sebelum diubah): semua pemakai file ini ada di
+services/trading/* dan dipanggil dari cron (server-only),
+TIDAK ada komponen client yang mengimpor file ini -- jadi
+aman pakai Admin SDK di sini.
 ==========================================================
 */
-import { adminDb } from "./admin";
+
+
+import { adminDb } from "@/services/firebase/admin";
+
 import { FieldValue } from "firebase-admin/firestore";
 
+
+
+
 export interface BotState {
-  pair: string;
-  status: "IDLE" | "BUY" | "SELL";
-  inPosition: boolean;
-  entryPrice: number;
-  currentPrice: number;
-  coinAmount: number;
-  positionValue: number;
-  profitPercent: number;
-  stopLoss: number;
-  takeProfit: number;
-  lastSignal: "BUY" | "SELL" | "HOLD";
-  lastOrderId?: string;
-  /**
-   * Timestamp (epoch ms) trade terakhir -- dipakai
-   * untuk validasi cooldown (RISK_CONFIG.cooldownSeconds).
-   */
-  lastTradeAt?: number;
-  updatedAt: any;
+
+
+pair:string;
+
+
+
+status:
+
+"IDLE"
+
+|
+
+"BUY"
+
+|
+
+"SELL";
+
+
+
+inPosition:boolean;
+
+
+
+entryPrice:number;
+
+
+
+currentPrice:number;
+
+
+
+coinAmount:number;
+
+
+
+positionValue:number;
+
+
+
+profitPercent:number;
+
+
+
+stopLoss:number;
+
+
+
+takeProfit:number;
+
+
+
+lastSignal:
+
+"BUY"
+
+|
+
+"SELL"
+
+|
+
+"HOLD";
+
+
+
+lastOrderId?:string;
+
+
+
+lastTradeAt?:number;
+
+
+
+updatedAt:any;
+
+
+
 }
 
-const STATE_COLLECTION = "bot_state";
 
-function defaultState(pair: string): BotState {
-  return {
-    pair,
-    status: "IDLE",
-    inPosition: false,
-    entryPrice: 0,
-    currentPrice: 0,
-    coinAmount: 0,
-    positionValue: 0,
-    profitPercent: 0,
-    stopLoss: 1,
-    takeProfit: 3,
-    lastSignal: "HOLD",
-    updatedAt: new Date()
-  };
+
+
+const STATE_COLLECTION="bot_state";
+
+
+
+
+function defaultState(pair:string):BotState{
+
+
+return {
+
+
+pair,
+
+
+status:"IDLE",
+
+
+inPosition:false,
+
+
+entryPrice:0,
+
+
+currentPrice:0,
+
+
+coinAmount:0,
+
+
+positionValue:0,
+
+
+profitPercent:0,
+
+
+stopLoss:1,
+
+
+takeProfit:3,
+
+
+lastSignal:"HOLD",
+
+
+updatedAt:new Date()
+
+
+
+};
+
+
+
 }
+
+
+
 
 export async function getBotState(
-  pair = "btc_idr"
-): Promise<BotState> {
-  const fallback = defaultState(pair);
-  try {
-    const ref = adminDb.collection(STATE_COLLECTION).doc(pair);
-    const snapshot = await ref.get();
-    if (snapshot.exists) {
-      return { ...fallback, ...snapshot.data() } as BotState;
-    }
-    await ref.set(fallback);
-    return fallback;
-  }
-  catch (error) {
-    console.error("[BOT STATE GET ERROR]", error);
-    return fallback;
-  }
+
+pair="btc_idr"
+
+):Promise<BotState>{
+
+
+
+const fallback=
+
+defaultState(pair);
+
+
+
+try{
+
+
+
+const ref=
+
+adminDb
+
+.collection(STATE_COLLECTION)
+
+.doc(pair);
+
+
+
+const snapshot=
+
+await ref.get();
+
+
+
+
+
+
+if(snapshot.exists){
+
+
+return {
+
+
+...fallback,
+
+
+...snapshot.data()
+
+} as BotState;
+
+
 }
+
+
+
+
+
+
+await ref.set(
+
+fallback
+
+);
+
+
+
+return fallback;
+
+
+
+}
+
+catch(error){
+
+
+console.error(
+
+"[BOT STATE GET ERROR]",
+
+error
+
+);
+
+
+
+return fallback;
+
+
+}
+
+
+
+}
+
+
+
 
 export async function updateBotState(
-  state: Partial<BotState> & { pair: string }
-): Promise<boolean> {
-  if (!state.pair) {
-    return false;
-  }
-  try {
-    const ref = adminDb.collection(STATE_COLLECTION).doc(state.pair);
-    await ref.set(
-      {
-        ...state,
-        updatedAt: FieldValue.serverTimestamp()
-      },
-      { merge: true }
-    );
-    return true;
-  }
-  catch (error) {
-    console.error("[BOT STATE UPDATE ERROR]", error);
-    return false;
-  }
+
+state:
+
+Partial<BotState>
+
+&
+
+{
+
+pair:string}
+
+):Promise<boolean>{
+
+
+
+
+
+if(!state.pair){
+
+
+return false;
+
+
 }
 
+
+
+
+
+
+
+try{
+
+
+
+const ref=
+
+adminDb
+
+.collection(STATE_COLLECTION)
+
+.doc(state.pair);
+
+
+
+
+
+await ref.set(
+
+{
+
+...state,
+
+
+updatedAt:
+
+FieldValue.serverTimestamp()
+
+
+},
+
+
+{
+
+merge:true
+
+}
+
+
+
+);
+
+
+
+return true;
+
+
+
+}
+
+catch(error){
+
+
+console.error(
+
+"[BOT STATE UPDATE ERROR]",
+
+error
+
+);
+
+
+
+return false;
+
+
+}
+
+
+
+}
+
+
 /**
- * Menghitung jumlah posisi terbuka di SEMUA pair
- * (lintas-pair), dipakai untuk validasi
- * RISK_CONFIG.maxOpenPosition.
+ * Hitung jumlah posisi terbuka di SEMUA pair
+ * (bukan cuma satu pair) -- dipakai untuk validasi
+ * RISK_CONFIG.maxOpenPosition sebelum BUY baru.
  */
 export async function getOpenPositionsCount(): Promise<number> {
+
   try {
-    const snapshot =
-      await adminDb
-        .collection(STATE_COLLECTION)
-        .where("inPosition", "==", true)
-        .get();
+
+    const snapshot = await adminDb
+      .collection(STATE_COLLECTION)
+      .where("inPosition", "==", true)
+      .get();
+
     return snapshot.size;
-  }
-  catch (error) {
-    console.error("[BOT STATE COUNT ERROR]", error);
-    // Fail-safe: anggap posisi penuh supaya tidak
-    // membuka posisi baru kalau query gagal.
+
+  } catch (error) {
+
+    console.error(
+      "[BOT STATE OPEN POSITIONS ERROR]",
+      error
+    );
+
+    // Fail-safe: kalau query gagal, anggap sudah penuh
+    // supaya tidak membuka posisi baru secara membabi buta.
     return Number.MAX_SAFE_INTEGER;
+
   }
+
 }
