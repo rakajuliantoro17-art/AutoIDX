@@ -2,13 +2,12 @@
 ==========================================================
 AURA Trade OS
 Indodax API Client
-Version : 0.2.0 Alpha
+Version : 0.2.1 Alpha
 (Ditambahkan: method getInfo() untuk cek saldo, dan trade()
 untuk menempatkan order asli - market buy/sell. Base URL juga
-diperbaiki supaya konsisten dengan docs/environment-variables.md
-- INDODAX_API_URL sekarang cuma untuk host, path /tapi selalu
-ditambahkan otomatis. Constructor sekarang bisa terima
-kredensial dinamis (untuk multi-account), fallback ke env var.)
+diperbaiki supaya konsisten dengan docs/environment-variables.md.
+Fix: return type Promise<...> multi-baris diganti type alias
+satu baris - versi sebelumnya kena bug "<" hilang saat copy-paste.)
 ==========================================================
 Exchange Communication Layer
 ==========================================================
@@ -52,6 +51,14 @@ export interface IndodaxCredentials {
   apiKey: string;
   secretKey: string;
 }
+
+export type IndodaxGetInfoResponse =
+  | { success: true; data: IndodaxGetInfoResult }
+  | { success: false; message: string };
+
+export type IndodaxTradeResponse =
+  | { success: true; data: IndodaxTradeResult }
+  | { success: false; message: string };
 
 export class IndodaxClient {
 
@@ -195,10 +202,7 @@ export class IndodaxClient {
   /**
    * Ambil informasi saldo akun (view permission)
    */
-  async getInfo(): Promise
-    { success: true; data: IndodaxGetInfoResult }
-    | { success: false; message: string }
-  > {
+  async getInfo(): Promise<IndodaxGetInfoResponse> {
 
     const result = await this.privateRequest("getInfo");
 
@@ -226,10 +230,7 @@ export class IndodaxClient {
    */
   async trade(
     params: IndodaxTradeParams
-  ): Promise
-    { success: true; data: IndodaxTradeResult }
-    | { success: false; message: string }
-  > {
+  ): Promise<IndodaxTradeResponse> {
 
     const orderType = params.orderType ?? "market";
 
