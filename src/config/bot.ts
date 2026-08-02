@@ -170,3 +170,18 @@ export const BOT_CONFIG = {
     process.env.BOT_AUTO_TRADE === "true"
 
 };
+
+/**
+   * Saldo awal referensi untuk paper trading
+   * (dipakai riskManager utk hitung maxExposurePercent/
+   * maxDailyLossPercent, karena keduanya persentase dari saldo).
+   */
+  startingBalance:
+
+    Number(
+
+      process.env.BOT_STARTING_BALANCE
+
+      ?? 1000000
+
+    ),
