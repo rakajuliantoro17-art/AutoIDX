@@ -1,36 +1,25 @@
 /**
 ==========================================================
 AURA Trade OS
-Firebase Risk State Manager
-Version : 0.0.1 Alpha
+Firebase Risk State Manager (Admin SDK, server-only)
+Version : 0.0.2 Alpha
 ==========================================================
 Tracking rugi/untung harian (dailyPnlIdr) untuk validasi
 RISK_CONFIG.maxDailyLossPercent sebelum BUY baru. Reset
 otomatis setiap hari (berdasarkan tanggal UTC).
+
+CATATAN PENTING: file ini sebelumnya pakai Client SDK
+("firebase/firestore"), yang di-block Firestore Security
+Rules saat dipanggil dari server (request.auth selalu null
+di context ini) -- sama persis masalah yang sudah pernah
+diperbaiki di paperTradingStore.ts. Query/write gagal diam-
+diam, masuk catch, balik ke default dailyPnlIdr: 0 -- artinya
+validasi maxDailyLossPercent kelihatan terpasang tapi tidak
+pernah benar-benar bekerja. Sudah diperbaiki pakai Admin SDK.
 ==========================================================
 */
 
-import {
-
-doc,
-
-getDoc,
-
-setDoc,
-
-serverTimestamp
-
-}
-
-from "firebase/firestore";
-
-import {
-
-db
-
-}
-
-from "./config";
+import { adminDb } from "@/services/firebase/admin";
 
 export interface RiskState {
 
@@ -38,7 +27,7 @@ export interface RiskState {
 
   dailyPnlIdr: number;
 
-  updatedAt: any;
+  updatedAt: number;
 
 }
 
@@ -64,7 +53,7 @@ function defaultState(): RiskState {
 
     dailyPnlIdr: 0,
 
-    updatedAt: new Date(),
+    updatedAt: Date.now(),
 
   };
 
@@ -82,13 +71,16 @@ export async function getRiskState(): Promise<RiskState> {
 
   try {
 
-    const ref = doc(db, RISK_STATE_COLLECTION, RISK_STATE_DOC_ID);
+    const ref =
+      adminDb
+        .collection(RISK_STATE_COLLECTION)
+        .doc(RISK_STATE_DOC_ID);
 
-    const snapshot = await getDoc(ref);
+    const snapshot = await ref.get();
 
-    if (!snapshot.exists()) {
+    if (!snapshot.exists) {
 
-      await setDoc(ref, fallback);
+      await ref.set(fallback);
 
       return fallback;
 
@@ -146,11 +138,12 @@ export async function recordRealizedPnl(
 
     const current = await getRiskState();
 
-    const ref = doc(db, RISK_STATE_COLLECTION, RISK_STATE_DOC_ID);
+    const ref =
+      adminDb
+        .collection(RISK_STATE_COLLECTION)
+        .doc(RISK_STATE_DOC_ID);
 
-    await setDoc(
-
-      ref,
+    await ref.set(
 
       {
 
@@ -158,7 +151,7 @@ export async function recordRealizedPnl(
 
         dailyPnlIdr: current.dailyPnlIdr + pnlIdr,
 
-        updatedAt: serverTimestamp(),
+        updatedAt: Date.now(),
 
       },
 
