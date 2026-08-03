@@ -93,7 +93,7 @@ ERROR MESSAGE
 
 onClick={reset}
 
-className="mt-8 rounded-xl bg-emerald-500/20 px-6 py-3 text-emerald-400 font-semibold hover:bg-emerald-500/30 transition"
+className="btn btn-success mt-8"
 
 >
 
