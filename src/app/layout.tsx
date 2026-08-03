@@ -36,7 +36,7 @@ export default function RootLayout({
             {/* =====================================================
                 HEADER
             ===================================================== */}
-            <header className="sticky top-0 z-50 border-b border-white/10 backdrop-blur-xl bg-black/30">
+            <header className="glass-nav sticky top-0 z-50 border-b">
               <div className="max-w-7xl mx-auto h-16 px-6 flex items-center justify-between">
                 {/* LOGO */}
                 <div className="flex items-center gap-3">
@@ -58,7 +58,7 @@ export default function RootLayout({
                 </div>
                 {/* SYSTEM STATUS + USER MENU */}
                 <div className="flex items-center gap-5">
-                  <div className="flex items-center gap-3">
+                  <div className="glass flex items-center gap-3 rounded-full px-4 py-2">
                     <span className="status-dot status-online" />
                     <div className="text-right">
                       <p className="text-sm text-slate-300">Paper Trading</p>
@@ -83,7 +83,7 @@ export default function RootLayout({
             {/* =====================================================
                 FOOTER
             ===================================================== */}
-            <footer className="border-t border-white/10 mt-auto">
+            <footer className="glass-nav border-t mt-auto">
               <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-2">
                 <span className="text-sm text-slate-500">
                   © 2026 AutoIDX — Automated Indodax Trading Engine
