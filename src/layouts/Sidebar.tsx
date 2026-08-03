@@ -26,8 +26,8 @@ const menus: MenuItem[] = [
 export default function Sidebar() {
   const router = useRouter();
   return (
-    <aside className="hidden md:block w-64 border-r border-white/10 min-h-[calc(100vh-64px)] p-4">
-      <nav className="space-y-2">
+    <aside className="glass-nav hidden md:block w-64 min-h-[calc(100vh-64px)] p-4 border-r">
+      <nav className="space-y-1.5">
         {menus.map((menu) => {
           const isActive =
             menu.path === "/dashboard"
@@ -38,19 +38,7 @@ export default function Sidebar() {
               key={menu.path}
               href={menu.path}
               aria-current={isActive ? "page" : undefined}
-              className={`
-                block
-                px-4
-                py-3
-                rounded-xl
-                text-sm
-                transition
-                ${
-                  isActive
-                    ? "bg-sky-500/10 text-sky-400 font-medium"
-                    : "text-slate-300 hover:bg-white/10"
-                }
-              `}
+              className={`nav-pill ${isActive ? "active" : ""}`}
             >
               {menu.name}
             </Link>
