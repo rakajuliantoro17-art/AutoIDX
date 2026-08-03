@@ -6,6 +6,8 @@ Version : 0.0.1 Alpha
 ==========================================================
 */
 
+import AppDashboardLayout from "@/layouts/AppDashboardLayout";
+
 export default function BacktestPage() {
 
   const summary = {
@@ -22,6 +24,7 @@ export default function BacktestPage() {
 
   return (
 
+    <AppDashboardLayout>
     <section className="space-y-8">
 
       <div className="glass p-8">
@@ -248,6 +251,7 @@ export default function BacktestPage() {
 
     </section>
 
+    </AppDashboardLayout>
   );
 
 }
