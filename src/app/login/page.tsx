@@ -26,7 +26,7 @@ function friendlyAuthError(code: string): string {
     case "auth/popup-closed-by-user":
       return "Login Google dibatalkan.";
     default:
-      return "Terjadi kesalahan. Coba lagi.";
+      return `Terjadi kesalahan. Coba lagi. (${code || "kode error tidak ada"})`;
   }
 }
 
