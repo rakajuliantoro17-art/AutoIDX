@@ -2,16 +2,24 @@
 ==========================================================
 AURA Trade OS
 Trading Engine
-Version : 0.0.8 Alpha
-(Gabungan 2 perubahan:
+Version : 0.0.9 Alpha
+(Gabungan perubahan:
 1. Validasi risk sebelum eksekusi - emergency stop, batas rugi
-   harian, cooldown, max exposure, dan stop-loss/take-profit
-   paksa yang jalan terpisah dari sinyal strategi.
+   harian, cooldown, max exposure, max open position, dan
+   stop-loss/take-profit paksa yang jalan terpisah dari sinyal
+   strategi.
 2. BOT_MODE sekarang benar-benar jadi switch paper/live. Live
    trading TIDAK akan pernah jalan kecuali DUA syarat terpenuhi:
    BOT_MODE=live DAN BOT_LIVE_CONFIRM=true. Ini sengaja dibuat
    dua gerbang terpisah supaya tidak ada yang "kepencet" masuk
-   mode live tanpa sadar - salah satu env var saja tidak cukup.)
+   mode live tanpa sadar - salah satu env var saja tidak cukup.
+3. Emergency Stop HANYA memblokir BUY baru, TIDAK PERNAH
+   memblokir SELL/stop-loss/take-profit paksa - supaya posisi
+   terbuka tidak "nyangkut" kalau emergency stop aktif saat
+   harga turun.
+4. updateBotState dipanggil SETIAP siklus (bukan cuma saat
+   BUY/SELL) supaya currentPrice/lastSignal di dashboard selalu
+   segar walau hasil siklusnya HOLD.)
 ==========================================================
 */
 
@@ -41,12 +49,15 @@ import {
 } from "@/services/firebase/riskState";
 
 import {
+  getBotControl,
+} from "@/services/firebase/botControl";
+
+import {
   getPaperPortfolio,
 } from "@/services/firebase/paperTradingStore";
 
 import { BOT_CONFIG } from "@/config/bot";
 import { RISK_CONFIG } from "@/config/risk";
-import { TRADING_CONFIG } from "@/config/trading";
 
 export interface TradingEngineInput {
 
@@ -98,14 +109,21 @@ function toMillis(value: any): number {
 
 /**
  * Live trading HANYA aktif kalau DUA syarat terpenuhi:
- * BOT_MODE=live DAN BOT_LIVE_CONFIRM=true. Salah satu saja
- * tidak cukup - ini sengaja jadi dua gerbang terpisah supaya
- * tidak ada yang "kepencet" masuk live tanpa sadar.
+ * bot_control.mode === "live" (bisa diubah real-time dari
+ * dashboard, tanpa redeploy) DAN process.env.BOT_LIVE_CONFIRM
+ * === "true" (cuma bisa diubah lewat Vercel env var + redeploy).
+ * Salah satu saja tidak cukup - ini sengaja jadi dua gerbang
+ * terpisah supaya tidak ada yang "kepencet" masuk live tanpa
+ * sadar lewat toggle dashboard saja.
  */
-function isLiveModeActive(): boolean {
+function isLiveModeActive(
+
+  control: { mode: "paper" | "live" }
+
+): boolean {
 
   return (
-    TRADING_CONFIG.mode === "live" &&
+    control.mode === "live" &&
     process.env.BOT_LIVE_CONFIRM === "true"
   );
 
@@ -120,7 +138,10 @@ export class TradingEngine {
     input: TradingEngineInput
   ): Promise<TradingEngineResult> {
 
-    const liveActive = isLiveModeActive();
+    const control =
+      await getBotControl();
+
+    const liveActive = isLiveModeActive(control);
 
     const tradingService = liveActive
       ? LiveTradingService
@@ -129,24 +150,24 @@ export class TradingEngine {
     const modeLabel: "paper" | "live" =
       liveActive ? "live" : "paper";
 
-    // Peringatan kalau BOT_MODE=live di-set tapi BOT_LIVE_CONFIRM
-    // belum - supaya user tahu kenapa masih paper trading.
+    // Peringatan kalau mode="live" (dashboard maupun env var)
+    // tapi BOT_LIVE_CONFIRM belum - supaya user tahu kenapa
+    // masih paper trading.
     if (
-      TRADING_CONFIG.mode === "live" &&
+      control.mode === "live" &&
       !liveActive
     ) {
 
       await recordLog(
         "SYSTEM",
         "warning",
-        `BOT_MODE=live tapi BOT_LIVE_CONFIRM belum "true" - tetap jalan PAPER trading sebagai fail-safe.`
+        `Mode live diminta (dashboard/env) tapi BOT_LIVE_CONFIRM belum "true" - tetap jalan PAPER trading sebagai fail-safe.`
       );
 
     }
 
     try {
 
-      // --- Emergency Stop ---
       // CATATAN PENTING: emergencyStop HANYA memblokir BUY baru
       // (dicek di bawah, di dalam case "BUY"). Emergency stop
       // TIDAK PERNAH memblokir SELL, stop-loss, maupun take-profit
@@ -162,9 +183,10 @@ export class TradingEngine {
       const riskState =
         await getRiskState();
 
-      // --- 2. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
+      // --- 1. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
       // Ini dicek TERPISAH dari sinyal strategi, supaya posisi tetap
-      // ditutup walau EMA/RSI belum kasih sinyal SELL.
+      // ditutup walau EMA/RSI belum kasih sinyal SELL. TIDAK diblokir
+      // emergency stop (lihat catatan di atas).
       if (state.inPosition) {
 
         const riskEval = RiskManager.evaluate({
@@ -238,7 +260,7 @@ export class TradingEngine {
 
       }
 
-      // --- 3. Evaluasi sinyal strategi seperti biasa ---
+      // --- 2. Evaluasi sinyal strategi seperti biasa ---
       const decisionInput: DecisionInput = {
 
         price: input.price,
@@ -264,9 +286,13 @@ export class TradingEngine {
       // paling sering terjadi. Dashboard butuh nilai ini selalu
       // segar untuk tampilkan harga/sinyal terkini.)
       await updateBotState({
+
         pair: input.pair,
+
         currentPrice: input.price,
+
         lastSignal: decision.signal,
+
       });
 
       let actionExecuted = false;
@@ -274,6 +300,40 @@ export class TradingEngine {
       switch (decision.signal) {
 
         case "BUY": {
+
+          // --- Emergency Stop: blokir BUY baru saja ---
+          // Dicek dari DUA sumber -- env var (RISK_CONFIG, butuh
+          // redeploy) dan dashboard toggle (bot_control, real-time).
+          // Mana saja yang aktif akan memblokir BUY.
+          if (RISK_CONFIG.emergencyStop || control.emergencyStop) {
+
+            await recordLog(
+              "RISK",
+              "warning",
+              `Emergency stop aktif — BUY ${input.pair.toUpperCase()} diblokir (SELL tetap diizinkan).`
+            );
+
+            return {
+
+              success: true,
+
+              signal: "HOLD",
+
+              confidence: decision.confidence,
+
+              reason: "Emergency stop aktif — BUY baru diblokir, posisi terbuka tetap bisa SELL.",
+
+              actionExecuted: false,
+
+              riskBlocked: true,
+
+              mode: modeLabel,
+
+              timestamp: new Date().toISOString(),
+
+            };
+
+          }
 
           const tradeAmountIdr =
             BOT_CONFIG.defaultTradeAmount;
