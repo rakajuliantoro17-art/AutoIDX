@@ -2,10 +2,11 @@
 /**
 ==========================================================
 AURA Trade OS
-Log Rotation
+Log Rotation Service
 Version : 0.1.0 Alpha
 ==========================================================
-Log Rotation Service
+Automatically rotate log files when they exceed
+the configured size.
 ==========================================================
 */
 
@@ -25,6 +26,10 @@ Configuration
 
 export interface LogRotationOptions {
 
+    directory?: string;
+
+    filename?: string;
+
     maxFileSizeMB?: number;
 
     maxBackupFiles?: number;
@@ -43,6 +48,10 @@ Log Rotation
 
 export class LogRotation {
 
+    private readonly directory: string;
+
+    private readonly filename: string;
+
     private readonly maxSize: number;
 
     private readonly maxBackups: number;
@@ -54,6 +63,18 @@ export class LogRotation {
         options: LogRotationOptions = {},
 
     ) {
+
+        this.directory =
+
+            path.resolve(
+
+                options.directory ?? "logs",
+
+            );
+
+        this.filename =
+
+            options.filename ?? "aura.log";
 
         this.maxSize =
 
@@ -67,6 +88,68 @@ export class LogRotation {
 
             options.maxBackupFiles ?? 10;
 
+        this.ensureDirectory();
+
+    }
+
+
+
+
+
+    /*
+    ======================================================
+    Directory
+    ======================================================
+    */
+
+    private ensureDirectory(): void {
+
+        if (
+
+            !fs.existsSync(
+
+                this.directory,
+
+            )
+
+        ) {
+
+            fs.mkdirSync(
+
+                this.directory,
+
+                {
+
+                    recursive: true,
+
+                },
+
+            );
+
+        }
+
+    }
+
+
+
+
+
+    /*
+    ======================================================
+    File
+    ======================================================
+    */
+
+    public getLogFile(): string {
+
+        return path.join(
+
+            this.directory,
+
+            this.filename,
+
+        );
+
     }
 
 
@@ -79,15 +162,15 @@ export class LogRotation {
     ======================================================
     */
 
-    public rotate(
+    public rotate(): boolean {
 
-        filePath: string,
+        const file =
 
-    ): boolean {
+            this.getLogFile();
 
         if (
 
-            !fs.existsSync(filePath)
+            !fs.existsSync(file)
 
         ) {
 
@@ -97,7 +180,7 @@ export class LogRotation {
 
         const stat =
 
-            fs.statSync(filePath);
+            fs.statSync(file);
 
         if (
 
@@ -109,21 +192,17 @@ export class LogRotation {
 
         }
 
-        const directory =
+        const ext =
 
-            path.dirname(filePath);
+            path.extname(this.filename);
 
-        const extension =
-
-            path.extname(filePath);
-
-        const filename =
+        const name =
 
             path.basename(
 
-                filePath,
+                this.filename,
 
-                extension,
+                ext,
 
             );
 
@@ -139,15 +218,15 @@ export class LogRotation {
 
             path.join(
 
-                directory,
+                this.directory,
 
-                `${filename}-${timestamp}${extension}`,
+                `${name}-${timestamp}${ext}`,
 
             );
 
         fs.renameSync(
 
-            filePath,
+            file,
 
             archive,
 
@@ -155,7 +234,7 @@ export class LogRotation {
 
         fs.writeFileSync(
 
-            filePath,
+            file,
 
             "",
 
@@ -163,15 +242,7 @@ export class LogRotation {
 
         );
 
-        this.cleanup(
-
-            directory,
-
-            filename,
-
-            extension,
-
-        );
+        this.cleanup();
 
         return true;
 
@@ -187,89 +258,95 @@ export class LogRotation {
     ======================================================
     */
 
-    private cleanup(
+    public cleanup(): void {
 
-        directory: string,
+        const ext =
 
-        filename: string,
+            path.extname(
 
-        extension: string,
+                this.filename,
 
-    ): void {
+            );
+
+        const name =
+
+            path.basename(
+
+                this.filename,
+
+                ext,
+
+            );
 
         const backups =
 
-            fs.readdirSync(directory)
+            fs.readdirSync(
 
-                .filter(
+                this.directory,
 
-                    file =>
+            )
 
-                        file.startsWith(
+            .filter(
 
-                            `${filename}-`
+                file =>
 
-                        ) &&
+                    file.startsWith(
 
-                        file.endsWith(
+                        `${name}-`,
 
-                            extension,
+                    ) &&
 
-                        ),
+                    file.endsWith(
 
-                )
+                        ext,
 
-                .map(
+                    ),
 
-                    file => ({
+            )
 
-                        file,
+            .map(
 
-                        time:
+                file => ({
 
-                            fs.statSync(
+                    file,
 
-                                path.join(
+                    time:
 
-                                    directory,
+                        fs.statSync(
 
-                                    file,
+                            path.join(
 
-                                ),
+                                this.directory,
 
-                            ).mtime.getTime(),
+                                file,
 
-                    }),
+                            ),
 
-                )
+                        ).mtimeMs,
 
-                .sort(
+                }),
 
-                    (a, b) =>
+            )
 
-                        b.time - a.time,
+            .sort(
 
-                );
+                (a, b) =>
 
-        if (
+                    b.time - a.time,
 
-            backups.length <=
+            );
 
-            this.maxBackups
+        const expired =
 
-        ) {
-
-            return;
-
-        }
-
-        for (
-
-            const backup of backups.slice(
+            backups.slice(
 
                 this.maxBackups,
 
-            )
+            );
+
+        for (
+
+            const backup of expired
 
         ) {
 
@@ -277,7 +354,7 @@ export class LogRotation {
 
                 path.join(
 
-                    directory,
+                    this.directory,
 
                     backup.file,
 
@@ -286,6 +363,68 @@ export class LogRotation {
             );
 
         }
+
+    }
+
+
+
+
+
+    /*
+    ======================================================
+    Statistics
+    ======================================================
+    */
+
+    public stats() {
+
+        const file =
+
+            this.getLogFile();
+
+        if (
+
+            !fs.existsSync(file)
+
+        ) {
+
+            return {
+
+                exists: false,
+
+                size: 0,
+
+            };
+
+        }
+
+        const stat =
+
+            fs.statSync(file);
+
+        return {
+
+            exists: true,
+
+            size: stat.size,
+
+            sizeMB:
+
+                Number(
+
+                    (
+
+                        stat.size /
+
+                        1024 /
+
+                        1024
+
+                    ).toFixed(2),
+
+                ),
+
+        };
 
     }
 
