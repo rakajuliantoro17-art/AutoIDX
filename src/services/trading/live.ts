@@ -2,24 +2,14 @@
 ==========================================================
 AURA Trade OS
 Live Trading Service (REAL MONEY)
-Version : 0.0.2 Alpha
-Menempatkan order ASLI ke Indodax lewat private Trade API.
-Selalu market order untuk konsistensi dengan paper trading.
-Kredensial diambil dari akun aktif di Firestore (terenkripsi),
-bukan dari env var statis - lihat indodaxAccountsAdmin.ts.
+Version : 0.0.3 Alpha
 
-CATATAN PENTING SOAL RESIKO:
-- Dokumentasi resmi Indodax cuma kasih contoh response untuk
-  BUY (receive_<coin>, spend_rp, fee, remain_rp, order_id).
-  Response SELL diasumsikan simetris (receive_idr, spend_<coin>)
-  tapi TIDAK ada contoh resmi yang eksplisit. Karena itu, raw
-  response SELALU dicatat penuh ke log (recordLog) supaya bisa
-  diverifikasi manual di transaksi live pertama.
-- Kalau field yang diharapkan tidak ada di response, kode fallback
-  ke harga referensi (request.price) supaya tidak crash - tapi
-  fallback ini TIDAK seakurat data asli dari exchange, jadi selalu
-  cek log activity_logs setelah transaksi live pertama untuk
-  konfirmasi field response yang benar.
+Perubahan dari 0.0.2: buy() sekarang menerima tradeAmountIdr
+eksplisit (opsional) dari caller (TradingEngine), konsisten
+dengan paper.ts -- supaya risk-gate validation di
+TradingEngine dan nominal order asli yang benar-benar
+dikirim ke Indodax SELALU sama persis. Sisanya (ambil
+kredensial dari akun aktif Firestore) TIDAK berubah.
 ==========================================================
 */
 
@@ -32,6 +22,11 @@ export interface LiveTradeRequest {
   pair: string;
   price: number; // harga referensi saat sinyal (dipakai sbg fallback & estimasi)
   amount?: number; // WAJIB untuk SELL (jumlah koin dari posisi tercatat)
+  /**
+   * Nominal IDR eksplisit dari caller (TradingEngine).
+   * Kalau tidak diisi, fallback ke BOT_CONFIG.defaultTradeAmount.
+   */
+  tradeAmountIdr?: number;
 }
 
 export interface LiveTradeResult {
@@ -73,13 +68,14 @@ class LiveTradingService {
   }
 
   /**
-   * BUY asli - market order, nominal IDR = BOT_CONFIG.defaultTradeAmount
+   * BUY asli - market order
    */
   async buy(
     request: LiveTradeRequest
   ): Promise<LiveTradeResult> {
 
-    const tradeAmountIdr = BOT_CONFIG.defaultTradeAmount;
+    const tradeAmountIdr =
+      request.tradeAmountIdr ?? BOT_CONFIG.defaultTradeAmount;
 
     const client = await this.getClient();
 
@@ -211,7 +207,7 @@ class LiveTradingService {
   }
 
   /**
-   * SELL asli - market order, jual seluruh koin dari posisi tercatat
+   * SELL asli - market order
    */
   async sell(
     request: LiveTradeRequest
@@ -255,9 +251,6 @@ class LiveTradingService {
       )}`
     );
 
-    // Field belum ada contoh resmi utk SELL - coba beberapa
-    // kemungkinan nama, fallback ke estimasi dari request.price
-    // kalau semuanya tidak ketemu.
     const data = result.data as any;
 
     const receivedIdr = Number(
