@@ -2,10 +2,16 @@
 ==========================================================
 AURA Trade OS
 Paper Trading Service
-Version : 0.0.7 Alpha
-(Ditambahkan: sinkronisasi ke paperTradingStore.ts / Firestore
-supaya dashboard /dashboard/paper-trading menampilkan data asli,
-bukan selalu kosong)
+Version : 0.0.8 Alpha
+
+Perubahan dari 0.0.7: buy() sekarang menerima tradeAmountIdr
+eksplisit (opsional) dari caller (TradingEngine). Kalau
+diberikan, dipakai APA ADANYA -- tidak fetch ulang
+getBotSettings() sendiri -- supaya risk-gate validation di
+TradingEngine dan eksekusi aktual di sini selalu memakai
+angka yang SAMA PERSIS (sebelumnya bisa beda kalau caller
+memvalidasi terhadap satu angka tapi service ini diam-diam
+fetch angka lain dari Firestore).
 ==========================================================
 */
 
@@ -38,6 +44,13 @@ export interface PaperTradeRequest {
   pair: string;
   price: number;
   amount?: number;
+  /**
+   * Nominal IDR eksplisit dari caller (TradingEngine).
+   * Kalau diisi, dipakai apa adanya -- tidak fetch ulang
+   * getBotSettings() sendiri, supaya konsisten dengan
+   * validasi risk-gate yang sudah dilakukan caller.
+   */
+  tradeAmountIdr?: number;
 }
 
 export interface PaperTradeResult {
@@ -69,12 +82,20 @@ class PaperTradingService {
       );
     }
 
-    const settings =
-      await getBotSettings();
+    let tradeAmountIdr = request.tradeAmountIdr;
+    let stopLossPercent = BOT_CONFIG.stopLoss;
+    let targetProfitPercent = BOT_CONFIG.targetProfit;
+
+    if (tradeAmountIdr === undefined) {
+      const settings = await getBotSettings();
+      tradeAmountIdr = settings.tradeAmountIdr;
+      stopLossPercent = settings.stopLossPercent;
+      targetProfitPercent = settings.targetProfitPercent;
+    }
 
     const amount =
       request.amount ??
-      settings.tradeAmountIdr /
+      tradeAmountIdr /
         request.price;
 
     const total =
@@ -89,6 +110,8 @@ class PaperTradingService {
       entryPrice: request.price,
 
       coinAmount: amount,
+
+      lastTradeAt: Date.now(),
 
     });
 
@@ -156,10 +179,10 @@ class PaperTradingService {
         entryTime,
 
         stopLossPrice:
-          request.price * (1 - BOT_CONFIG.stopLoss / 100),
+          request.price * (1 - stopLossPercent / 100),
 
         takeProfitPrice:
-          request.price * (1 + BOT_CONFIG.targetProfit / 100),
+          request.price * (1 + targetProfitPercent / 100),
 
         updatedAt: entryTime,
 
@@ -248,6 +271,8 @@ class PaperTradingService {
       entryPrice: 0,
 
       coinAmount: 0,
+
+      lastTradeAt: Date.now(),
 
     });
 
