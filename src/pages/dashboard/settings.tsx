@@ -7,6 +7,7 @@ Version : 0.0.2 Alpha
 */
 import DashboardLayout from "@/layouts/DashboardLayout";
 import IndodaxAccountManager from "@/components/IndodaxAccountManager";
+import BotControlPanel from "@/components/BotControlPanel";
 
 interface TradingConfig {
   mode: string;
@@ -40,19 +41,8 @@ export default function SettingsPage() {
         {/* Section baru: Trade API Account */}
         <IndodaxAccountManager />
 
-        <div className="card">
-          <h2 className="text-xl font-semibold mb-5">Trading Mode</h2>
-          <div className="grid md:grid-cols-2 gap-5">
-            <div>
-              <p className="text-sm text-slate-400">Current Mode</p>
-              <p className="text-3xl font-bold text-yellow-400 mt-2">{config.mode}</p>
-            </div>
-            <div>
-              <p className="text-sm text-slate-400">Exchange</p>
-              <p className="text-3xl font-bold text-sky-400 mt-2">Indodax</p>
-            </div>
-          </div>
-        </div>
+        {/* Section baru: Emergency Stop + Paper/Live toggle (real-time) */}
+        <BotControlPanel />
 
         <div className="card">
           <h2 className="text-xl font-semibold mb-6">Risk Management</h2>
