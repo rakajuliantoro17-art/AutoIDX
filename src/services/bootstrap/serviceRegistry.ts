@@ -1,4 +1,3 @@
-```typescript id="service-registry-ts"
 /**
 ==========================================================
 AURA Trade OS
