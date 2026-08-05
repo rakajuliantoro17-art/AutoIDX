@@ -1,41 +1,68 @@
-```typescript
 /**
 ==========================================================
 AURA Trade OS
 Error Module
 Version : 0.1.0 Alpha
 ==========================================================
-Public Error Exports
+Central Error Exports
 ==========================================================
 */
 
-
 /*
 ==========================================================
-Exchange
+Core Errors
 ==========================================================
 */
 
 export * from "./ExchangeError";
 
-
-
-/*
-==========================================================
-Trading
-==========================================================
-*/
-
 export * from "./TradingError";
 
-
+export * from "./ValidationError";
 
 /*
 ==========================================================
-Validation
+Future Errors
+==========================================================
+
+Phase 20
+---------
+AuthenticationError
+AuthorizationError
+ConfigurationError
+
+Phase 21
+---------
+NetworkError
+ApiError
+DatabaseError
+
+Phase 22
+---------
+CacheError
+RecoveryError
+SchedulerError
+
+Phase 23
+---------
+StrategyError
+IndicatorError
+RiskError
+
+Phase 24
+---------
+AIError
+PredictionError
+MLModelError
+
+Phase 25+
+---------
+SecurityError
+PermissionError
+PortfolioError
+NotificationError
+MaintenanceError
+SystemError
+
 ==========================================================
 */
-
-export * from "./ValidationError";
-```
-
