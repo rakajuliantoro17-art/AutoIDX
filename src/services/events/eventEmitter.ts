@@ -299,5 +299,4 @@ Singleton
 export const eventEmitter =
 
     new EventEmitter();
-```
 

@@ -373,5 +373,4 @@ Singleton
 export const memoryHealth =
 
     new MemoryHealth();
-```
 

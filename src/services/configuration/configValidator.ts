@@ -165,5 +165,4 @@ Singleton
 export const configValidator =
 
     new ConfigValidator();
-```
 

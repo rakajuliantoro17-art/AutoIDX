@@ -199,5 +199,4 @@ Singleton
 export const reportJob =
 
     new ReportJob();
-```
 

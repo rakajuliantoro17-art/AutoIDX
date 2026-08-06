@@ -269,5 +269,4 @@ Singleton
 export const configManager =
 
     new ConfigManager();
-```
 

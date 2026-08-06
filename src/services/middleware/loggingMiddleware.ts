@@ -169,5 +169,4 @@ Singleton
 export const loggingMiddleware =
 
     new LoggingMiddleware();
-```
 

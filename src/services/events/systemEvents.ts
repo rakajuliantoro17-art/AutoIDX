@@ -319,5 +319,4 @@ Singleton
 export const systemEvents =
 
     new SystemEvents();
-```
 

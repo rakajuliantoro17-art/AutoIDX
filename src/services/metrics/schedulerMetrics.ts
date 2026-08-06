@@ -265,5 +265,4 @@ Singleton
 export const schedulerMetrics =
 
     new SchedulerMetrics();
-```
 

@@ -261,5 +261,4 @@ Singleton
 export const memoryCache =
 
     new MemoryCache();
-```
 

@@ -103,5 +103,4 @@ Storage
 */
 
 export * from "./diagnosticsStorage";
-```
 

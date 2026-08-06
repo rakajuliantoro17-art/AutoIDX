@@ -189,5 +189,4 @@ Singleton
 export const cacheHealth =
 
     new CacheHealth();
-```
 

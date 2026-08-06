@@ -363,5 +363,4 @@ Singleton
 export const autoRecovery =
 
     new AutoRecovery();
-```
 

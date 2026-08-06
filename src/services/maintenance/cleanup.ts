@@ -193,5 +193,4 @@ Singleton
 export const cleanupService =
 
     new CleanupService();
-```
 

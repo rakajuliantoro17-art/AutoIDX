@@ -105,5 +105,4 @@ export function getConfigVersion():
     };
 
 }
-```
 

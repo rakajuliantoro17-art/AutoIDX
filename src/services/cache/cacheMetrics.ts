@@ -305,5 +305,4 @@ Singleton
 export const cacheMetrics =
 
     new CacheMetrics();
-```
 

@@ -328,5 +328,4 @@ export function validateTimestamp(
     return timestamp;
 
 }
-```
 

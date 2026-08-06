@@ -445,5 +445,4 @@ Singleton
 export const diagnosticService =
 
     new DiagnosticService();
-```
 

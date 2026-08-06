@@ -356,5 +356,4 @@ Singleton
 export const performanceMonitor =
 
     new PerformanceMonitor();
-```
 

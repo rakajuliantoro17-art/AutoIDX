@@ -367,5 +367,4 @@ Singleton
 export const dependencyContainer =
 
     new DependencyContainer();
-```
 

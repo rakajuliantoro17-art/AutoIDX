@@ -251,5 +251,4 @@ Singleton
 export const persistentCache =
 
     new PersistentCache();
-```
 

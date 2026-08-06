@@ -287,5 +287,4 @@ Singleton
 export const featureFlags =
 
     new FeatureFlags();
-```
 

@@ -377,5 +377,4 @@ Singleton
 export const portfolioAnalytics =
 
     new PortfolioAnalytics();
-```
 

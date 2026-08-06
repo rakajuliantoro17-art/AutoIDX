@@ -167,5 +167,4 @@ Singleton
 export const metricsCollector =
 
     new MetricsCollector();
-```
 

@@ -281,5 +281,4 @@ Singleton
 export const performanceMetrics =
 
     new PerformanceMetrics();
-```
 

@@ -188,5 +188,4 @@ Singleton
 export const networkManager =
 
     new NetworkManager();
-```
 

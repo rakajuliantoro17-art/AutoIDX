@@ -121,5 +121,4 @@ export interface DiagnosticsSnapshot {
     timestamp: Date;
 
 }
-```
 

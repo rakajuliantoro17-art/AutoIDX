@@ -309,5 +309,4 @@ Singleton
 export const lifecycle =
 
     new LifecycleManager();
-```
 

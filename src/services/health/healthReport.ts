@@ -171,5 +171,4 @@ Singleton
 export const healthReport =
 
     new HealthReportService();
-```
 

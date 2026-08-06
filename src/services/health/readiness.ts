@@ -215,5 +215,4 @@ Singleton
 export const readiness =
 
     new Readiness();
-```
 

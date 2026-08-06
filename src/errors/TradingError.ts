@@ -154,5 +154,4 @@ export class TradingError extends Error {
     }
 
 }
-```
 

@@ -211,5 +211,4 @@ Singleton
 export const errorMiddleware =
 
     new ErrorMiddleware();
-```
 

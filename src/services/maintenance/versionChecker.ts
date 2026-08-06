@@ -224,5 +224,4 @@ Singleton
 export const versionChecker =
 
     new VersionChecker();
-```
 

@@ -257,5 +257,4 @@ Singleton
 export const exchangeMetrics =
 
     new ExchangeMetrics();
-```
 

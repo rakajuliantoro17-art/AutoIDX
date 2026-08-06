@@ -173,5 +173,4 @@ console.log("BUILD CHECK PASSED");
 console.log("====================================");
 
 process.exit(0);
-```
 

@@ -295,5 +295,4 @@ Singleton
 export const version =
 
     new VersionService();
-```
 

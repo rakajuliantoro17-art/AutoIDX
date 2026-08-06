@@ -351,5 +351,4 @@ Singleton
 export const serviceRegistry =
 
     new ServiceRegistry();
-```
 

@@ -227,5 +227,4 @@ Singleton
 export const diagnosticsAnalyzer =
 
     new DiagnosticsAnalyzer();
-```
 

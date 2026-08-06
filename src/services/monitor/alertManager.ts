@@ -407,5 +407,4 @@ Singleton
 export const alertManager =
 
     new AlertManager();
-```
 

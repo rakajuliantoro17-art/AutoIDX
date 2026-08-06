@@ -355,5 +355,4 @@ Singleton
 export const analyticsEngine =
 
     new AnalyticsEngine();
-```
 

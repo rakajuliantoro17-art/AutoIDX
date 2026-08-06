@@ -241,5 +241,4 @@ Singleton
 export const distributedCache =
 
     new DistributedCache();
-```
 

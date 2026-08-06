@@ -213,5 +213,4 @@ Singleton
 export const serviceHeartbeat =
 
     new ServiceHeartbeat();
-```
 

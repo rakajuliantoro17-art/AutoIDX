@@ -303,5 +303,4 @@ Default Cache
 export const cacheManager =
 
     new CacheManager();
-```
 

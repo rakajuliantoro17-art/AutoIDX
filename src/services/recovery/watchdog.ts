@@ -317,5 +317,4 @@ Singleton
 export const watchdog =
 
     new Watchdog();
-```
 

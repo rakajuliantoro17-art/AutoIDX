@@ -205,5 +205,4 @@ Singleton
 export const serviceDiscovery =
 
     new ServiceDiscovery();
-```
 

@@ -347,5 +347,4 @@ Singleton
 export const ipGuard =
 
     new IpGuard();
-```
 

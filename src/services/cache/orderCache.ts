@@ -365,5 +365,4 @@ Singleton
 export const orderCache =
 
     new OrderCache();
-```
 

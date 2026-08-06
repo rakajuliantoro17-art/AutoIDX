@@ -165,5 +165,4 @@ Singleton
 export const diagnosticsManager =
 
     new DiagnosticsManager();
-```
 

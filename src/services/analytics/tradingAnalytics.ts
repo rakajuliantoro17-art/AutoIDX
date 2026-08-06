@@ -361,5 +361,4 @@ Singleton
 export const tradingAnalytics =
 
     new TradingAnalytics();
-```
 

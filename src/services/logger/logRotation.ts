@@ -442,4 +442,3 @@ Singleton
 export const logRotation =
 
     new LogRotation();
-```

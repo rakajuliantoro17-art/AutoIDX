@@ -199,5 +199,4 @@ export function getCachePolicy(
     return cachePolicies[name];
 
 }
-```
 

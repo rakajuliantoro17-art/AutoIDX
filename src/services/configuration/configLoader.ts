@@ -219,5 +219,4 @@ Singleton
 export const configLoader =
 
     new ConfigLoader();
-```
 

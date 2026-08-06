@@ -249,5 +249,4 @@ Singleton
 export const corsMiddleware =
 
     new CorsMiddleware();
-```
 

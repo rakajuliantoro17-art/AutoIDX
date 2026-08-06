@@ -152,5 +152,4 @@ Singleton
 export const serviceResolver =
 
     new ServiceResolver();
-```
 

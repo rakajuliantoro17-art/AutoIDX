@@ -359,5 +359,4 @@ Singleton
 export const notificationService =
 
     new NotificationService();
-```
 

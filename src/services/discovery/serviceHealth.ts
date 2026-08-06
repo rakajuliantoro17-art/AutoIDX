@@ -160,5 +160,4 @@ Singleton
 export const serviceHealth =
 
     new ServiceHealthManager();
-```
 

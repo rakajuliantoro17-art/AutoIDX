@@ -213,5 +213,4 @@ Singleton
 export const dnsResolver =
 
     new DnsResolver();
-```
 

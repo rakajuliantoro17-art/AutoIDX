@@ -325,5 +325,4 @@ Singleton
 export const health =
 
     new CoreHealth();
-```
 

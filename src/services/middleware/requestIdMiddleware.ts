@@ -103,5 +103,4 @@ Singleton
 export const requestIdMiddleware =
 
     new RequestIdMiddleware();
-```
 

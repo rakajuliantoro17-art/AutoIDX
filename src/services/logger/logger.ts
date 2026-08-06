@@ -317,5 +317,4 @@ Singleton
 export const logger =
 
     new Logger();
-```
 

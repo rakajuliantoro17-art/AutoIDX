@@ -124,5 +124,4 @@ Singleton
 export const diagnosticsCollector =
 
     new DiagnosticsCollector();
-```
 
