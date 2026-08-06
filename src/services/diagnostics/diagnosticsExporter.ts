@@ -1,1 +1,275 @@
+/**
+==========================================================
+AURA Trade OS
+Diagnostics Exporter
+Version : 0.3.0 Alpha
+==========================================================
+Diagnostics Export Adapter
+==========================================================
+*/
+
+import { logger } from "@/services/logger";
+
+
+
+
+
+/*
+==========================================================
+Types
+==========================================================
+*/
+
+export type DiagnosticsExportFormat =
+
+    | "json"
+
+    | "markdown"
+
+    | "text";
+
+
+
+
+
+export interface DiagnosticsReport {
+
+    title: string;
+
+    generatedAt: Date;
+
+    score: number;
+
+    healthy: boolean;
+
+    issues: string[];
+
+    recommendations: string[];
+
+}
+
+
+
+
+
+/*
+==========================================================
+Diagnostics Exporter
+==========================================================
+*/
+
+export class DiagnosticsExporter {
+
+    /*
+    ======================================================
+    Export
+    ======================================================
+    */
+
+    public export(
+
+        report: DiagnosticsReport,
+
+        format: DiagnosticsExportFormat,
+
+    ): string {
+
+        switch (format) {
+
+            case "json":
+
+                return this.exportJson(
+
+                    report,
+
+                );
+
+
+
+            case "markdown":
+
+                return this.exportMarkdown(
+
+                    report,
+
+                );
+
+
+
+            case "text":
+
+                return this.exportText(
+
+                    report,
+
+                );
+
+
+
+            default:
+
+                throw new Error(
+
+                    `Unsupported export format: ${format}`,
+
+                );
+
+        }
+
+    }
+
+
+
+
+
+    /*
+    ======================================================
+    JSON
+    ======================================================
+    */
+
+    private exportJson(
+
+        report: DiagnosticsReport,
+
+    ): string {
+
+        logger.info(
+
+            "Diagnostics exported as JSON.",
+
+        );
+
+
+
+        return JSON.stringify(
+
+            report,
+
+            null,
+
+            2,
+
+        );
+
+    }
+
+
+
+
+
+    /*
+    ======================================================
+    Markdown
+    ======================================================
+    */
+
+    private exportMarkdown(
+
+        report: DiagnosticsReport,
+
+    ): string {
+
+        logger.info(
+
+            "Diagnostics exported as Markdown.",
+
+        );
+
+
+
+        return [
+
+            `# ${report.title}`,
+
+            "",
+
+            `Health : ${report.healthy}`,
+
+            `Score : ${report.score}`,
+
+            "",
+
+            "## Issues",
+
+            ...report.issues.map(
+
+                issue =>
+
+                    `- ${issue}`,
+
+            ),
+
+            "",
+
+            "## Recommendations",
+
+            ...report.recommendations.map(
+
+                recommendation =>
+
+                    `- ${recommendation}`,
+
+            ),
+
+        ].join("\n");
+
+    }
+
+
+
+
+
+    /*
+    ======================================================
+    Text
+    ======================================================
+    */
+
+    private exportText(
+
+        report: DiagnosticsReport,
+
+    ): string {
+
+        logger.info(
+
+            "Diagnostics exported as Text.",
+
+        );
+
+
+
+        return [
+
+            report.title,
+
+            `Health: ${report.healthy}`,
+
+            `Score: ${report.score}`,
+
+            `Issues: ${report.issues.length}`,
+
+            `Recommendations: ${report.recommendations.length}`,
+
+        ].join("\n");
+
+    }
+
+}
+
+
+
+
+
+/*
+==========================================================
+Singleton
+==========================================================
+*/
+
+export const diagnosticsExporter =
+
+    new DiagnosticsExporter();
+```
 
