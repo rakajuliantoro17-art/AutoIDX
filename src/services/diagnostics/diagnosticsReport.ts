@@ -18,7 +18,7 @@ import type {
 
     DiagnosticsSnapshot,
 
-} from "./diagnosticsSnapshot";
+} from "./diagnosticsCollector";
 
 
 
