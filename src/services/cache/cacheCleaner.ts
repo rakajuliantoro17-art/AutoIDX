@@ -57,7 +57,7 @@ export class CacheCleaner {
         this.lastCleanup =
             result;
         logger.info(
-            "Cache cleanup completed.", undefined, result,
+            "Cache cleanup completed.", result,
         );
         return result;
     }
