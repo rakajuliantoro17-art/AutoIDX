@@ -1,4 +1,3 @@
-```typescript id="plugin-validator-ts"
 /**
 ==========================================================
 AURA Trade OS
@@ -152,5 +151,5 @@ Singleton
 export const pluginValidator =
 
     new PluginValidator();
-```
+
 
