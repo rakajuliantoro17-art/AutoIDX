@@ -44,24 +44,37 @@ class Logger {
     }
   }
 
-  debug(message: string, context?: string, data?: any): void {
-    this.log({ level: 'DEBUG', message, context, data });
+  // Mendeteksi apakah argumen ke-2 adalah context (string) atau sebenarnya data (object/lainnya)
+  private normalizeArgs(context?: string | any, data?: any): { context?: string; data?: any } {
+    if (context !== undefined && typeof context !== 'string') {
+      return { context: undefined, data: context };
+    }
+    return { context, data };
   }
 
-  info(message: string, context?: string, data?: any): void {
-    this.log({ level: 'INFO', message, context, data });
+  debug(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
+    this.log({ level: 'DEBUG', message, context: n.context, data: n.data });
   }
 
-  success(message: string, context?: string, data?: any): void {
-    this.log({ level: 'SUCCESS', message, context, data });
+  info(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
+    this.log({ level: 'INFO', message, context: n.context, data: n.data });
   }
 
-  warn(message: string, context?: string, data?: any): void {
-    this.log({ level: 'WARN', message, context, data });
+  success(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
+    this.log({ level: 'SUCCESS', message, context: n.context, data: n.data });
   }
 
-  error(message: string, context?: string, data?: any): void {
-    this.log({ level: 'ERROR', message, context, data });
+  warn(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
+    this.log({ level: 'WARN', message, context: n.context, data: n.data });
+  }
+
+  error(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
+    this.log({ level: 'ERROR', message, context: n.context, data: n.data });
   }
 }
 
