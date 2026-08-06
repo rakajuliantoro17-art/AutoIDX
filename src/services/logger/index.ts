@@ -68,4 +68,5 @@ class Logger {
 // Export sebagai Singleton Instance
 const logger = new Logger();
 export default logger;
+export { logger };
 export * from './types';
