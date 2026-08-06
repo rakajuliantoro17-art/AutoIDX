@@ -228,5 +228,4 @@ Singleton
 export const configWatcher =
 
     new ConfigWatcher();
-```
 

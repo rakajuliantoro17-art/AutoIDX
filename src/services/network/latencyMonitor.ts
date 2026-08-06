@@ -129,5 +129,4 @@ Singleton
 export const latencyMonitor =
 
     new LatencyMonitor();
-```
 

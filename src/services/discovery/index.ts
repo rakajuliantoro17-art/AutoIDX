@@ -79,5 +79,4 @@ Health
 */
 
 export * from "./serviceHealth";
-```
 

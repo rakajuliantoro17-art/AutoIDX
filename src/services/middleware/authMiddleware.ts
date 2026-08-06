@@ -195,5 +195,4 @@ Singleton
 export const authMiddleware =
 
     new AuthMiddleware();
-```
 

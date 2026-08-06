@@ -167,5 +167,4 @@ export class NetworkMetricsService {
 export const networkMetrics =
 
     new NetworkMetricsService();
-```
 

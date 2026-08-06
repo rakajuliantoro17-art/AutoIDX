@@ -85,5 +85,4 @@ export interface ServiceMetadata {
         string[];
 
 }
-```
 

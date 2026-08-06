@@ -300,5 +300,4 @@ Singleton
 export const networkHealth =
 
     new NetworkHealth();
-```
 

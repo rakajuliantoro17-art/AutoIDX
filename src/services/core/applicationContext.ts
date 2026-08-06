@@ -423,4 +423,3 @@ Singleton
 export const applicationContext =
 
     new ApplicationContext();
-```

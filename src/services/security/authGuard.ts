@@ -263,5 +263,4 @@ Singleton
 export const authGuard =
 
     new AuthGuard();
-```
 

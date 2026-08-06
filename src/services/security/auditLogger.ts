@@ -383,5 +383,4 @@ Singleton
 export const auditLogger =
 
     new AuditLogger();
-```
 

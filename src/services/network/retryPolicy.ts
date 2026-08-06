@@ -159,5 +159,4 @@ Singleton
 export const retryPolicy =
 
     new RetryPolicy();
-```
 

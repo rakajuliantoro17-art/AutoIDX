@@ -319,5 +319,4 @@ Singleton
 export const systemReportService =
 
     new SystemReportService();
-```
 

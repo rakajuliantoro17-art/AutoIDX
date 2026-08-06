@@ -289,5 +289,4 @@ Singleton
 export const tradingMetrics =
 
     new TradingMetrics();
-```
 

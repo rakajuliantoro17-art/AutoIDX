@@ -331,5 +331,4 @@ Singleton
 export const application =
 
     new Application();
-```
 

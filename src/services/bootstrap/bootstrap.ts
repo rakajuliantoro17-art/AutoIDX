@@ -271,5 +271,4 @@ Singleton
 export const bootstrap =
 
     new Bootstrap();
-```
 

@@ -58,5 +58,4 @@ Utilities
 
 export * from "./networkStatus";
 export * from "./networkScanner";
-```
 

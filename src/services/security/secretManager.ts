@@ -284,5 +284,4 @@ Singleton
 export const secretManager =
 
     new SecretManager();
-```
 

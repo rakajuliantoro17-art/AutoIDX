@@ -377,5 +377,4 @@ Singleton
 export const riskAnalytics =
 
     new RiskAnalytics();
-```
 

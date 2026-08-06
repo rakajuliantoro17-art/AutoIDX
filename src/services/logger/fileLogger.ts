@@ -385,5 +385,4 @@ Singleton
 export const fileLogger =
 
     new FileLogger();
-```
 

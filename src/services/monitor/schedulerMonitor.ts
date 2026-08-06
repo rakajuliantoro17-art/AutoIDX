@@ -511,5 +511,4 @@ Singleton
 export const schedulerMonitor =
 
     new SchedulerMonitor();
-```
 

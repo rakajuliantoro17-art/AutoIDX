@@ -296,5 +296,4 @@ Singleton
 export const optimizationService =
 
     new OptimizationService();
-```
 

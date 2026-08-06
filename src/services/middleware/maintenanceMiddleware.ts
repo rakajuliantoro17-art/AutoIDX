@@ -107,5 +107,4 @@ Singleton
 export const maintenanceMiddleware =
 
     new MaintenanceMiddleware();
-```
 

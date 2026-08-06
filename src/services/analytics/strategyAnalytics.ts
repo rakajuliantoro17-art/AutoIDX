@@ -401,5 +401,4 @@ Singleton
 export const strategyAnalytics =
 
     new StrategyAnalytics();
-```
 

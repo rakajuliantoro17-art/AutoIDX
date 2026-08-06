@@ -413,5 +413,4 @@ Singleton
 export const eventListener =
 
     new EventListener();
-```
 

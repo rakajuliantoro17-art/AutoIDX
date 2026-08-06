@@ -247,5 +247,4 @@ Singleton
 export const firebaseHealth =
 
     new FirebaseHealth();
-```
 

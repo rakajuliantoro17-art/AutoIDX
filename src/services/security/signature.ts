@@ -249,5 +249,4 @@ Singleton
 export const signatureService =
 
     new SignatureService();
-```
 

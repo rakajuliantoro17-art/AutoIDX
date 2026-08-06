@@ -339,5 +339,4 @@ Singleton
 export const kernel =
 
     new Kernel();
-```
 

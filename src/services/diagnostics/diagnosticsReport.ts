@@ -105,5 +105,4 @@ Singleton
 export const diagnosticsReport =
 
     new DiagnosticsReportBuilder();
-```
 

@@ -321,5 +321,4 @@ Singleton
 export const strategyCache =
 
     new StrategyCache();
-```
 

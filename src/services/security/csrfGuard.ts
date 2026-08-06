@@ -275,5 +275,4 @@ Singleton
 export const csrfGuard =
 
     new CsrfGuard();
-```
 

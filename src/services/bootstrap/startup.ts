@@ -225,5 +225,4 @@ export async function resume(): Promise<void> {
     lifecycle.resume();
 
 }
-```
 

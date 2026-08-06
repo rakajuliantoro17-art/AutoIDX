@@ -335,5 +335,4 @@ Singleton
 export const processMonitor =
 
     new ProcessMonitor();
-```
 

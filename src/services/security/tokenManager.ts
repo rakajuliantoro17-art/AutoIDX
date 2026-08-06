@@ -421,5 +421,4 @@ Singleton
 export const tokenManager =
 
     new TokenManager();
-```
 

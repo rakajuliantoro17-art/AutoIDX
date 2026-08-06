@@ -272,5 +272,4 @@ Singleton
 export const consoleLogger =
 
     new ConsoleLogger();
-```
 

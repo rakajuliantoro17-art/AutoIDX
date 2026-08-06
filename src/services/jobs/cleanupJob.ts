@@ -147,5 +147,4 @@ Singleton
 export const cleanupJob =
 
     new CleanupJob();
-```
 

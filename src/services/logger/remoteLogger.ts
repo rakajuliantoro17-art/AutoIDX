@@ -285,5 +285,4 @@ Singleton
 export const remoteLogger =
 
     new RemoteLogger();
-```
 

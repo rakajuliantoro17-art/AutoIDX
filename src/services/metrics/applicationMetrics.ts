@@ -157,5 +157,4 @@ Singleton
 export const applicationMetrics =
 
     new ApplicationMetrics();
-```
 

@@ -179,5 +179,4 @@ Singleton
 export const healthManager =
 
     new HealthManager();
-```
 

@@ -333,5 +333,4 @@ Singleton
 export const marketCache =
 
     new MarketCache();
-```
 

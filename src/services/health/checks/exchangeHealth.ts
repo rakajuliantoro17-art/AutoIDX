@@ -245,5 +245,4 @@ Singleton
 export const exchangeHealth =
 
     new ExchangeHealth();
-```
 

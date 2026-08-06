@@ -257,5 +257,4 @@ Event Type
 export type EventCategory =
 
     keyof typeof EVENTS;
-```
 

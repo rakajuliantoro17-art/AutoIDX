@@ -315,5 +315,4 @@ Singleton
 export const systemHealth =
 
     new SystemHealth();
-```
 

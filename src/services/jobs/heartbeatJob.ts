@@ -185,5 +185,4 @@ Singleton
 export const heartbeatJob =
 
     new HeartbeatJob();
-```
 

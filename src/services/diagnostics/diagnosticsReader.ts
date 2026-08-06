@@ -175,5 +175,4 @@ Singleton
 export const diagnosticsReader =
 
     new DiagnosticsReader();
-```
 

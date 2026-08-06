@@ -156,5 +156,4 @@ Singleton
 export const cacheCleaner =
 
     new CacheCleaner();
-```
 

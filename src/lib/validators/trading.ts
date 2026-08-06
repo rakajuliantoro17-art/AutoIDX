@@ -369,5 +369,4 @@ export function validateTradeDecision(
     return value;
 
 }
-```
 

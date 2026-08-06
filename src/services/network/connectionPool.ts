@@ -219,5 +219,4 @@ Singleton
 export const connectionPool =
 
     new ConnectionPool();
-```
 

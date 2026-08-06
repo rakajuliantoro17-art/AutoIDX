@@ -292,5 +292,4 @@ Singleton
 export const databaseMaintenanceService =
 
     new DatabaseMaintenanceService();
-```
 

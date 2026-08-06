@@ -304,5 +304,4 @@ Singleton
 export const restartManager =
 
     new RestartManager();
-```
 

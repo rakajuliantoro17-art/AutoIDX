@@ -383,5 +383,4 @@ Singleton
 export const permissionService =
 
     new PermissionService();
-```
 

@@ -151,5 +151,4 @@ Singleton
 export const diagnosticsStorage =
 
     new DiagnosticsStorage();
-```
 

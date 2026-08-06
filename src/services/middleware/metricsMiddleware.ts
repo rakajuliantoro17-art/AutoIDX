@@ -133,5 +133,4 @@ Singleton
 export const metricsMiddleware =
 
     new MetricsMiddleware();
-```
 

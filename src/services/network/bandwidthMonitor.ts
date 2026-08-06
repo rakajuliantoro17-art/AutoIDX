@@ -164,5 +164,4 @@ Singleton
 export const bandwidthMonitor =
 
     new BandwidthMonitor();
-```
 

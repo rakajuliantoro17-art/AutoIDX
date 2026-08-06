@@ -303,5 +303,4 @@ Singleton
 export const emergencyShutdown =
 
     new EmergencyShutdownService();
-```
 
