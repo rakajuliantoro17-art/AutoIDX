@@ -192,5 +192,4 @@ Portfolio
 export const MAX_PORTFOLIO_ASSETS = 100;
 
 export const MAX_WATCHLIST_SIZE = 200;
-```
 
