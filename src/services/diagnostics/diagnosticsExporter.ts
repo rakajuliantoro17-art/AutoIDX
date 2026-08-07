@@ -16,6 +16,12 @@ import type {
 
 } from "./diagnosticsReport";
 
+import type {
+
+    DiagnosticsReport,
+
+} from "./diagnosticsReport";
+
 /*
 ==========================================================
 Types
@@ -118,17 +124,17 @@ export class DiagnosticsExporter {
         return [
             `# ${report.title}`,
             "",
-            `Health : ${report.analysis.healthy}`,
-            `Score : ${report.analysis.score}`,
+            `Health : ${report.healthy}`,
+            `Score : ${report.score}`,
             "",
             "## Issues",
-            ...report.analysis.issues.map(
+            ...report.issues.map(
                 issue =>
                     `- ${issue}`,
             ),
             "",
             "## Recommendations",
-            ...report.analysis.recommendations.map(
+            ...report.recommendations.map(
                 recommendation =>
                     `- ${recommendation}`,
             ),
@@ -152,10 +158,10 @@ export class DiagnosticsExporter {
 
         return [
             report.title,
-            `Health: ${report.analysis.healthy}`,
-            `Score: ${report.analysis.score}`,
-            `Issues: ${report.analysis.issues.length}`,
-            `Recommendations: ${report.analysis.recommendations.length}`,
+            `Health: ${report.healthy}`,
+            `Score: ${report.score}`,
+            `Issues: ${report.issues.length}`,
+            `Recommendations: ${report.recommendations.length}`,
         ].join("\n");
 
     }
