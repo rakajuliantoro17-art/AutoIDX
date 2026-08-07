@@ -8,7 +8,7 @@ Scheduled Metrics Collection Job
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import {
 
@@ -96,23 +96,9 @@ export class MetricsJob {
 
             analyticsEngine.record(
 
-                "metrics.collection",
+                "metrics.collection.uptime",
 
-                {
-
-                    timestamp:
-
-                        this.lastExecution.toISOString(),
-
-                    uptime:
-
-                        process.uptime(),
-
-                    memory:
-
-                        process.memoryUsage(),
-
-                },
+                process.uptime(),
 
             );
 

@@ -44,24 +44,42 @@ class Logger {
     }
   }
 
-  debug(message: string, context?: string, data?: any): void {
-    this.log({ level: 'DEBUG', message, context, data });
+  // Menerima context (string) ATAU data (object) di argumen kedua,
+  // agar kompatibel dengan pemanggilan logger.info(message, dataObject)
+  // maupun logger.info(message, "ContextName", dataObject).
+  private normalizeArgs(
+    contextOrData?: string | unknown,
+    data?: unknown
+  ): { context?: string; data?: any } {
+    if (typeof contextOrData === 'string' || contextOrData === undefined) {
+      return { context: contextOrData as string | undefined, data };
+    }
+    return { context: undefined, data: contextOrData };
   }
 
-  info(message: string, context?: string, data?: any): void {
-    this.log({ level: 'INFO', message, context, data });
+  debug(message: string, contextOrData?: string | unknown, data?: unknown): void {
+    const n = this.normalizeArgs(contextOrData, data);
+    this.log({ level: 'DEBUG', message, context: n.context, data: n.data });
   }
 
-  success(message: string, context?: string, data?: any): void {
-    this.log({ level: 'SUCCESS', message, context, data });
+  info(message: string, contextOrData?: string | unknown, data?: unknown): void {
+    const n = this.normalizeArgs(contextOrData, data);
+    this.log({ level: 'INFO', message, context: n.context, data: n.data });
   }
 
-  warn(message: string, context?: string, data?: any): void {
-    this.log({ level: 'WARN', message, context, data });
+  success(message: string, contextOrData?: string | unknown, data?: unknown): void {
+    const n = this.normalizeArgs(contextOrData, data);
+    this.log({ level: 'SUCCESS', message, context: n.context, data: n.data });
   }
 
-  error(message: string, context?: string, data?: any): void {
-    this.log({ level: 'ERROR', message, context, data });
+  warn(message: string, contextOrData?: string | unknown, data?: unknown): void {
+    const n = this.normalizeArgs(contextOrData, data);
+    this.log({ level: 'WARN', message, context: n.context, data: n.data });
+  }
+
+  error(message: string, contextOrData?: string | unknown, data?: unknown): void {
+    const n = this.normalizeArgs(contextOrData, data);
+    this.log({ level: 'ERROR', message, context: n.context, data: n.data });
   }
 }
 

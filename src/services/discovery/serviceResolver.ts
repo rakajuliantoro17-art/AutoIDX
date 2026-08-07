@@ -8,10 +8,10 @@ Service Discovery Resolver
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 import {
-    serviceRegistry,
-} from "@/services/bootstrap/serviceRegistry";
+    dependencyContainer,
+} from "@/services/bootstrap/dependencyContainer";
 
 
 
@@ -39,11 +39,11 @@ export class ServiceResolver {
 
         const service =
 
-            serviceRegistry.get(
+            dependencyContainer.has(name)
 
-                name,
+                ? dependencyContainer.resolve(name)
 
-            );
+                : undefined;
 
 
 
@@ -89,11 +89,11 @@ export class ServiceResolver {
 
         const service =
 
-            serviceRegistry.get(
+            dependencyContainer.has(name)
 
-                name,
+                ? dependencyContainer.resolve(name)
 
-            );
+                : undefined;
 
 
 
@@ -127,11 +127,11 @@ export class ServiceResolver {
 
         return (
 
-            serviceRegistry.get(
+            dependencyContainer.has(
 
                 name,
 
-            ) !== undefined
+            )
 
         );
 

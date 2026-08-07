@@ -11,7 +11,7 @@ System Optimization
 import { marketCache } from "@/services/cache/marketCache";
 import { orderCache } from "@/services/cache/orderCache";
 import { strategyCache } from "@/services/cache/strategyCache";
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 

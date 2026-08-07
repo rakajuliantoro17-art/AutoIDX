@@ -8,7 +8,7 @@ Diagnostics Storage Repository
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import type {
 

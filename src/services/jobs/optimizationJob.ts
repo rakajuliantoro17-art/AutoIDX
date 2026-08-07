@@ -8,11 +8,11 @@ Scheduled Optimization Job
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import {
 
-    optimize,
+    optimizationService,
 
 } from "@/services/maintenance/optimize";
 
@@ -88,7 +88,7 @@ export class OptimizationJob {
 
         try {
 
-            await optimize.run();
+            await optimizationService.execute();
 
 
 

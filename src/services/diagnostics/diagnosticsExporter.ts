@@ -8,7 +8,13 @@ Diagnostics Export Adapter
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
+
+import type {
+
+    DiagnosticsReport,
+
+} from "./diagnosticsReport";
 
 
 
@@ -32,21 +38,6 @@ export type DiagnosticsExportFormat =
 
 
 
-export interface DiagnosticsReport {
-
-    title: string;
-
-    generatedAt: Date;
-
-    score: number;
-
-    healthy: boolean;
-
-    issues: string[];
-
-    recommendations: string[];
-
-}
 
 
 

@@ -8,7 +8,7 @@ Central Event Bus
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 
@@ -56,7 +56,7 @@ export class EventBus {
 
             string,
 
-            Set<EventHandler>
+            Set<EventHandler<any>>
 
         >();
 
@@ -178,7 +178,7 @@ export class EventBus {
 
         event: string,
 
-        handler: EventHandler,
+        handler: EventHandler<any>,
 
     ): void {
 

@@ -54,8 +54,6 @@ export * from "./retryPolicy";
 ==========================================================
 Utilities
 ==========================================================
+(networkStatus & networkScanner belum diimplementasikan)
 */
-
-export * from "./networkStatus";
-export * from "./networkScanner";
 

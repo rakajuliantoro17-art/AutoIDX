@@ -8,7 +8,7 @@ Firebase Service Health Monitoring
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 

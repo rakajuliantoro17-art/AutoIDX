@@ -8,11 +8,11 @@ Scheduled Cleanup Job
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import {
 
-    cleanup,
+    cleanupService,
 
 } from "@/services/maintenance/cleanup";
 
@@ -80,7 +80,7 @@ export class CleanupJob {
 
         try {
 
-            await cleanup.run();
+            await cleanupService.execute();
 
 
 

@@ -10,9 +10,9 @@ Read-only Service Registry Adapter
 
 import {
 
-    serviceRegistry as bootstrapRegistry,
+    dependencyContainer,
 
-} from "@/services/bootstrap/serviceRegistry";
+} from "@/services/bootstrap/dependencyContainer";
 
 
 
@@ -38,7 +38,13 @@ export class DiscoveryServiceRegistry {
 
     ): unknown {
 
-        return bootstrapRegistry.get(
+        if (!dependencyContainer.has(name)) {
+
+            return undefined;
+
+        }
+
+        return dependencyContainer.resolve(
 
             name,
 
@@ -62,13 +68,9 @@ export class DiscoveryServiceRegistry {
 
     ): boolean {
 
-        return (
+        return dependencyContainer.has(
 
-            bootstrapRegistry.get(
-
-                name,
-
-            ) !== undefined
+            name,
 
         );
 
@@ -88,9 +90,7 @@ export class DiscoveryServiceRegistry {
 
         string[] {
 
-        return
-
-            bootstrapRegistry.names();
+        return dependencyContainer.list();
 
     }
 
@@ -108,9 +108,7 @@ export class DiscoveryServiceRegistry {
 
         number {
 
-        return
-
-            this.names().length;
+        return this.names().length;
 
     }
 

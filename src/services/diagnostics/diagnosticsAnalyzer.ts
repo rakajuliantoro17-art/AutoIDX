@@ -8,7 +8,13 @@ Diagnostics Analysis Engine
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
+
+import type {
+
+    DiagnosticsSnapshot,
+
+} from "./diagnosticsCollector";
 
 
 
@@ -19,20 +25,6 @@ import { logger } from "@/services/logger";
 Types
 ==========================================================
 */
-
-export interface DiagnosticsSnapshot {
-
-    cpuUsage: number;
-
-    memoryUsage: number;
-
-    activeJobs: number;
-
-    errorCount: number;
-
-    warningCount: number;
-
-}
 
 
 

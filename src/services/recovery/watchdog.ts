@@ -8,7 +8,7 @@ System Watchdog Service
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import { autoRecovery } from "./autoRecovery";
 

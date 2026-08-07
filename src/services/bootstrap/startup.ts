@@ -8,7 +8,7 @@ Application Startup Entry Point
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import {
 

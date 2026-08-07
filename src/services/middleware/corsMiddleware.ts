@@ -228,9 +228,7 @@ export class CorsMiddleware {
 
 
 
-        return
-
-            this.options.allowedOrigins[0];
+        return this.options.allowedOrigins[0];
 
     }
 
