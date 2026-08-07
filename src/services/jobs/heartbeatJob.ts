@@ -8,7 +8,7 @@ Scheduled Heartbeat Job
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 

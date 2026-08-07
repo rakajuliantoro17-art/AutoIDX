@@ -10,7 +10,7 @@ DNS Resolution Service
 
 import dns from "node:dns/promises";
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 

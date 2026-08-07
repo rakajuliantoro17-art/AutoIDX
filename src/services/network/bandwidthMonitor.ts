@@ -8,7 +8,7 @@ Network Throughput Monitor
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 

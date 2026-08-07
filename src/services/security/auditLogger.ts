@@ -8,7 +8,7 @@ Security Audit Trail
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 

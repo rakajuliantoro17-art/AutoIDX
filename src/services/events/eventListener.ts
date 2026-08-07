@@ -8,7 +8,7 @@ High Level Event Listener
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import {
 

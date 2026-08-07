@@ -8,7 +8,7 @@ Network Layer Orchestrator
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import { bandwidthMonitor } from "./bandwidthMonitor";
 import { connectionPool } from "./connectionPool";
@@ -87,9 +87,7 @@ export class NetworkManager {
 
     public async health() {
 
-        return
-
-            networkHealth.report();
+        return networkHealth.report();
 
     }
 
@@ -105,9 +103,7 @@ export class NetworkManager {
 
     public async metrics() {
 
-        return
-
-            networkMetrics.snapshot();
+        return networkMetrics.snapshot();
 
     }
 
@@ -127,13 +123,7 @@ export class NetworkManager {
 
     ) {
 
-        return
-
-            dnsResolver.resolve(
-
-                hostname,
-
-            );
+        return dnsResolver.resolve( hostname, );
 
     }
 
@@ -149,9 +139,7 @@ export class NetworkManager {
 
     public bandwidth() {
 
-        return
-
-            bandwidthMonitor.current();
+        return bandwidthMonitor.current();
 
     }
 
@@ -167,9 +155,7 @@ export class NetworkManager {
 
     public connections() {
 
-        return
-
-            connectionPool.active();
+        return connectionPool.active();
 
     }
 

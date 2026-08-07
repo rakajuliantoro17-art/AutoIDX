@@ -8,7 +8,13 @@ Diagnostics Export Adapter
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
+
+import type {
+
+    DiagnosticsReport,
+
+} from "./diagnosticsReport";
 
 import type {
 

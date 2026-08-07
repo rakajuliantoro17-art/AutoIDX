@@ -8,7 +8,7 @@ Scheduler Health Monitoring
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 
@@ -256,9 +256,7 @@ export class SchedulerHealth {
 
         ) {
 
-            return
-
-                "UNHEALTHY";
+            return "UNHEALTHY";
 
         }
 
@@ -272,9 +270,7 @@ export class SchedulerHealth {
 
         ) {
 
-            return
-
-                "HEALTHY";
+            return "HEALTHY";
 
         }
 
@@ -288,17 +284,13 @@ export class SchedulerHealth {
 
         ) {
 
-            return
-
-                "WARNING";
+            return "WARNING";
 
         }
 
 
 
-        return
-
-            "UNHEALTHY";
+        return "UNHEALTHY";
 
     }
 
@@ -326,25 +318,19 @@ export class SchedulerHealth {
 
             case "HEALTHY":
 
-                return
-
-                    "Scheduler operating normally.";
+                return "Scheduler operating normally.";
 
 
 
             case "WARNING":
 
-                return
-
-                    "Scheduler execution delayed.";
+                return "Scheduler execution delayed.";
 
 
 
             default:
 
-                return
-
-                    "Scheduler not responding.";
+                return "Scheduler not responding.";
 
         }
 

@@ -8,7 +8,7 @@ Emergency Shutdown Service
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 

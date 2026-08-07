@@ -100,7 +100,7 @@ Diagnostics Snapshot
 ==========================================================
 */
 
-export interface DiagnosticsSnapshot {
+export interface FullDiagnosticsSnapshot {
 
     application:
 

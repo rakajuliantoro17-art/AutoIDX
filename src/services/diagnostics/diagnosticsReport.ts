@@ -36,12 +36,15 @@ export interface DiagnosticsReport {
 
     generatedAt: Date;
 
-    snapshot: DiagnosticsSnapshot;
+    score: number;
 
-    analysis: DiagnosticsAnalysis;
+    healthy: boolean;
+
+    issues: string[];
+
+    recommendations: string[];
 
 }
-
 
 
 
@@ -82,16 +85,27 @@ export class DiagnosticsReportBuilder {
 
                 new Date(),
 
-            snapshot,
+            score:
 
-            analysis,
+                analysis.score,
+
+            healthy:
+
+                analysis.healthy,
+
+            issues:
+
+                analysis.issues,
+
+            recommendations:
+
+                analysis.recommendations,
 
         };
 
     }
 
 }
-
 
 
 
@@ -105,4 +119,3 @@ Singleton
 export const diagnosticsReport =
 
     new DiagnosticsReportBuilder();
-

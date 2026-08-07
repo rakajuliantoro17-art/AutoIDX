@@ -8,7 +8,7 @@ Memory Health Monitoring
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 
@@ -334,25 +334,19 @@ export class MemoryHealth {
 
             case "HEALTHY":
 
-                return
-
-                    "Memory usage is normal.";
+                return "Memory usage is normal.";
 
 
 
             case "WARNING":
 
-                return
-
-                    "Memory usage is elevated.";
+                return "Memory usage is elevated.";
 
 
 
             default:
 
-                return
-
-                    "Memory usage is critical.";
+                return "Memory usage is critical.";
 
         }
 

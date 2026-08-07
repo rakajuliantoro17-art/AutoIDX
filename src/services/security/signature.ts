@@ -16,7 +16,7 @@ import {
 
 } from "crypto";
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 

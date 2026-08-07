@@ -8,7 +8,7 @@ Discovery Service Health Adapter
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 import { healthManager } from "@/services/health";
 
 
@@ -79,7 +79,7 @@ export class ServiceHealthManager {
 
             ServiceHealthStatus =
 
-            report.healthy
+            report.status === "HEALTHY"
 
                 ? "healthy"
 

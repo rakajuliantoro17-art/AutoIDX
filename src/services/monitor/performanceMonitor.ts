@@ -8,7 +8,7 @@ Performance Monitoring Service
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import { memoryMonitor } from "./memoryMonitor";
 

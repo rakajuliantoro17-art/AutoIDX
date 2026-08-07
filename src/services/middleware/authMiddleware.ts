@@ -84,9 +84,9 @@ export class AuthMiddleware {
 
 
 
-        const result =
+        const authorized =
 
-            await authGuard.validate(
+            authGuard.validateToken(
 
                 token,
 
@@ -96,7 +96,7 @@ export class AuthMiddleware {
 
         if (
 
-            !result.success
+            !authorized
 
         ) {
 

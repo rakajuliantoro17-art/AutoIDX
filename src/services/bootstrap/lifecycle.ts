@@ -8,7 +8,7 @@ Application Lifecycle Management
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 /*
 ==========================================================

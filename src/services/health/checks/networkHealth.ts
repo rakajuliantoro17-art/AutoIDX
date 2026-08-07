@@ -8,7 +8,7 @@ Network Health Monitoring
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 
@@ -261,25 +261,19 @@ export class NetworkHealth {
 
             case "HEALTHY":
 
-                return
-
-                    "Network connection is stable.";
+                return "Network connection is stable.";
 
 
 
             case "WARNING":
 
-                return
-
-                    "Network latency is elevated.";
+                return "Network latency is elevated.";
 
 
 
             default:
 
-                return
-
-                    "Network connection is unstable.";
+                return "Network connection is unstable.";
 
         }
 

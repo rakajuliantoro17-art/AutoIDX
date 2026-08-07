@@ -8,7 +8,7 @@ Diagnostics Read Repository
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 import type {
 
@@ -98,7 +98,11 @@ export class DiagnosticsReader {
 
 
 
-        return diagnosticsStorage.getAll();
+        return [
+
+            ...await diagnosticsStorage.getAll(),
+
+        ];
 
     }
 

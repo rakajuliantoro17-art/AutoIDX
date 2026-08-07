@@ -10,7 +10,7 @@ Cross-Site Request Forgery Protection
 
 import { randomUUID } from "crypto";
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 
 
 

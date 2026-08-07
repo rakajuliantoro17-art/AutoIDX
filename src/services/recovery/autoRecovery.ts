@@ -8,7 +8,7 @@ Automatic Recovery Engine
 ==========================================================
 */
 
-import { logger } from "@/services/logger";
+import logger from "@/services/logger";
 import { cleanupService } from "@/services/maintenance/cleanup";
 import { optimizationService } from "@/services/maintenance/optimize";
 
