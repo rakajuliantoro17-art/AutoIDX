@@ -16,12 +16,6 @@ import type {
 
 } from "./diagnosticsReport";
 
-import type {
-
-    DiagnosticsReport,
-
-} from "./diagnosticsReport";
-
 /*
 ==========================================================
 Types
