@@ -44,46 +44,41 @@ class Logger {
     }
   }
 
-  // Menerima context (string) ATAU data (object) di argumen kedua,
-  // agar kompatibel dengan pemanggilan logger.info(message, dataObject)
-  // maupun logger.info(message, "ContextName", dataObject).
-  private normalizeArgs(
-    contextOrData?: string | unknown,
-    data?: unknown
-  ): { context?: string; data?: any } {
-    if (typeof contextOrData === 'string' || contextOrData === undefined) {
-      return { context: contextOrData as string | undefined, data };
+  // Mendeteksi apakah argumen ke-2 adalah context (string) atau sebenarnya data (object/lainnya)
+  private normalizeArgs(context?: string | any, data?: any): { context?: string; data?: any } {
+    if (context !== undefined && typeof context !== 'string') {
+      return { context: undefined, data: context };
     }
-    return { context: undefined, data: contextOrData };
+    return { context, data };
   }
 
-  debug(message: string, contextOrData?: string | unknown, data?: unknown): void {
-    const n = this.normalizeArgs(contextOrData, data);
+  debug(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
     this.log({ level: 'DEBUG', message, context: n.context, data: n.data });
   }
 
-  info(message: string, contextOrData?: string | unknown, data?: unknown): void {
-    const n = this.normalizeArgs(contextOrData, data);
+  info(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
     this.log({ level: 'INFO', message, context: n.context, data: n.data });
   }
 
-  success(message: string, contextOrData?: string | unknown, data?: unknown): void {
-    const n = this.normalizeArgs(contextOrData, data);
+  success(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
     this.log({ level: 'SUCCESS', message, context: n.context, data: n.data });
   }
 
-  warn(message: string, contextOrData?: string | unknown, data?: unknown): void {
-    const n = this.normalizeArgs(contextOrData, data);
+  warn(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
     this.log({ level: 'WARN', message, context: n.context, data: n.data });
   }
 
-  error(message: string, contextOrData?: string | unknown, data?: unknown): void {
-    const n = this.normalizeArgs(contextOrData, data);
+  error(message: string, context?: string | any, data?: any): void {
+    const n = this.normalizeArgs(context, data);
     this.log({ level: 'ERROR', message, context: n.context, data: n.data });
   }
 }
 
-// Export sebagai Singleton Instance
 const logger = new Logger();
 export default logger;
+export { logger };
 export * from './types';
