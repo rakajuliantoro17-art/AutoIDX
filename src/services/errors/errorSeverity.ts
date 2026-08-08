@@ -2,7 +2,12 @@
 ==========================================================
 AURA Trade OS
 Error Severity
-Version : 0.0.7 Alpha
+Version : 0.0.8 Alpha
+(Fix: ErrorSeverity adalah enum, bukan class - instanceof
+diganti pengecekan typeof + Object.values().includes().
+Fix: 2 pemanggilan .reduce() dikasih generic eksplisit
+<ErrorSeverity> supaya TypeScript tidak infer tipe balikan
+jadi ErrorSeverity | string.)
 ==========================================================
 Centralized Error Severity Model
 ==========================================================
@@ -978,7 +983,7 @@ export function maxErrorSeverity(
     }
 
 
-    return severities.reduce(
+    return severities.reduce<ErrorSeverity>(
         (
             highest,
             current,
@@ -1023,7 +1028,7 @@ export function minErrorSeverity(
     }
 
 
-    return severities.reduce(
+    return severities.reduce<ErrorSeverity>(
         (
             lowest,
             current,
