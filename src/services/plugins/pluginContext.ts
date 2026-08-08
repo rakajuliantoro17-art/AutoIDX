@@ -10,50 +10,14 @@ Plugin Dependency Context
 
 import type { PluginSandbox } from "./pluginSandbox";
 
-/*
-==========================================================
-Plugin Context
-==========================================================
-*/
-
 export interface PluginContext {
-
-    /*
-    ======================================================
-    Sandbox
-    ======================================================
-    */
 
     readonly sandbox: PluginSandbox;
 
-    /*
-    ======================================================
-    Services
-    ======================================================
-    */
+    readonly services: Readonly<Record<string, unknown>>;
 
-    readonly services:
+    readonly configuration: Readonly<Record<string, unknown>>;
 
-        Readonly<Record<string, unknown>>;
-
-    /*
-    ======================================================
-    Configuration
-    ======================================================
-    */
-
-    readonly configuration:
-
-        Readonly<Record<string, unknown>>;
-
-    /*
-    ======================================================
-    Metadata
-    ======================================================
-    */
-
-    readonly metadata:
-
-        Readonly<Record<string, unknown>>;
+    readonly metadata: Readonly<Record<string, unknown>>;
 
 }
