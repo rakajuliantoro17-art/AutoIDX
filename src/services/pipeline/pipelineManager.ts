@@ -12,7 +12,7 @@ import { pipelineRegistry } from "./pipelineRegistry";
 import { pipelineExecutor } from "./pipelineExecutor";
 
 import type { Pipeline } from "./pipeline";
-import type { PipelineContext } from "./pipelineStage";
+import type { PipelineContext } from "./pipelineContext";
 import type { PipelineResult } from "./pipelineResult";
 
 export class PipelineManager {
