@@ -14,6 +14,10 @@ import {
     isAURAError,
 } from "./error";
 
+import {
+    ErrorSeverity,
+} from "./errorSeverity";
+
 import type {
     ErrorContext,
 } from "./errorContext";
@@ -1028,7 +1032,7 @@ export class ErrorNormalizer {
             undefined,
     ): ErrorContext {
 
-        const context: ErrorContext = {
+        const merged: ErrorContext = {
 
             ...(base ?? {}),
 
@@ -1036,27 +1040,19 @@ export class ErrorNormalizer {
 
         };
 
+        const context: ErrorContext = {
 
-        if (
-            source &&
-            !context.source
-        ) {
+            ...merged,
 
-            context.source =
-                source;
+            source:
+                merged.source ??
+                source,
 
-        }
+            category:
+                merged.category ??
+                category,
 
-
-        if (
-            category &&
-            !context.category
-        ) {
-
-            context.category =
-                category;
-
-        }
+        };
 
 
         return sanitizeErrorContext(
@@ -1107,8 +1103,8 @@ export class ErrorNormalizer {
         metadata:
             ErrorMetadata | undefined,
         fallback:
-            string = "error",
-    ): string {
+            ErrorSeverity = ErrorSeverity.ERROR,
+    ): ErrorSeverity {
 
         const codeMetadata =
             code
@@ -1118,10 +1114,18 @@ export class ErrorNormalizer {
                 : undefined;
 
 
-        return (
+        const resolved =
             metadata?.telemetrySeverity ??
             codeMetadata?.severity ??
-            fallback
+            fallback;
+
+
+        return (
+            Object.values(ErrorSeverity).includes(
+                resolved as ErrorSeverity,
+            )
+                ? (resolved as ErrorSeverity)
+                : fallback
         );
 
     }
