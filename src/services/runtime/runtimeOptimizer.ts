@@ -10,9 +10,7 @@ Runtime Optimization Advisor
 
 import type { RuntimeProfile } from "./runtimeProfile";
 
-
-
-
+import type { RuntimeMetrics } from "./runtimeMetrics";
 
 /*
 ==========================================================
@@ -36,10 +34,6 @@ export interface RuntimeOptimizationRecommendation {
 
 }
 
-
-
-
-
 /*
 ==========================================================
 Runtime Optimizer
@@ -58,13 +52,13 @@ export class RuntimeOptimizer {
 
         profile: RuntimeProfile,
 
+        metrics?: RuntimeMetrics,
+
     ): RuntimeOptimizationRecommendation[] {
 
         const recommendations:
 
             RuntimeOptimizationRecommendation[] = [];
-
-
 
         if (
 
@@ -92,8 +86,6 @@ export class RuntimeOptimizer {
 
         }
 
-
-
         if (
 
             !profile.features.cache
@@ -118,17 +110,11 @@ export class RuntimeOptimizer {
 
         }
 
-
-
         return recommendations;
 
     }
 
 }
-
-
-
-
 
 /*
 ==========================================================
@@ -139,4 +125,3 @@ Singleton
 export const runtimeOptimizer =
 
     new RuntimeOptimizer();
-
