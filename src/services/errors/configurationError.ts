@@ -781,6 +781,50 @@ export class ConfigurationError
 
 /*
 ==========================================================
+Serialized Configuration Error
+==========================================================
+*/
+
+export interface ConfigurationErrorSerialized {
+
+    readonly name:
+        string;
+
+    readonly message:
+        string;
+
+    readonly code?:
+        ErrorCode;
+
+    readonly severity?:
+        ErrorSeverity;
+
+    readonly key?:
+        string;
+
+    readonly source?:
+        string;
+
+    readonly expected?:
+        unknown;
+
+    readonly actual?:
+        unknown;
+
+    readonly missing?:
+        boolean;
+
+    readonly invalid?:
+        boolean;
+
+    readonly unsupported?:
+        boolean;
+
+}
+
+
+/*
+==========================================================
 Type Guard
 ==========================================================
 */
