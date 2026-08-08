@@ -250,6 +250,147 @@ export interface ErrorTelemetryMetadata {
 
 /*
 ==========================================================
+ Domain Extension Metadata
+==========================================================
+ Additional fields required by domain-specific error
+ subclasses. Kept in one flexible bag rather than one
+ sub-interface per subclass since many fields (pair,
+ exchange, retryAfterMs, operation, ...) are shared across
+ several domains.
+==========================================================
+*/
+
+export interface DomainErrorMetadata {
+
+    // --- Shared / cross-domain ---
+    readonly operation?: string;
+    readonly retryAfterMs?: number;
+    readonly retryCount?: number;
+    readonly timeoutMs?: number;
+    readonly host?: string;
+    readonly port?: number;
+    readonly statusCode?: number;
+    readonly rateLimited?: boolean;
+    readonly degraded?: boolean;
+    readonly timeout?: boolean;
+
+    // --- Exchange / Market ---
+    readonly exchange?: string;
+    readonly exchangeCode?: string;
+    readonly pair?: string;
+    readonly symbol?: string;
+    readonly market?: string;
+    readonly dataType?: string;
+    readonly timeframe?: string;
+    readonly timestamp?: string;
+    readonly startTime?: string;
+    readonly endTime?: string;
+    readonly limit?: number;
+    readonly receivedCount?: number;
+    readonly expectedCount?: number;
+    readonly lastPrice?: number;
+    readonly currentPrice?: number;
+    readonly bidPrice?: number;
+    readonly askPrice?: number;
+    readonly spread?: number;
+    readonly dataAgeMs?: number;
+    readonly maxDataAgeMs?: number;
+    readonly symbolUnavailable?: boolean;
+    readonly marketUnavailable?: boolean;
+    readonly dataUnavailable?: boolean;
+    readonly staleData?: boolean;
+    readonly invalidData?: boolean;
+    readonly incompleteData?: boolean;
+    readonly missingCandle?: boolean;
+    readonly invalidOHLCV?: boolean;
+    readonly invalidOrderBook?: boolean;
+    readonly invalidPrice?: boolean;
+    readonly invalidVolume?: boolean;
+    readonly marketHalted?: boolean;
+    readonly insufficientLiquidity?: boolean;
+
+    // --- Network ---
+    readonly protocol?: string;
+    readonly url?: string;
+    readonly method?: string;
+    readonly networkCode?: string;
+    readonly connectionFailed?: boolean;
+    readonly connectionReset?: boolean;
+    readonly connectionRefused?: boolean;
+    readonly dnsFailure?: boolean;
+    readonly responseFailure?: boolean;
+    readonly tlsFailure?: boolean;
+    readonly networkUnavailable?: boolean;
+
+    // --- Operational / Service ---
+    readonly service?: string;
+    readonly serviceVersion?: string;
+    readonly component?: string;
+    readonly dependency?: string;
+    readonly dependencyType?: string;
+    readonly serviceUnavailable?: boolean;
+    readonly dependencyUnavailable?: boolean;
+    readonly resourceExhausted?: boolean;
+    readonly maintenance?: boolean;
+    readonly capacityExceeded?: boolean;
+
+    // --- Risk ---
+    readonly riskEngine?: string;
+    readonly riskEngineVersion?: string;
+    readonly riskProfile?: string;
+    readonly metric?: string;
+    readonly riskValue?: number;
+    readonly riskLimit?: number;
+    readonly riskPercent?: number;
+    readonly riskLimitPercent?: number;
+    readonly exposure?: number;
+    readonly exposureLimit?: number;
+    readonly drawdownPercent?: number;
+    readonly drawdownLimitPercent?: number;
+    readonly positionSize?: number;
+    readonly positionSizeLimit?: number;
+    readonly riskRejected?: boolean;
+    readonly limitExceeded?: boolean;
+    readonly engineUnavailable?: boolean;
+    readonly calculationFailure?: boolean;
+
+    // --- Runtime ---
+    readonly runtime?: string;
+    readonly runtimeVersion?: string;
+    readonly environment?: string;
+    readonly processId?: string;
+    readonly workerId?: string;
+    readonly hostname?: string;
+    readonly runtimeState?: string;
+    readonly expectedState?: string;
+    readonly actualState?: string;
+    readonly shuttingDown?: boolean;
+    readonly starting?: boolean;
+    readonly crashed?: boolean;
+
+    // --- Strategy ---
+    readonly strategy?: string;
+    readonly strategyVersion?: string;
+    readonly indicator?: string;
+    readonly signal?: string;
+    readonly strategyDisabled?: boolean;
+    readonly indicatorMissing?: boolean;
+    readonly signalFailure?: boolean;
+    readonly executionFailure?: boolean;
+
+    // --- Validation ---
+    readonly field?: string;
+    readonly path?: string;
+    readonly rule?: string;
+    readonly recoverable?: boolean;
+    readonly schemaValidation?: boolean;
+    readonly schema?: string;
+
+}
+
+
+/*
+==========================================================
  Error Metadata
 ==========================================================
 */
@@ -260,7 +401,8 @@ export interface ErrorMetadata
         ErrorRecoveryMetadata,
         ErrorClassificationMetadata,
         ErrorImpactMetadata,
-        ErrorTelemetryMetadata {
+        ErrorTelemetryMetadata,
+        DomainErrorMetadata {
 
     /**
      * Stable error code.
