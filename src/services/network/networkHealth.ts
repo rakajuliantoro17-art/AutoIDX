@@ -4,129 +4,57 @@ AURA Trade OS
 Network Health
 Version : 0.3.0 Alpha
 ==========================================================
-Local Network Module Health Status
+Network Health Check
 ==========================================================
 */
 
-import logger from "@/services/logger";
-
-
-
-
-/*
-==========================================================
-Types
-==========================================================
-*/
-
-export type NetworkHealthState =
-
-    "HEALTHY" |
-
-    "DEGRADED" |
-
-    "DOWN";
-
-
+import { logger } from "@/services/logger";
 
 export interface NetworkHealthReport {
-
-    status: NetworkHealthState;
 
     healthy: boolean;
 
     checkedAt: Date;
 
+    issues: string[];
+
 }
-
-
-
-
-/*
-==========================================================
-Network Health
-==========================================================
-*/
 
 export class NetworkHealth {
 
-    private lastReport: NetworkHealthReport = {
+    public async isHealthy(): Promise<boolean> {
 
-        status: "HEALTHY",
+        const report = await this.report();
 
-        healthy: true,
-
-        checkedAt: new Date(),
-
-    };
-
-
-
-    /*
-    ======================================================
-    Report
-    ======================================================
-    */
-
-    report(): NetworkHealthReport {
-
-        return this.lastReport;
+        return report.healthy;
 
     }
 
+    public async report(): Promise<NetworkHealthReport> {
 
+        /*
+        ==================================================
+        Future implementation:
 
-    /*
-    ======================================================
-    Is Healthy
-    ======================================================
-    */
+        Exchange API reachability
+        WebSocket connectivity
+        DNS resolution latency
+        ==================================================
+        */
 
-    async isHealthy(): Promise<boolean> {
+        const issues: string[] = [];
 
-        try {
+        logger.debug("Network health checked.");
 
-            this.lastReport = {
-
-                status: "HEALTHY",
-
-                healthy: true,
-
-                checkedAt: new Date(),
-
-            };
-
-            return true;
-
-        } catch (err: any) {
-
-            this.lastReport = {
-
-                status: "DOWN",
-
-                healthy: false,
-
-                checkedAt: new Date(),
-
-            };
-
-            logger.error("Network health check failed.", { error: err?.message || err });
-
-            return false;
-
-        }
+        return {
+            healthy: issues.length === 0,
+            checkedAt: new Date(),
+            issues,
+        };
 
     }
 
 }
 
-
-
-
-/*
-==========================================================
-Singleton
-==========================================================
-*/
-
-export const networkHealth = new NetworkHealth();
+export const networkHealth =
+    new NetworkHealth();
