@@ -8,19 +8,7 @@ Runtime Profile Definition
 ==========================================================
 */
 
-export type RuntimeEnvironment =
-
-    | "development"
-
-    | "testing"
-
-    | "staging"
-
-    | "production";
-
-
-
-
+import type { RuntimeEnvironmentName } from "./runtimeEnvironment";
 
 export type RuntimePlatform =
 
@@ -31,10 +19,6 @@ export type RuntimePlatform =
     | "edge"
 
     | "worker";
-
-
-
-
 
 export interface RuntimeProfile {
 
@@ -48,10 +32,6 @@ export interface RuntimeProfile {
 
     readonly name: string;
 
-
-
-
-
     /*
     ======================================================
     Runtime
@@ -60,19 +40,11 @@ export interface RuntimeProfile {
 
     readonly environment:
 
-        RuntimeEnvironment;
-
-
-
-
+        RuntimeEnvironmentName;
 
     readonly platform:
 
         RuntimePlatform;
-
-
-
-
 
     /*
     ======================================================
@@ -84,10 +56,6 @@ export interface RuntimeProfile {
 
         Readonly<Record<string, boolean>>;
 
-
-
-
-
     /*
     ======================================================
     Metadata
@@ -97,6 +65,4 @@ export interface RuntimeProfile {
     readonly metadata:
 
         Readonly<Record<string, unknown>>;
-
 }
-
