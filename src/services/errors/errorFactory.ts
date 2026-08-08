@@ -61,6 +61,11 @@ export interface ErrorFactoryOptions
     extends AURAErrorOptions {
 
     /**
+     * Optional message override.
+     */
+    readonly message?: string;
+
+    /**
      * Error code.
      */
     readonly code?: ErrorCode;
