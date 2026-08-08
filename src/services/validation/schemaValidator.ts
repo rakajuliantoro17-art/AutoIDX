@@ -661,7 +661,7 @@ export class SchemaValidator<T = unknown>
 
     private isObject(
         value: unknown,
-    ): boolean {
+    ): value is Record<string, unknown> {
 
         return (
             typeof value === "object" &&
