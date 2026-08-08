@@ -75,7 +75,7 @@ export class EventManager {
 
     public stop(): void {
         this.started = false;
-        this.bus.clear();
+        this.bus.clearAll();
     }
 
 
