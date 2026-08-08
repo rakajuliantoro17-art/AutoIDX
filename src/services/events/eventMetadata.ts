@@ -13,3 +13,11 @@ export interface EventMetadata {
     [key: string]: unknown;
 
 }
+
+export function createEventMetadata(
+    data?: Record<string, unknown>,
+): EventMetadata {
+    return {
+        ...data,
+    };
+}
