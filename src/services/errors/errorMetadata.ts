@@ -2,7 +2,15 @@
 ==========================================================
 AURA Trade OS
 Error Metadata
-Version : 0.0.7 Alpha
+Version : 0.0.8 Alpha
+
+Perubahan dari 0.0.7: `timestamp`/`startTime`/`endTime` di
+DomainErrorMetadata sebelumnya bertipe `string` - bentrok
+dengan marketError.ts (dan seluruh codebase lain yang selalu
+pakai epoch millis / Date.now(), number) yang mengoper
+`options.timestamp ?? options.metadata?.timestamp` ke field
+bertipe number. Diperbaiki jadi number, konsisten dengan
+pemakaian nyata di seluruh error class.
 ==========================================================
 Structured Error Metadata
 ==========================================================
@@ -282,9 +290,9 @@ export interface DomainErrorMetadata {
     readonly market?: string;
     readonly dataType?: string;
     readonly timeframe?: string;
-    readonly timestamp?: string;
-    readonly startTime?: string;
-    readonly endTime?: string;
+    readonly timestamp?: number;
+    readonly startTime?: number;
+    readonly endTime?: number;
     readonly limit?: number;
     readonly receivedCount?: number;
     readonly expectedCount?: number;
