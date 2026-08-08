@@ -2,7 +2,13 @@
 ==========================================================
 AURA Trade OS
 Error Context
-Version : 0.0.7 Alpha
+Version : 0.0.8 Alpha
+
+Perubahan dari 0.0.7: `processId` di DomainErrorContext
+sebelumnya bertipe `string` - bentrok dengan runtimeError.ts
+yang konsisten pakai `number` (OS-level process ID, dari
+`process.pid`, selalu number di Node.js). Diperbaiki jadi
+number.
 ==========================================================
 Structured Operational Error Context
 ==========================================================
@@ -377,7 +383,7 @@ export interface DomainErrorContext {
     readonly runtime?: string;
 
     /** OS-level process identifier. */
-    readonly processId?: string;
+    readonly processId?: number;
 
     /** Risk engine identifier. */
     readonly riskEngine?: string;
