@@ -8,15 +8,7 @@ JSON Serializer
 ==========================================================
 */
 
-import type {
-
-    Serializer,
-
-} from "./serializer";
-
-export class JsonSerializer<T>
-
-implements Serializer<T, string> {
+export class JsonSerializer<T> {
 
     /*
     ======================================================
@@ -63,4 +55,3 @@ implements Serializer<T, string> {
 export const jsonSerializer =
 
     new JsonSerializer();
-
