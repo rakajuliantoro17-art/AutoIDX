@@ -39,12 +39,9 @@ export interface TelemetryStorage {
     */
 
     pending():
-
-        Promise
-
-            readonly TelemetryStoredRecord[]
-
-        >;
+    Promise
+        readonly TelemetryStoredRecord[]
+    >;
 
     /*
     ======================================================
