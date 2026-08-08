@@ -303,11 +303,11 @@ export function normalizeErrorSeverity(
 ): ErrorSeverity {
 
     if (
-        value instanceof
-        ErrorSeverity
+        typeof value === "string" &&
+        (Object.values(ErrorSeverity) as string[]).includes(value)
     ) {
 
-        return value;
+        return value as ErrorSeverity;
 
     }
 
