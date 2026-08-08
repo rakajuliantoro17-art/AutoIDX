@@ -2,7 +2,11 @@
 ==========================================================
 AURA Trade OS
 Exchange Error
-Version : 0.0.7 Alpha
+Version : 0.0.8 Alpha
+(Fix: exchangeCode dikonversi ke string sebelum masuk ke
+metadata, karena ErrorMetadata.exchangeCode bertipe
+string | undefined saja, sementara ExchangeErrorOptions
+mengizinkan string | number untuk fleksibilitas caller.)
 ==========================================================
 Exchange-specific Error Model
 ==========================================================
@@ -405,8 +409,9 @@ export class ExchangeError
                 options.metadata?.operation,
 
             exchangeCode:
-                options.exchangeCode ??
-                options.metadata?.exchangeCode,
+                options.exchangeCode !== undefined
+                    ? String(options.exchangeCode)
+                    : options.metadata?.exchangeCode,
 
             retryable:
                 options.retryable ??
