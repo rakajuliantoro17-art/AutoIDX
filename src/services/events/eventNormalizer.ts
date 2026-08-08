@@ -18,22 +18,25 @@ import type {
     EventOptions,
 } from "./event";
 
+import type {
+    EventPayload,
+} from "./eventPayload";
 
-export function normalizeEvent(
+export function normalizeEvent<T = EventPayload>(
     event:
-        AURAEvent |
-        EventOptions,
-): AURAEvent {
+        AURAEvent<T> |
+        EventOptions<T>,
+): AURAEvent<T> {
 
     if (
         event instanceof AURAEvent
     ) {
-        return event;
+        return event as AURAEvent<T>;
     }
 
-    return new AURAEvent(event);
-}
+    return new AURAEvent<T>(event);
 
+}
 
 export function normalizeEventType(
     type:
@@ -55,13 +58,12 @@ export function normalizeEventType(
     throw new Error(
         `Unknown event type: ${type}`,
     );
-}
 
+}
 
 export function isEventType(
     value: unknown,
 ): value is EventType {
-
     return (
         typeof value === "string" &&
         Object.values(
