@@ -458,3 +458,65 @@ Simpan key enkripsi itu baik-baik (misal di password manager) — kalau hilang, 
 ❌ **Belum:** `maxOpenPosition` belum disambungkan ke `engine.ts`. Belum ada uji coba end-to-end nyata (paper→live pertama kali). `firestore.rules` belum di-review (item lama, masih terbuka). Field response SELL Indodax di `live.ts` masih asumsi, belum terverifikasi dengan transaksi asli.
 
 **Sebelum benar-benar aktifkan `BOT_LIVE_CONFIRM=true` di Vercel:** selesaikan dulu `maxOpenPosition`, dan sangat disarankan jalankan minimal satu siklus BUY+SELL manual di livetrading dengan nominal sekecil mungkin untuk verifikasi field response SELL yang sebenarnya dari Indodax.
+# Session Log 2 — Live Trading Wiring & Firestore Settings
+
+*(Lanjutan dari "Session Log" di atas. Baca dulu sebelum melanjutkan.)*
+
+## Resolusi investigasi terbuka sebelumnya
+
+**`services/paperTrading/` vs `services/trading/paper.ts`:** Investigasi ini akhirnya TIDAK dituntaskan sampai kesimpulan akhir (sesi terinterupsi oleh temuan live-trading yang lebih mendesak). Statusnya TETAP "jangan diasumsikan selesai" — kedua sistem masih ada, belum dipastikan mana yang aktif dipakai. Lanjutkan investigasi ini di sesi berikutnya sebelum mengambil keputusan konsolidasi.
+
+## Temuan besar: Live Trading sudah diimplementasikan (real money)
+
+Ditemukan bahwa sistem live trading sudah dibangun (oleh sesi Claude lain) jauh lebih lengkap dari perkiraan:
+
+**Arsitektur kredensial:**
+- API Key/Secret Indodax disimpan **terenkripsi (AES-256-GCM)** di Firestore, per-user (`users/{uid}/indodaxAccounts`), lewat `src/pages/api/settings/indodax-accounts.ts` (server-side, wajib Firebase ID Token). Bisa lebih dari 1 akun, salah satu ditandai `isActive`.
+- `src/services/firebase/indodaxAccountsAdmin.ts` — `getActiveIndodaxAccount()` ambil & dekripsi akun aktif milik `BOT_OWNER_UID` (env var, uid pemilik bot).
+- `src/services/liveTrading/exchange/indodaxClient.ts` — `IndodaxClient` class, constructor terima `{apiKey, secretKey}` eksplisit (BUKAN baca env var sendiri lagi). HMAC-SHA512, `Key`/`Sign` header, `timestamp`+`recvWindow` — sudah diverifikasi SESUAI dokumentasi resmi Indodax.
+- `src/services/trading/live.ts` — `LiveTradingService`, method `getClient()` ambil akun aktif dulu baru bikin `IndodaxClient`. `buy()` cek saldo asli via `getInfo()` sebelum order, `sell()` butuh `amount` (coin quantity) eksplisit dari posisi tercatat.
+
+**Firestore Bot Settings (sumber kebenaran konfigurasi, BUKAN env var):**
+- `src/api/settings/types.ts` — `BotSettings { version, mode: "paper"|"live", enabled, tradeAmountIdr, targetProfitPercent, stopLossPercent, maxOpenPositions, scanIntervalMinutes, pairs: string[] }`
+- `src/services/firebase/settingsService.ts` — `getBotSettings()` / `updateBotSettings()`, collection `bot_settings/default`.
+- Diedit dari halaman **Settings** dashboard, **tanpa perlu redeploy**.
+- **Format `pairs` di Firestore TANPA underscore** (`"btcidr"`), beda dari format internal sistem lain (`"btc_idr"`) — WAJIB dinormalisasi lewat `PairValidator.normalize()` sebelum dipakai ke scanner/candles/dst.
+
+## Perbaikan yang sudah diterapkan sesi ini
+
+1. **`indodaxClient.ts`** — fix syntax error `Promise<>` yang hilang tanda `<` (sempat 2x kejadian di file berbeda, pola sama seperti bug copy-paste sebelumnya).
+2. **`riskState.ts`** — pindah dari Client SDK ke Admin SDK (bug sama seperti yang pernah diperbaiki di `botState.ts`: Client SDK di server selalu di-block Firestore Security Rules diam-diam, `maxDailyLossPercent` sebelumnya TIDAK PERNAH benar-benar tervalidasi).
+3. **`engine.ts` (v0.1.1)** — konsolidasi besar:
+   - Ambil `getBotSettings()` SEKALI di awal `run()`, dipakai konsisten untuk validasi risk-gate maupun eksekusi (`tradeAmountIdr` dioper eksplisit ke `paper.ts`/`live.ts`, bukan masing-masing fetch sendiri secara terpisah yang berisiko tidak sinkron).
+   - `allowAutoTrade` → `settings.enabled` (Firestore), `maxOpenPosition` dikembalikan setelah sempat hilang di versi sebelumnya.
+   - Emergency stop (`RISK_CONFIG.emergencyStop`, env var) HANYA blokir BUY baru — SELL (termasuk stop-loss/take-profit paksa) TIDAK PERNAH diblokir, supaya bot selalu bisa melindungi modal.
+   - `maxExposurePercent` & `maxDailyLossPercent` sekarang pakai **saldo ASLI Indodax** (lewat `getActiveIndodaxAccount()` + `IndodaxClient.getInfo()`) saat mode live — sebelumnya salah pakai saldo paper trading bahkan saat live (bug serius, sudah diperbaiki).
+   - Dual-gate live mode DIPERTAHANKAN: `settings.mode === "live"` (Firestore, editable UI) **DAN** `BOT_LIVE_CONFIRM === "true"` (env var, butuh redeploy) — supaya live trading TIDAK PERNAH aktif hanya karena seseorang mengubah sesuatu di dashboard.
+4. **`paper.ts` & `live.ts`** — `buy()` terima `tradeAmountIdr` eksplisit opsional dari caller; kalau diisi, dipakai apa adanya (tidak fetch ulang settings sendiri) — menghilangkan celah "validasi cek angka A, eksekusi pakai angka B".
+5. **`scheduler/cron.ts` (v0.1.0)** — daftar pair sekarang dari `BotSettings.pairs` (Firestore, editable dari Settings UI), BUKAN lagi env var statis. Dinormalisasi lewat `PairValidator.normalize()`.
+6. **Modul baru yang ditemukan & diperbaiki** (barrel export hilang / duplikasi tipe / field salah — pola yang sama berulang seperti sesi sebelumnya):
+   - `services/diagnostics/` — `DiagnosticsReport` field flat, bukan nested `.analysis`.
+   - `services/observability/` — barrel hilang export untuk 3 file yang belum diimplementasikan (`logging.ts`, `metrics.ts`, `telemetry.ts` — sengaja di-skip, belum dibuat).
+   - `services/pipeline/` — `PipelineContext` duplikat (`pipelineStage.ts` vs `pipelineContext.ts`, digabung jadi satu sumber), `PipelineBuilder.build()` lupa isi field wajib `id`/`version`, `pipelineManager.ts` belum ada (di-skip di barrel).
+
+## Status keamanan SAAT INI
+
+- `BOT_LIVE_CONFIRM=false` di Vercel (sengaja dimatikan sampai semua fix di atas ter-commit & diverifikasi build sukses).
+- Kode live trading belum pernah sukses ter-deploy sampai sesi ini (selalu ada build error yang menghalangi) — jadi belum ada order asli yang pernah tereksekusi.
+- **JANGAN aktifkan `BOT_LIVE_CONFIRM=true` sampai**: (a) build sukses total, (b) sudah dites di mode paper beberapa siklus dengan log yang masuk akal, (c) investigasi `paperTrading/` vs `trading/paper.ts` yang masih tertunda sudah dituntaskan.
+
+## Roadmap update
+
+| # | Tahap | Status |
+|---|---|---|
+| Konsolidasi execution/engine.ts + executionEngine.ts | ✅ Selesai |
+| Investigasi paperTrading/ vs trading/paper.ts | 🔄 Masih tertunda (JANGAN diasumsikan selesai) |
+| Live trading Indodax (HMAC, kredensial per-akun, dll) | ✅ Kodenya sudah ada & diperbaiki, BELUM pernah dites nyata (BOT_LIVE_CONFIRM masih false) |
+| RISK_CONFIG validasi di jalur eksekusi | ✅ Lengkap (emergencyStop, allowAutoTrade/enabled, cooldown, maxOpenPosition, maxTradeAmount, maxExposurePercent, maxDailyLossPercent — semua tersambung & pakai saldo asli saat live) |
+| Position-awareness strategi (auraTrend dkk) | ⏳ Belum — CATATAN: strategi ini kemungkinan besar TIDAK dipakai jalur live sekarang (jalur live pakai `DecisionEngine` sederhana di `services/trading/decision.ts`, isinya belum pernah direview) |
+| Testing menyeluruh mode PAPER | ⏳ Belum dimulai serius |
+| Aktifkan BOT_MODE=live nominal kecil | ⏳ Belum — tunggu semua di atas tuntas |
+
+## Multi-pair
+
+Sudah didukung penuh via `BotSettings.pairs` (Firestore, edit dari Settings UI, contoh saat ini: `btcidr`, `ethidr`, `solidr`). Rencana lanjutan: fetch daftar SEMUA pair IDR yang tersedia di Indodax (`/api/pairs`, endpoint publik) supaya opsi di UI Settings otomatis lengkap & selalu update — belum dikerjakan.
