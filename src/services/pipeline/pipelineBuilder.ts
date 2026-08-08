@@ -1,150 +1,38 @@
 /**
 ==========================================================
 AURA Trade OS
-Pipeline Builder
-Version : 0.3.0 Alpha
+Pipeline Stage
+Version : 0.3.1 Alpha
 ==========================================================
-Pipeline Builder
+Pipeline Stage Contract
 ==========================================================
 */
 
-import type { Pipeline } from "./pipeline";
-import type { PipelineStage } from "./pipelineStage";
-
-
-
-
+import type { PipelineContext } from "./pipelineContext";
 
 /*
 ==========================================================
-Pipeline Builder
+Types
 ==========================================================
 */
-
-export class PipelineBuilder {
-
-    private name = "";
-
-    private readonly stages: PipelineStage[] = [];
-
-    private readonly metadata:
-
-        Record<string, unknown> = {};
-
-
-
-
-
-    /*
-    ======================================================
-    Name
-    ======================================================
-    */
-
-    public setName(
-
-        name: string,
-
-    ): this {
-
-        this.name = name;
-
-        return this;
-
-    }
-
-
-
-
-
-    /*
-    ======================================================
-    Stage
-    ======================================================
-    */
-
-    public addStage(
-
-        stage: PipelineStage,
-
-    ): this {
-
-        this.stages.push(
-
-            stage,
-
-        );
-
-
-
-        return this;
-
-    }
-
-
-
-
-
-    /*
-    ======================================================
-    Metadata
-    ======================================================
-    */
-
-    public setMetadata(
-
-        key: string,
-
-        value: unknown,
-
-    ): this {
-
-        this.metadata[key] = value;
-
-        return this;
-
-    }
-
-
-
-
-
-    /*
-    ======================================================
-    Build
-    ======================================================
-    */
-
-    public build(): Pipeline {
-
-        if (!this.name) {
-
-            throw new Error(
-
-                "Pipeline name is required.",
-
-            );
-
-        }
-
-
-
-        return {
-
-            name: this.name,
-
-            stages: [...this.stages],
-
-            metadata: {
-
-                ...this.metadata,
-
-            },
-
-        };
-
-    }
-
+export type PipelineStageStatus =
+    | "pending"
+    | "running"
+    | "completed"
+    | "failed"
+    | "skipped";
+
+export interface PipelineStage {
+    readonly name: string;
+    execute(
+        context: PipelineContext,
+    ): Promise<void>;
 }
 
-
+export interface PipelineStageResult {
+    stage: string;
+    status: PipelineStageStatus;
+    startedAt: Date;
+    finishedAt: Date;
+    duration: number;
+}
