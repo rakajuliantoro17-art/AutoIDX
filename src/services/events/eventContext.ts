@@ -19,3 +19,11 @@ export interface EventContext {
     [key: string]: unknown;
 
 }
+
+export function createEventContext(
+    data?: Partial<EventContext>,
+): EventContext {
+    return {
+        ...data,
+    };
+}
