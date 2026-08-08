@@ -22,7 +22,7 @@ import {
 
 import {
     EventType,
-} from "./eventTypes";
+} from "./eventType";
 
 import type {
     EventContext,
