@@ -8,7 +8,7 @@ Telemetry Storage Contract
 ==========================================================
 */
 
-export interface TelemetryRecord {
+export interface TelemetryStoredRecord {
 
     readonly id: string;
 
@@ -28,7 +28,7 @@ export interface TelemetryStorage {
 
     save(
 
-        record: TelemetryRecord,
+        record: TelemetryStoredRecord,
 
     ): Promise<void>;
 
@@ -40,9 +40,9 @@ export interface TelemetryStorage {
 
     pending():
 
-        Promise<
+        Promise
 
-            readonly TelemetryRecord[]
+            readonly TelemetryStoredRecord[]
 
         >;
 
@@ -79,4 +79,3 @@ export interface TelemetryStorage {
         Promise<number>;
 
 }
-
