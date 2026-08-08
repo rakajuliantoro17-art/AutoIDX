@@ -2,7 +2,12 @@
 ==========================================================
 AURA Trade OS
 Error Serializer
-Version : 0.0.7 Alpha
+Version : 0.0.8 Alpha
+(Fix: AURAError diimpor sebagai value, bukan cuma import type,
+karena dipakai sebagai constructor (`new AURAError(...)`).
+Fix: 2 tempat `return result as SerializedError` diubah jadi
+`return result as unknown as SerializedError` karena
+Record<string, unknown> tidak overlap cukup dengan SerializedError.)
 ==========================================================
 Structured Error Serialization
 ==========================================================
@@ -10,9 +15,6 @@ Structured Error Serialization
 
 import {
     isAURAError,
-} from "./error";
-
-import type {
     AURAError,
 } from "./error";
 
@@ -500,7 +502,7 @@ export class ErrorSerializer {
         }
 
 
-       return result as
+        return result as
             unknown as
             SerializedError;
 
