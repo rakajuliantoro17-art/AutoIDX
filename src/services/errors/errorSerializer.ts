@@ -500,7 +500,8 @@ export class ErrorSerializer {
         }
 
 
-        return result as
+       return result as
+            unknown as
             SerializedError;
 
     }
@@ -1004,6 +1005,7 @@ export class ErrorSerializer {
 
 
             return result as
+                unknown as
                 SerializedError;
 
         }
