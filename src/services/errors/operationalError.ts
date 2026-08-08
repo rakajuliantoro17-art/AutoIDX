@@ -44,6 +44,12 @@ export interface OperationalErrorOptions {
         ErrorCode;
 
     /**
+     * Severity override.
+     */
+    readonly severity?:
+        ErrorSeverity;
+
+    /**
      * Operational service name.
      */
     readonly service?:
