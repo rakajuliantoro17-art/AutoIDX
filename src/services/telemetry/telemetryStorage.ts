@@ -27,9 +27,7 @@ export interface TelemetryStorage {
     */
 
     save(
-
         record: TelemetryStoredRecord,
-
     ): Promise<void>;
 
     /*
@@ -39,9 +37,9 @@ export interface TelemetryStorage {
     */
 
     pending():
-    Promise
-        readonly TelemetryStoredRecord[]
-    >;
+        Promise<
+            readonly TelemetryStoredRecord[]
+        >;
 
     /*
     ======================================================
@@ -50,9 +48,7 @@ export interface TelemetryStorage {
     */
 
     remove(
-
         id: string,
-
     ): Promise<void>;
 
     /*
@@ -62,7 +58,6 @@ export interface TelemetryStorage {
     */
 
     clear():
-
         Promise<void>;
 
     /*
@@ -72,7 +67,6 @@ export interface TelemetryStorage {
     */
 
     count():
-
         Promise<number>;
 
 }
