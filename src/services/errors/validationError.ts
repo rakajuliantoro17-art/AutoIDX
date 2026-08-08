@@ -2,7 +2,16 @@
 ==========================================================
 AURA Trade OS
 Validation Error
-Version : 0.0.7 Alpha
+Version : 0.0.8 Alpha
+
+Perubahan dari 0.0.7: `expected`/`received` sebelumnya
+ditaruh langsung sebagai `metadata.expected` - bentrok dengan
+`ErrorClassificationMetadata.expected` (boolean, artinya
+"apakah error ini sudah diperkirakan") yang maknanya beda
+total dari "nilai yang seharusnya diterima validasi" (unknown)
+yang dimaksud di sini. Sekarang ditaruh di `metadata.details`
+sebagai `expectedValue`/`receivedValue`, tidak menabrak field
+bernama sama yang sudah punya arti lain.
 ==========================================================
 Validation-specific Error Model
 ==========================================================
@@ -350,10 +359,6 @@ export class ValidationError
                 options.rule ??
                 options.metadata?.rule,
 
-            expected:
-                options.expected ??
-                options.metadata?.expected,
-
             recoverable:
                 options.recoverable ??
                 options.metadata?.recoverable,
@@ -369,6 +374,32 @@ export class ValidationError
             source:
                 options.source ??
                 options.metadata?.source,
+
+            /*
+            ==================================================
+            `expected`/`received` SENGAJA tidak ditaruh sebagai
+            metadata.expected langsung -
+            ErrorClassificationMetadata.expected artinya
+            "apakah error ini sudah diperkirakan" (boolean),
+            beda total dari "nilai yang seharusnya diterima
+            validasi" (unknown) yang dimaksud di sini. Ditaruh
+            di metadata.details supaya tidak tabrakan makna.
+            ==================================================
+            */
+
+            details: {
+
+                ...(options.metadata?.details ?? {}),
+
+                ...(options.expected !== undefined
+                    ? { expectedValue: options.expected }
+                    : {}),
+
+                ...(options.received !== undefined
+                    ? { receivedValue: options.received }
+                    : {}),
+
+            },
 
         };
 
