@@ -18,7 +18,7 @@ Pipeline Context
 ==========================================================
 */
 
-export interface PipelineExecutionContext<T = unknown> {
+export interface PipelineContext<T = unknown> {
 
     /*
     ======================================================
