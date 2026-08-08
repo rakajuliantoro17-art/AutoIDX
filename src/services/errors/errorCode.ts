@@ -423,7 +423,7 @@ Register Metadata
 
 function registerCode(
     code: ErrorCode,
-    category: string,
+    category: ErrorCategory,
     description: string,
     retryable = false,
 ): void {
