@@ -349,6 +349,68 @@ export interface ValidationErrorContext {
 
 /*
 ==========================================================
+ Domain Extension Context
+==========================================================
+ Additional fields required by domain-specific error
+ subclasses (exchangeError, networkError, operationalError,
+ runtimeError, riskError, marketError, strategyError,
+ validationError) that are not covered by the base context
+ interfaces above.
+==========================================================
+*/
+
+export interface DomainErrorContext {
+
+    /** HTTP status code returned by an exchange API. */
+    readonly httpStatus?: number;
+
+    /** Network/transport protocol (e.g. "https", "wss"). */
+    readonly protocol?: string;
+
+    /** Name of the dependency that failed. */
+    readonly dependency?: string;
+
+    /** Type/category of the dependency (e.g. "database", "queue"). */
+    readonly dependencyType?: string;
+
+    /** Runtime identifier (e.g. "node", "edge"). */
+    readonly runtime?: string;
+
+    /** OS-level process identifier. */
+    readonly processId?: string;
+
+    /** Risk engine identifier. */
+    readonly riskEngine?: string;
+
+    /** Risk profile identifier. */
+    readonly riskProfile?: string;
+
+    /** Risk/strategy metric name involved in the error. */
+    readonly metric?: string;
+
+    /** Candle/analysis timeframe (e.g. "1h", "1d"). */
+    readonly timeframe?: string;
+
+    /** Market identifier. */
+    readonly market?: string;
+
+    /** Type of market data involved (e.g. "ohlcv", "orderbook"). */
+    readonly dataType?: string;
+
+    /** Strategy identifier (free-form, distinct from strategyId). */
+    readonly strategy?: string;
+
+    /** Technical indicator name. */
+    readonly indicator?: string;
+
+    /** Field/document path (validation errors). */
+    readonly path?: string;
+
+}
+
+
+/*
+==========================================================
  Storage Context
 ==========================================================
 */
@@ -395,7 +457,8 @@ export interface ErrorContext
         PluginErrorContext,
         NetworkErrorContext,
         ValidationErrorContext,
-        StorageErrorContext {
+        StorageErrorContext,
+        DomainErrorContext {
 
     /**
      * Error code associated with this context.
