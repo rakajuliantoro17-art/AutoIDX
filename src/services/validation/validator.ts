@@ -18,6 +18,10 @@ import type {
     ValidationResult,
 } from "./validationResult";
 
+import type {
+    ValidationContext,
+} from "./validationContext";
+
 export interface Validator<T = unknown> {
 
     /*
@@ -28,6 +32,7 @@ export interface Validator<T = unknown> {
 
     validate(
         value: T,
+        context?: ValidationContext,
     ): ValidationResult;
 
 }
