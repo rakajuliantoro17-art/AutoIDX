@@ -928,9 +928,6 @@ export class SchemaValidator<T = unknown>
 
             warnings,
 
-            issueCount: issues.length,
-
-            warningCount: warnings.length,
 
         };
 
