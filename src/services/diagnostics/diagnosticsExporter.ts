@@ -2,7 +2,7 @@
 ==========================================================
 AURA Trade OS
 Diagnostics Exporter
-Version : 0.3.0 Alpha
+Version : 0.3.1 Alpha
 ==========================================================
 Diagnostics Export Adapter
 ==========================================================
@@ -76,18 +76,29 @@ export class DiagnosticsExporter {
     Markdown
     ======================================================
     */
-    private exportText(
+    private exportMarkdown(
         report: DiagnosticsReport,
     ): string {
         logger.info(
-            "Diagnostics exported as Text.",
+            "Diagnostics exported as Markdown.",
         );
         return [
-            report.title,
-            `Health: ${report.healthy}`,
-            `Score: ${report.score}`,
-            `Issues: ${report.issues.length}`,
-            `Recommendations: ${report.recommendations.length}`,
+            `# ${report.title}`,
+            "",
+            `Health : ${report.healthy}`,
+            `Score : ${report.score}`,
+            "",
+            "## Issues",
+            ...report.issues.map(
+                issue =>
+                    `- ${issue}`,
+            ),
+            "",
+            "## Recommendations",
+            ...report.recommendations.map(
+                recommendation =>
+                    `- ${recommendation}`,
+            ),
         ].join("\n");
     }
     /*
@@ -103,10 +114,10 @@ export class DiagnosticsExporter {
         );
         return [
             report.title,
-            `Health: ${report.analysis.healthy}`,
-            `Score: ${report.analysis.score}`,
-            `Issues: ${report.analysis.issues.length}`,
-            `Recommendations: ${report.analysis.recommendations.length}`,
+            `Health: ${report.healthy}`,
+            `Score: ${report.score}`,
+            `Issues: ${report.issues.length}`,
+            `Recommendations: ${report.recommendations.length}`,
         ].join("\n");
     }
 }
