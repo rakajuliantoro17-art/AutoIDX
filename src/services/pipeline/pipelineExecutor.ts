@@ -2,35 +2,32 @@
 ==========================================================
 AURA Trade OS
 Pipeline Executor
-Version : 0.3.0 Alpha
+Version : 0.3.1 Alpha
+
+Perubahan dari 0.3.0: import PipelineContext dari
+"./pipelineContext" (sumber tunggal sejak fix duplikasi
+sebelumnya) -- bukan lagi dari "./pipelineStage" yang
+sekarang tidak lagi mengekspor tipe ini.
 ==========================================================
 Pipeline Execution Engine
 ==========================================================
 */
 
 import type {
-
     Pipeline,
-
 } from "./pipeline";
 
 import type {
-
     PipelineContext,
+} from "./pipelineContext";
 
+import type {
     PipelineStageResult,
-
 } from "./pipelineStage";
 
 import type {
-
     PipelineResult,
-
 } from "./pipelineResult";
-
-
-
-
 
 /*
 ==========================================================
@@ -40,214 +37,80 @@ Pipeline Executor
 
 export class PipelineExecutor {
 
-    /*
-    ======================================================
-    Execute
-    ======================================================
-    */
-
     public async execute<T>(
-
         pipeline: Pipeline,
-
         context: PipelineContext,
-
     ): Promise<PipelineResult<T>> {
 
-        const startedAt =
-
-            new Date();
-
-
-
-        const stageResults:
-
-            PipelineStageResult[] = [];
-
-
-
-        let failedStages =
-
-            0;
-
-
+        const startedAt = new Date();
+        const stageResults: PipelineStageResult[] = [];
+        let failedStages = 0;
 
         try {
 
-            for (
+            for (const stage of pipeline.stages) {
 
-                const stage of
-
-                pipeline.stages
-
-            ) {
-
-                const stageStarted =
-
-                    performance.now();
-
-
+                const stageStarted = performance.now();
 
                 try {
 
-                    await stage.execute(
-
-                        context,
-
-                    );
-
-
+                    await stage.execute(context);
 
                     stageResults.push({
-
                         stage: stage.name,
-
                         status: "completed",
-
                         startedAt,
-
-                        finishedAt:
-
-                            new Date(),
-
-                        duration:
-
-                            performance.now() -
-
-                            stageStarted,
-
+                        finishedAt: new Date(),
+                        duration: performance.now() - stageStarted,
                     });
 
                 }
-
                 catch {
 
                     failedStages++;
 
-
-
                     stageResults.push({
-
                         stage: stage.name,
-
                         status: "failed",
-
                         startedAt,
-
-                        finishedAt:
-
-                            new Date(),
-
-                        duration:
-
-                            performance.now() -
-
-                            stageStarted,
-
+                        finishedAt: new Date(),
+                        duration: performance.now() - stageStarted,
                     });
 
                 }
 
             }
 
-
-
-            const finishedAt =
-
-                new Date();
-
-
+            const finishedAt = new Date();
 
             return {
-
-                status:
-
-                    failedStages === 0
-
-                        ? "success"
-
-                        : "partial",
-
+                status: failedStages === 0 ? "success" : "partial",
                 startedAt,
-
                 finishedAt,
-
-                duration:
-
-                    finishedAt.getTime()
-
-                    -
-
-                    startedAt.getTime(),
-
-                totalStages:
-
-                    stageResults.length,
-
-                completedStages:
-
-                    stageResults.length -
-
-                    failedStages,
-
+                duration: finishedAt.getTime() - startedAt.getTime(),
+                totalStages: stageResults.length,
+                completedStages: stageResults.length - failedStages,
                 failedStages,
-
-                stages:
-
-                    stageResults,
-
+                stages: stageResults,
                 metadata: {},
-
             };
 
         }
-
         catch (error) {
 
-            const finishedAt =
-
-                new Date();
-
-
+            const finishedAt = new Date();
 
             return {
-
                 status: "failed",
-
                 startedAt,
-
                 finishedAt,
-
-                duration:
-
-                    finishedAt.getTime()
-
-                    -
-
-                    startedAt.getTime(),
-
-                totalStages:
-
-                    stageResults.length,
-
-                completedStages:
-
-                    stageResults.length -
-
-                    failedStages,
-
+                duration: finishedAt.getTime() - startedAt.getTime(),
+                totalStages: stageResults.length,
+                completedStages: stageResults.length - failedStages,
                 failedStages,
-
-                stages:
-
-                    stageResults,
-
-                error:
-
-                    error as Error,
-
+                stages: stageResults,
+                error: error as Error,
                 metadata: {},
-
             };
 
         }
@@ -256,16 +119,10 @@ export class PipelineExecutor {
 
 }
 
-
-
-
-
 /*
 ==========================================================
 Singleton
 ==========================================================
 */
 
-export const pipelineExecutor =
-
-    new PipelineExecutor();
+export const pipelineExecutor = new PipelineExecutor();
