@@ -66,7 +66,7 @@ export class EventBus {
             this.listeners.set(event, new Set());
         }
 
-        this.listeners.get(event)!.add(handler);
+        this.listeners.get(event)!.add(handler as EventHandler);
 
         logger.debug(`Subscribed to "${event}".`);
 
