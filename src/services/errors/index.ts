@@ -26,7 +26,7 @@ export {
 ==========================================================
 */
 
-export {
+export type {
     ErrorCategory,
 } from "./errorCategory";
 
@@ -37,7 +37,7 @@ export {
 ==========================================================
 */
 
-export {
+export type {
     ErrorCode,
 } from "./errorCode";
 
