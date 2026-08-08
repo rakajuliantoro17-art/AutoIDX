@@ -2,37 +2,21 @@
 ==========================================================
 AURA Trade OS
 Validator
-Version : 0.3.0 Alpha
+Version : 0.3.1 Alpha
+
+Perubahan dari 0.3.0: ValidationIssue dan ValidationResult
+sebelumnya didefinisikan ulang di sini, identik (tapi lebih
+sederhana, tanpa `warnings`) dengan versi di validationResult.ts
+- menyebabkan collision saat index.ts export * dari keduanya.
+Sekarang import dari validationResult.ts (sumber kanonik).
 ==========================================================
 Validation Contract
 ==========================================================
 */
 
-export interface ValidationIssue {
-
-    readonly path: string;
-
-    readonly message: string;
-
-}
-
-
-
-
-
-export interface ValidationResult {
-
-    readonly valid: boolean;
-
-    readonly issues:
-
-        readonly ValidationIssue[];
-
-}
-
-
-
-
+import type {
+    ValidationResult,
+} from "./validationResult";
 
 export interface Validator<T = unknown> {
 
@@ -43,11 +27,7 @@ export interface Validator<T = unknown> {
     */
 
     validate(
-
         value: T,
-
     ): ValidationResult;
 
 }
-
-
