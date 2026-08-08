@@ -557,9 +557,6 @@ export class ArrayValidator<T = unknown>
 
             warnings,
 
-            issueCount: issues.length,
-
-            warningCount: warnings.length,
 
         };
 
