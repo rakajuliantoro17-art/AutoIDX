@@ -949,9 +949,6 @@ export class ObjectValidator
 
             warnings,
 
-            issueCount: issues.length,
-
-            warningCount: warnings.length,
 
         };
 
