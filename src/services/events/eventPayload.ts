@@ -10,3 +10,12 @@ Event Payload Contract
 
 export type EventPayload =
     Record<string, unknown> | null;
+
+export function isEventPayloadObject(
+    value: EventPayload,
+): value is Record<string, unknown> {
+    return (
+        typeof value === "object" &&
+        value !== null
+    );
+}
