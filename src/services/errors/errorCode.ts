@@ -8,6 +8,14 @@ Stable Machine-Readable Error Codes
 ==========================================================
 */
 
+import type {
+    ErrorCategory,
+} from "./errorCategory";
+
+import type {
+    ErrorSeverity,
+} from "./errorSeverity";
+
  /*
 ==========================================================
 Error Code
@@ -350,11 +358,23 @@ export interface ErrorCodeMetadata {
 
     readonly code: ErrorCode;
 
-    readonly category: string;
+    readonly category: ErrorCategory;
 
     readonly description: string;
 
     readonly retryable: boolean;
+
+    readonly title?: string;
+
+    readonly summary?: string;
+
+    readonly message?: string;
+
+    readonly severity?: ErrorSeverity;
+
+    readonly operational?: boolean;
+
+    readonly reportable?: boolean;
 
 }
 
