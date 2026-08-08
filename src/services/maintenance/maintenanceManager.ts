@@ -2,74 +2,29 @@
 ==========================================================
 AURA Trade OS
 Maintenance Manager
-Version : 0.1.0 Alpha
+Version : 0.2.0 Alpha
 ==========================================================
-System Maintenance Mode Toggle
-==========================================================
-*/
-
-import logger from "@/services/logger";
-
-
-
-
-/*
-==========================================================
-Maintenance Manager
+Maintenance Mode Adapter
 ==========================================================
 */
+
+import { applicationContext } from "@/services/core/applicationContext";
 
 export class MaintenanceManager {
 
-    private enabled: boolean = false;
-
-
-
-    /*
-    ======================================================
-    Is Enabled
-    ======================================================
-    */
-
-    async isEnabled(): Promise<boolean> {
-
-        return this.enabled;
-
+    public async isEnabled(): Promise<boolean> {
+        return applicationContext.isMaintenance();
     }
 
-
-
-    /*
-    ======================================================
-    Enable / Disable
-    ======================================================
-    */
-
-    enable(): void {
-
-        this.enabled = true;
-
-        logger.warn("Maintenance mode enabled.");
-
+    public async enable(): Promise<void> {
+        applicationContext.enableMaintenance();
     }
 
-    disable(): void {
-
-        this.enabled = false;
-
-        logger.info("Maintenance mode disabled.");
-
+    public async disable(): Promise<void> {
+        applicationContext.disableMaintenance();
     }
 
 }
 
-
-
-
-/*
-==========================================================
-Singleton
-==========================================================
-*/
-
-export const maintenanceManager = new MaintenanceManager();
+export const maintenanceManager =
+    new MaintenanceManager();
