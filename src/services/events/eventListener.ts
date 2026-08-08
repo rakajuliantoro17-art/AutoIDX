@@ -122,13 +122,11 @@ export class EventListener {
 
         );
 
-
-
         eventBus.off(
 
             event,
 
-            handler,
+            handler as EventHandler,
 
         );
 
