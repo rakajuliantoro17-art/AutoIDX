@@ -196,8 +196,8 @@ export class EventBus {
 
     }
 
-    public async publish(
-        event: AURAEvent,
+    public async publish<T = unknown>(
+        event: AURAEvent<T>,
     ): Promise<EventResult> {
 
         const start = Date.now();
