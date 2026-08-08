@@ -830,9 +830,6 @@ export class PrimitiveValidator
 
             warnings,
 
-            issueCount: issues.length,
-
-            warningCount: warnings.length,
 
         };
 
