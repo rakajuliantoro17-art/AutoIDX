@@ -76,29 +76,18 @@ export class DiagnosticsExporter {
     Markdown
     ======================================================
     */
-    private exportMarkdown(
+    private exportText(
         report: DiagnosticsReport,
     ): string {
         logger.info(
-            "Diagnostics exported as Markdown.",
+            "Diagnostics exported as Text.",
         );
         return [
-            `# ${report.title}`,
-            "",
-            `Health : ${report.analysis.healthy}`,
-            `Score : ${report.analysis.score}`,
-            "",
-            "## Issues",
-            ...report.analysis.issues.map(
-                issue =>
-                    `- ${issue}`,
-            ),
-            "",
-            "## Recommendations",
-            ...report.analysis.recommendations.map(
-                recommendation =>
-                    `- ${recommendation}`,
-            ),
+            report.title,
+            `Health: ${report.healthy}`,
+            `Score: ${report.score}`,
+            `Issues: ${report.issues.length}`,
+            `Recommendations: ${report.recommendations.length}`,
         ].join("\n");
     }
     /*
