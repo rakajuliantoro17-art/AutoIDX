@@ -4,38 +4,12 @@ AURA Trade OS
 Event Metadata
 Version : 0.0.7 Alpha
 ==========================================================
+Event Metadata Bag
+==========================================================
 */
 
 export interface EventMetadata {
-    readonly source?: string;
-    readonly service?: string;
-    readonly module?: string;
 
-    readonly symbol?: string;
-    readonly pair?: string;
-    readonly exchange?: string;
+    [key: string]: unknown;
 
-    readonly strategyId?: string;
-    readonly signalId?: string;
-    readonly orderId?: string;
-    readonly positionId?: string;
-
-    readonly requestId?: string;
-    readonly correlationId?: string;
-    readonly causationId?: string;
-
-    readonly timestamp?: number;
-
-    readonly [key: string]: unknown;
-}
-
-export function createEventMetadata(
-    metadata: EventMetadata = {},
-): EventMetadata {
-    return {
-        ...metadata,
-        timestamp:
-            metadata.timestamp ??
-            Date.now(),
-    };
 }
