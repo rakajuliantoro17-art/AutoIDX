@@ -366,7 +366,7 @@ export interface DomainErrorMetadata {
     readonly runtime?: string;
     readonly runtimeVersion?: string;
     readonly environment?: string;
-    readonly processId?: string;
+    readonly processId?: number;
     readonly workerId?: string;
     readonly hostname?: string;
     readonly runtimeState?: string;
