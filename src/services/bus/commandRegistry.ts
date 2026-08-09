@@ -19,10 +19,7 @@ import type {
 } from "./busHandler";
 export class CommandRegistry
     extends BusRegistry {
-    public registerCommand
-        TCommand = unknown,
-        TResult = unknown,
-    >(
+    public registerCommand<TCommand = unknown, TResult = unknown>(
         handler:
             CommandHandler<TCommand, TResult>,
     ): void {
@@ -32,10 +29,7 @@ export class CommandRegistry
             ) as BusHandlerDefinition,
         );
     }
-    public replaceCommand
-        TCommand = unknown,
-        TResult = unknown,
-    >(
+    public replaceCommand<TCommand = unknown, TResult = unknown>(
         handler:
             CommandHandler<TCommand, TResult>,
     ): void {
