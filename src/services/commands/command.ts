@@ -280,7 +280,7 @@ export function createCommandId(): string {
 export function resolveCommandCategory(
     type: CommandType,
 ): CommandCategory {
-
+const value = type as string;
     if (
         type.startsWith("SYSTEM_")
     ) {
