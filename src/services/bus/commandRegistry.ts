@@ -17,7 +17,6 @@ import {
 import type {
     BusHandlerDefinition,
 } from "./busHandler";
-
 export class CommandRegistry
     extends BusRegistry {
     public registerCommand
