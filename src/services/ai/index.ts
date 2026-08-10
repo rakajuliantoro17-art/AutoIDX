@@ -187,3 +187,210 @@ export type {
     AIComponentType,
     AIRegistryEntry,
 } from "./aiRegistry";
+
+
+export {
+    createFeature,
+    isNumericFeature,
+} from "./features/feature";
+
+export type {
+    Feature,
+    FeatureValue,
+    FeatureType,
+} from "./features/feature";
+
+export {
+    createFeatureSet,
+    featureSetToRecord,
+    getFeature,
+} from "./features/featureSet";
+
+export type {
+    FeatureSet,
+} from "./features/featureSet";
+
+export {
+    FeatureExtractor,
+    featureExtractor,
+} from "./features/featureExtractor";
+
+export type {
+    FeatureExtractionInput,
+} from "./features/featureExtractor";
+
+export {
+    FeatureNormalizer,
+    featureNormalizer,
+} from "./features/featureNormalizer";
+
+export type {
+    NormalizationMethod,
+    NormalizationStats,
+} from "./features/featureNormalizer";
+
+export {
+    FeatureScaler,
+    featureScaler,
+} from "./features/featureScaler";
+
+export type {
+    FeatureScale,
+} from "./features/featureScaler";
+
+export {
+    FeatureValidator,
+    featureValidator,
+} from "./features/featureValidator";
+
+export type {
+    FeatureValidationIssue,
+    FeatureValidationResult,
+} from "./features/featureValidator";
+
+export {
+    FeatureRegistry,
+    featureRegistry,
+} from "./features/featureRegistry";
+
+export type {
+    FeatureDefinition,
+} from "./features/featureRegistry";
+
+
+/*
+==========================================================
+MODEL RUNTIME
+==========================================================
+*/
+
+export {
+    ModelRuntime,
+} from "./runtime/modelRuntime";
+
+export {
+    createModelRuntimeContext,
+    completeModelRuntimeContext,
+} from "./runtime/modelRuntimeContext";
+
+export type {
+    ModelRuntimeContext,
+} from "./runtime/modelRuntimeContext";
+
+export {
+    createModelRuntimeConfig,
+} from "./runtime/modelRuntimeConfig";
+
+export type {
+    ModelRuntimeConfig,
+} from "./runtime/modelRuntimeConfig";
+
+export {
+    isSuccessfulRuntime,
+} from "./runtime/modelRuntimeResult";
+
+export type {
+    ModelRuntimeResult,
+} from "./runtime/modelRuntimeResult";
+
+export {
+    RegistryModelLoader,
+    modelLoader,
+} from "./runtime/modelLoader";
+
+export type {
+    ModelLoader,
+} from "./runtime/modelLoader";
+
+export {
+    ModelRegistry,
+    modelRegistry,
+} from "./runtime/modelRegistry";
+
+export type {
+    ModelRegistryEntry,
+} from "./runtime/modelRegistry";
+
+export {
+    BasicModelExecutor,
+} from "./runtime/modelExecutor";
+
+export type {
+    ModelExecutor,
+} from "./runtime/modelExecutor";
+
+
+/*
+==========================================================
+AI PIPELINE
+==========================================================
+*/
+
+export {
+    AIPipeline,
+} from "./pipeline/aiPipeline";
+
+export {
+    createAIPipelineContext,
+    setPipelineStage,
+} from "./pipeline/aiPipelineContext";
+
+export type {
+    AIPipelineContext,
+} from "./pipeline/aiPipelineContext";
+
+export {
+    getPipelineOutput,
+} from "./pipeline/aiPipelineResult";
+
+export type {
+    AIPipelineResult,
+} from "./pipeline/aiPipelineResult";
+
+export {
+    PipelineStage,
+} from "./pipeline/aiPipelineStage";
+
+export type {
+    AIPipelineStage,
+    AIPipelineStageName,
+} from "./pipeline/aiPipelineStage";
+
+export {
+    AIPipelineManager,
+    aiPipelineManager,
+} from "./pipeline/aiPipelineManager";
+
+export type {
+    AIPipelineRequest,
+} from "./pipeline/aiPipelineManager";
+
+
+/*
+==========================================================
+PHASE 30 COMPATIBILITY
+==========================================================
+*/
+
+export {
+    AIManager,
+    aiManager,
+} from "./aiManager";
+
+export type {
+    AIAnalysisRequest,
+} from "./aiManager";
+
+export {
+    AIRegistry,
+    aiRegistry,
+} from "./aiRegistry";
+
+export type {
+    AIContext,
+} from "./aiContext";
+
+export {
+    createAIContext,
+    completeAIContext,
+} from "./aiContext";
