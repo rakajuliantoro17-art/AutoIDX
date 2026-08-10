@@ -75,19 +75,17 @@ export function createTransactionSuccess<T>(
     };
 }
 
-export function createTransactionFailure(
+export function createTransactionFailure<T = never>(
     transactionId: string,
     error: unknown,
     options: {
         readonly status?:
             TransactionStatus;
-
         readonly startedAt?: number;
-
         readonly metadata?:
             Record<string, unknown>;
     } = {},
-): TransactionResult {
+): TransactionResult<T> {
     const completedAt =
         Date.now();
 
