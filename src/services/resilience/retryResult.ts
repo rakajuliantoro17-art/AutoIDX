@@ -2,7 +2,12 @@
 ==========================================================
 AURA Trade OS
 Retry Result
-Version : 0.0.8 Alpha
+Version : 0.0.9 Alpha
+
+Perubahan dari 0.0.8: createRetryFailure() sekarang generic
+<T>, konsisten dengan createRetrySuccess() -- sebelumnya
+selalu RetryResult<unknown>, bikin type error waktu dipakai
+di dalam fungsi generic execute<T>() (retryExecutor.ts).
 ==========================================================
 */
 
@@ -34,11 +39,11 @@ export function createRetrySuccess<T>(
     };
 }
 
-export function createRetryFailure(
+export function createRetryFailure<T = never>(
     error: unknown,
     history: readonly RetryAttempt[],
     startedAt: number,
-): RetryResult {
+): RetryResult<T> {
     return {
         success: false,
         error,
