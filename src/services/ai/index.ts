@@ -394,3 +394,55 @@ export {
     createAIContext,
     completeAIContext,
 } from "./aiContext";
+
+export * from "./lifecycle";
+export * from "./evaluation";
+
+export * from "./selection";
+
+export {
+    createEvaluationDataset,
+} from "./evaluation/evaluationDataset";
+
+export type {
+    EvaluationDataset,
+} from "./evaluation/evaluationDataset";
+
+export {
+    createEvaluationSample,
+} from "./evaluation/evaluationSample";
+
+export type {
+    EvaluationSample,
+} from "./evaluation/evaluationSample";
+
+export {
+    createEvaluationMetric,
+} from "./evaluation/evaluationMetric";
+
+export type {
+    EvaluationMetric,
+    EvaluationMetricName,
+} from "./evaluation/evaluationMetric";
+
+export {
+    getMetric,
+} from "./evaluation/evaluationResult";
+
+export type {
+    EvaluationResult,
+} from "./evaluation/evaluationResult";
+
+export {
+    ModelEvaluator,
+} from "./evaluation/modelEvaluator";
+
+export {
+    PredictionEvaluator,
+    predictionEvaluator,
+} from "./evaluation/predictionEvaluator";
+
+export {
+    EvaluationManager,
+    evaluationManager,
+} from "./evaluation/evaluationManager";
