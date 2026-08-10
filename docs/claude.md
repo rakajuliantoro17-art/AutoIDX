@@ -520,3 +520,15 @@ Ditemukan bahwa sistem live trading sudah dibangun (oleh sesi Claude lain) jauh 
 ## Multi-pair
 
 Sudah didukung penuh via `BotSettings.pairs` (Firestore, edit dari Settings UI, contoh saat ini: `btcidr`, `ethidr`, `solidr`). Rencana lanjutan: fetch daftar SEMUA pair IDR yang tersedia di Indodax (`/api/pairs`, endpoint publik) supaya opsi di UI Settings otomatis lengkap & selalu update — belum dikerjakan.
+
+## ✅ RESOLVED: `services/paperTrading/` vs `services/trading/paper.ts`
+
+**Keputusan final: `services/trading/paper.ts` adalah sistem aktif. `services/paperTrading/` ORPHAN, aman dihapus.**
+
+Bukti konklusif:
+1. Halaman live `/dashboard/paper-trading` (`src/pages/dashboard/paper-trading.tsx`) fetch dari `/api/paper-trading/status`.
+2. `src/pages/api/paper-trading/status.ts` baca langsung dari koleksi Firestore `paper_portfolio/default`, `paper_positions`, `paper_trade_logs`.
+3. Ketiga nama koleksi itu PERSIS sama dengan yang ditulis `paperTradingStore.ts` (`savePaperPortfolio`, `savePaperPosition`, `logPaperTrade`) — yang dipakai `services/trading/paper.ts`.
+4. Search menyeluruh: TIDAK ADA file di luar folder `services/paperTrading/` yang mengimpornya (`account.ts`, `engine.ts`, `index.ts`, `orders.ts`, `simulator.ts`, `tracker.ts`, `types.ts` — semua orphan).
+
+**Tindakan:** folder `src/services/paperTrading/` boleh dihapus kapan saja. Bukan lagi item "jangan diasumsikan selesai" — sudah final.
