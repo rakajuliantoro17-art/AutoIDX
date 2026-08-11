@@ -19,10 +19,18 @@ export class LiveTradingRunner {
   ) {}
 
   async process(request: LiveSignalRequest): Promise<{
-    status: "SUBMITTED" | "REJECTED" | "UNKNOWN" | "BLOCKED";
+    status: "SUBMITTED" | "REJECTED" | "UNKNOWN" | "BLOCKED" | "SKIPPED";
     order?: ExchangeOrder;
     reason?: string;
   }> {
+
+    if (request.signal === "HOLD") {
+      return {
+        status: "SKIPPED",
+        reason: "Signal is HOLD, no execution needed.",
+      };
+    }
+
     const gateResult = this.gate.check({
       symbol: request.symbol,
       signal: request.signal,
@@ -31,7 +39,9 @@ export class LiveTradingRunner {
       timestamp: Date.now(),
       config: this.config,
     });
+
     if (!gateResult.allowed) return { status: "BLOCKED", reason: gateResult.reason };
+
     return this.executor.execute({
       symbol: request.symbol,
       side: request.signal,
