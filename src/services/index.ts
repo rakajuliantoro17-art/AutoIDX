@@ -24,9 +24,9 @@ export * from "./audit/auditSerializer";
 export * from "./recovery/recoveryState";
 export * from "./recovery/recoveryManager";
 
-export * from "./runtime/phase37Health";
-export * from "./runtime/phase37Runtime";
-export * from "./runtime/phase37Bootstrap";
+export * from "./runtime/health";
+export * from "./runtime/runtime";
+export * from "./runtime/bootstrap";
 
-export * from "./validation/phase37Invariant";
-export * from "./validation/phase37Validator";
+export * from "./validation/invariant";
+export * from "./validation/validator";
