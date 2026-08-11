@@ -207,7 +207,7 @@ export * from "./gate/liveOrderGate";
 
 export * from "./exchange/exchangeClient";
 export * from "./exchange/exchangeOrder";
-export * from "./exchange/exchangeResponse";
+export type { ExchangeResponse as ExchangeApiResponse } from "./exchange/exchangeResponse";
 export * from "./exchange/indodaxAdapter";
 
 export * from "./execution/orderIdempotency";
