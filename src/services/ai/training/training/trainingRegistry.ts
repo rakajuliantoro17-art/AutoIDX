@@ -67,8 +67,7 @@ export class TrainingRegistry {
         | TrainingResult
         | undefined {
         const results =
-            this.list(modelId);
-
+            [...this.list(modelId)];
         return results.sort(
             (a, b) =>
                 b.completedAt -
