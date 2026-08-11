@@ -36,9 +36,9 @@ Main Engine
 
 export {
 
-    default as backtestEngine,
+    default as legacyBacktestEngine,
 
-    BacktestEngine
+    BacktestEngine as LegacyBacktestEngine
 
 }
 
@@ -59,9 +59,9 @@ Execution Runner
 
 export {
 
-    default as backtestRunner,
+    default as legacyBacktestRunner,
 
-    BacktestRunner
+    BacktestRunner as LegacyBacktestRunner
 
 }
 
