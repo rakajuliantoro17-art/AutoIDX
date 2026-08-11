@@ -217,3 +217,7 @@ export * from "./execution/liveOrderExecutor";
 export * from "./monitoring/liveExecutionMetrics";
 export * from "./monitoring/liveTradeLog";
 export * from "./monitoring/liveHealth";
+
+export * from "./canary";
+
+export * from "./execution";
