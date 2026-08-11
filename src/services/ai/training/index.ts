@@ -80,12 +80,12 @@ export type {
 
 export {
     createTrainingConfig,
-} from "./trainingConfig";
+} from "./training/trainingConfig";
 
 export type {
     TrainingConfig,
     TrainingAlgorithm,
-} from "./trainingConfig";
+} from "./training/trainingConfig";
 
 export {
     createTrainingRequest,
