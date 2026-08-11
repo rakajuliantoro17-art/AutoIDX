@@ -36,3 +36,47 @@ export interface Validator<T = unknown> {
     ): ValidationResult;
 
 }
+
+import type {
+  Phase37InvariantInput,
+} from "./phase37Invariant";
+
+import {
+  assertPhase37Invariants,
+} from "./phase37Invariant";
+
+export interface Phase37ValidationResult {
+  readonly valid: boolean;
+
+  readonly errors: readonly string[];
+
+  readonly timestamp: number;
+}
+
+export function validatePhase37(
+  input: Phase37InvariantInput,
+): Phase37ValidationResult {
+
+  try {
+    assertPhase37Invariants(input);
+
+    return Object.freeze({
+      valid: true,
+      errors: [],
+      timestamp: Date.now(),
+    });
+
+  } catch (error) {
+    return Object.freeze({
+      valid: false,
+
+      errors: [
+        error instanceof Error
+          ? error.message
+          : "Unknown Phase 37 validation error",
+      ],
+
+      timestamp: Date.now(),
+    });
+  }
+}
