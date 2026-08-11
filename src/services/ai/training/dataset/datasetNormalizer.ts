@@ -200,14 +200,15 @@ export class DatasetNormalizer {
                     value,
                 ] of Object.entries(
                     record.features,
+                )
+            ) {
+                if (
+                    typeof value ===
+                    "number"
                 ) {
-                    if (
-                        typeof value ===
-                        "number"
-                    ) {
-                        fields.add(key);
-                    }
+                    fields.add(key);
                 }
+            }
         }
 
         return [
