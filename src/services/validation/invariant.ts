@@ -1,4 +1,4 @@
-export interface Phase37InvariantInput {
+export interface invariantInput {
   readonly liveTradingEnabled: boolean;
 
   readonly safetyCanTrade: boolean;
@@ -14,8 +14,8 @@ export interface Phase37InvariantInput {
   readonly auditReady: boolean;
 }
 
-export function assertPhase37Invariants(
-  input: Phase37InvariantInput,
+export function assertinvariants(
+  input: invariantInput,
 ): void {
 
   if (
@@ -64,7 +64,7 @@ export function assertPhase37Invariants(
 
   if (failures.length > 0) {
     throw new Error(
-      `Phase 37 invariant violation: ${failures.join("; ")}`,
+      `invariant violation: ${failures.join("; ")}`,
     );
   }
 }
