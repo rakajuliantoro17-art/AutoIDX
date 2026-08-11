@@ -18,15 +18,15 @@ import {
   Phase37Runtime,
 } from "./phase37Runtime";
 
-export interface Phase37Bootstrap {
-  readonly runtime: Phase37Runtime;
+export interface Bootstrap {
+  readonly runtime: Runtime;
 
   readonly safety: SafetyManager;
 
   readonly recovery: RecoveryManager;
 }
 
-export function createPhase37Runtime(): Phase37Bootstrap {
+export function createRuntime(): Bootstrap {
   const safetyConfig =
     createSafetyConfig();
 
