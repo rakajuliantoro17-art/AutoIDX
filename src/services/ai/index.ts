@@ -372,29 +372,6 @@ PHASE 30 COMPATIBILITY
 ==========================================================
 */
 
-export {
-    AIManager,
-    aiManager,
-} from "./aiManager";
-
-export type {
-    AIAnalysisRequest,
-} from "./aiManager";
-
-export {
-    AIRegistry,
-    aiRegistry,
-} from "./aiRegistry";
-
-export type {
-    AIContext,
-} from "./aiContext";
-
-export {
-    createAIContext,
-    completeAIContext,
-} from "./aiContext";
-
 export * from "./lifecycle";
 export * from "./evaluation";
 
