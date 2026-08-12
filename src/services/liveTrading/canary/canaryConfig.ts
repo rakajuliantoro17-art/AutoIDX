@@ -123,3 +123,55 @@ export const createCanaryConfig = (): CanaryConfig => ({
     false,
   ),
 });
+
+/**
+ * ==========================================================
+ * AutoIDX — Phase 38 Batch 9
+ * Canary Configuration
+ * ==========================================================
+ */
+
+export interface CanaryConfig {
+  readonly enabled: boolean;
+  readonly maxOrderValue: number;
+  readonly maxOrdersPerSession: number;
+  readonly allowedSymbols: readonly string[];
+}
+
+export function getCanaryConfig():
+  CanaryConfig {
+
+  const symbols =
+    (
+      process.env.BOT_CANARY_SYMBOLS ??
+      process.env.BOT_PAIR ??
+      "btc_idr"
+    )
+      .split(",")
+      .map(
+        (value) =>
+          value.trim().toLowerCase(),
+      )
+      .filter(Boolean);
+
+  return {
+    enabled:
+      process.env.BOT_CANARY_ENABLED ===
+      "true",
+
+    maxOrderValue:
+      Number(
+        process.env.BOT_CANARY_MAX_ORDER ??
+        10000,
+      ),
+
+    maxOrdersPerSession:
+      Number(
+        process.env.BOT_CANARY_MAX_ORDERS ??
+        1,
+      ),
+
+    allowedSymbols:
+      symbols,
+  };
+}
