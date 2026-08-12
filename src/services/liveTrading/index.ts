@@ -227,3 +227,29 @@ export * from "./reconciliation";
 export * from "./persistence";
 
 export * from "./audit";
+
+
+
+export * from "../idempotencyKey";
+export * from "../idempotencyStore";
+export * from "../duplicateOrderGuard";
+export * from "../uncertainExecutionGuard";
+
+export * from "../executionSimulation";
+export * from "../executionPreflight";
+export * from "../executionTestReport";
+export * from "../dryRunController";
+
+export * from "../productionReadiness";
+export * from "../productionGate";
+export * from "../liveTradingConfig";
+export * from "../killSwitch";
+
+export * from "../canaryConfig";
+export * from "../canaryResult";
+export * from "../canaryGuard";
+export * from "../canaryExecutor";
+
+export * from "../executionSupervisor";
+export * from "../reconciliationService";
+export * from "../autoTradingController";
