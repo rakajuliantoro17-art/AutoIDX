@@ -125,16 +125,6 @@ export class TradingIntegration {
 
   private readonly processedRequests = new Set<string>();
 
-  private readonly execution: TradingExecutionAdapter;
-
-  private readonly risk?: TradingRiskAdapter;
-
-  private readonly safety?: TradingSafetyAdapter;
-
-  private readonly mode: TradingMode;
-
-  private readonly processedRequests = new Set<string>();
-
   public constructor(
     options: TradingIntegrationOptions,
   ) {
