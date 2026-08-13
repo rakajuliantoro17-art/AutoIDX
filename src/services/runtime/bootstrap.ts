@@ -15,8 +15,8 @@ import {
 } from "../recovery/recoveryManager";
 
 import {
-  Phase37Runtime,
-} from "./phase37Runtime";
+  Runtime,
+} from "./runtime";
 
 export interface Bootstrap {
   readonly runtime: Runtime;
@@ -44,7 +44,7 @@ export function createRuntime(): Bootstrap {
     new RecoveryManager();
 
   const runtime =
-    new Phase37Runtime(
+    new Runtime(
       safety,
       recovery,
     );
