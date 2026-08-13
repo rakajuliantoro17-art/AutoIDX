@@ -47,7 +47,7 @@ export class CanaryGuard {
 
     if (
       request.orderValue >
-      this.config.maxOrderValue
+      this.config.maxOrderValueIdr
     ) {
       throw new Error(
         "Canary order exceeds maximum order value.",
