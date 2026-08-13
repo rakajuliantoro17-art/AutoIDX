@@ -10,6 +10,10 @@ import {
   TradingIntegration,
 } from "./tradingIntegration";
 
+import type {
+  TradingExecutionAdapter,
+} from "./tradingIntegration";
+
 import {
   RiskIntegration,
 } from "./riskIntegration";
@@ -40,8 +44,30 @@ export function createIntegrationManager(
   const registry =
     new IntegrationRegistry();
 
+  /*
+   * TODO: belum ada implementasi TradingExecutionAdapter yang
+   * nyata di codebase ini. Stub ini sengaja SELALU gagal
+   * (bukan pura-pura sukses) supaya tidak ada order yang
+   * "hilang diam-diam" kalau TradingIntegration terpanggil
+   * sebelum benar-benar disambungkan ke execution engine asli.
+   */
+  const notImplementedExecutionAdapter: TradingExecutionAdapter = {
+    execute: async (request) => ({
+      success: false,
+      status: "FAILED",
+      requestId: request.requestId ?? "unknown",
+      symbol: request.symbol,
+      side: request.side,
+      amount: request.amount,
+      error: "TradingExecutionAdapter belum diimplementasikan.",
+      timestamp: Date.now(),
+    }),
+  };
+
   registry.register(
-    new TradingIntegration(),
+    new TradingIntegration({
+      execution: notImplementedExecutionAdapter,
+    }),
   );
 
   registry.register(
