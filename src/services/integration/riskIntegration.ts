@@ -111,6 +111,8 @@ export interface RiskIntegrationOptions {
 }
 
 export class RiskIntegration {
+  public readonly name = "risk-integration";
+
   private readonly engine?: RiskEngineAdapter;
 
   private readonly minimumConfidence?: number;
@@ -230,8 +232,13 @@ export class RiskIntegration {
   /**
    * Alias used by integration callers that expect
    * a validate-style API.
+   *
+   * Note: named validateRiskRequest (not validate) so this
+   * class can still satisfy the generic IntegrationComponent
+   * contract, whose optional validate() takes no arguments
+   * and serves a different purpose (component health-check).
    */
-  public async validate(
+  public async validateRiskRequest(
     request: RiskIntegrationRequest,
   ): Promise<boolean> {
     const result =
