@@ -11,57 +11,44 @@
  * We should not duplicate or replace its contract.
  * ==========================================================
  */
-
 import {
   CanaryContext,
 } from "../canary/canaryContext";
-
 import {
   CanaryManager,
 } from "../canary/canaryManager";
-
 import {
   CanaryExecutionService,
 } from "../canary/canaryExecutionService";
-
 import {
   CanaryDecision,
 } from "../canary/canaryDecision";
-
-export interface LiveExecutionRequest<
+export interface LiveExecutionBridgeRequest
   TOrder,
 > {
   context: CanaryContext;
-
   order: TOrder;
 }
-
-export interface LiveExecutionResult<
+export interface LiveExecutionResult
   TResult,
 > {
   decision: CanaryDecision;
-
   executionAllowed: boolean;
-
   result?: TResult;
-
   error?: unknown;
 }
-
-export class LiveExecutionBridge<
+export class LiveExecutionBridge
   TOrder,
   TResult,
 > {
   private readonly service:
-    CanaryExecutionService<
+    CanaryExecutionService
       TOrder,
       TResult
     >;
-
   public constructor(
     canaryManager:
       CanaryManager,
-
     executor:
       (
         order: TOrder,
@@ -73,34 +60,28 @@ export class LiveExecutionBridge<
         executor,
       );
   }
-
   public async execute(
     request:
-      LiveExecutionRequest<
+      LiveExecutionBridgeRequest
         TOrder
       >,
-  ): Promise<
+  ): Promise
     LiveExecutionResult<TResult>
   > {
     const result =
       await this.service.execute({
         context:
           request.context,
-
         order:
           request.order,
       });
-
     return {
       decision:
         result.decision,
-
       executionAllowed:
         result.executed,
-
       result:
         result.result,
-
       error:
         result.error,
     };
