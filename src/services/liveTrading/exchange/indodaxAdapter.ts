@@ -1,26 +1,3 @@
-import type { ExchangeClient } from "./exchangeClient";
-import type { ExchangeOrder, ExchangeOrderRequest } from "./exchangeOrder";
-
-/**
- * Explicit exchange boundary.
- * Credentials and the current authenticated Indodax API contract must be
- * supplied by the application's exchange infrastructure.
- */
-export class IndodaxAdapter implements ExchangeClient {
-  async submitOrder(_request: ExchangeOrderRequest): Promise<ExchangeOrder> {
-    throw new Error("IndodaxAdapter.submitOrder is not wired. Configure authenticated exchange infrastructure first.");
-  }
-  async getOrder(_orderId: string, _symbol: string): Promise<ExchangeOrder> {
-    throw new Error("IndodaxAdapter.getOrder is not wired. Reconciliation is mandatory before live trading.");
-  }
-  async cancelOrder(_orderId: string, _symbol: string): Promise<ExchangeOrder> {
-    throw new Error("IndodaxAdapter.cancelOrder is not wired.");
-  }
-  async getBalance(_asset: string): Promise<number> {
-    throw new Error("IndodaxAdapter.getBalance is not wired.");
-  }
-}
-
 /**
  * ==========================================================
  * AutoIDX — Indodax Live Exchange Adapter
@@ -35,6 +12,13 @@ export class IndodaxAdapter implements ExchangeClient {
  * IMPORTANT:
  * This adapter is deliberately thin.
  * Risk, safety and canary decisions belong ABOVE this layer.
+ *
+ * Perubahan: kelas stub `IndodaxAdapter implements ExchangeClient`
+ * (semua method throw "not wired") yang sebelumnya ada duluan di
+ * file ini dihapus - bentrok nama dengan implementasi asli di
+ * bawah ini (duplicate identifier, gagal build). Implementasi
+ * lengkap Phase 38 ini yang dipertahankan sebagai satu-satunya
+ * IndodaxAdapter di file ini.
  * ==========================================================
  */
 
