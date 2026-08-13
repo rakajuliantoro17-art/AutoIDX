@@ -1,5 +1,5 @@
 import type { ExchangeClient } from "../exchange/exchangeClient";
-import { IndodaxAdapter } from "../exchange/indodaxAdapter";
+import { IndodaxExchangeClient } from "../exchange/indodaxAdapter";
 import type { LiveTradingConfig } from "./liveTradingConfig";
 import { LiveApproval } from "../gate/liveApproval";
 import { KillSwitch } from "../gate/killSwitch";
@@ -20,7 +20,7 @@ export class LiveTradingEngine {
   readonly executor: LiveOrderExecutor;
   readonly runner: LiveTradingRunner;
 
-  constructor(config: LiveTradingConfig, client: ExchangeClient = new IndodaxAdapter()) {
+  constructor(config: LiveTradingConfig, client: ExchangeClient = new IndodaxExchangeClient()) {
     this.approval = new LiveApproval();
     this.killSwitch = new KillSwitch(config.killSwitchEnabled);
     this.guard = new LiveTradingGuard(config, this.approval, this.killSwitch);
