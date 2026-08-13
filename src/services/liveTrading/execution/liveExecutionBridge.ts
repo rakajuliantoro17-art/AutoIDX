@@ -23,67 +23,42 @@ import {
 import {
   CanaryDecision,
 } from "../canary/canaryDecision";
-export interface LiveExecutionBridgeRequest
-  TOrder,
-> {
+
+export interface LiveExecutionBridgeRequest<TOrder> {
   context: CanaryContext;
   order: TOrder;
 }
-export interface LiveExecutionResult
-  TResult,
-> {
+
+export interface LiveExecutionResult<TResult> {
   decision: CanaryDecision;
   executionAllowed: boolean;
   result?: TResult;
   error?: unknown;
 }
-export class LiveExecutionBridge
-  TOrder,
-  TResult,
-> {
-  private readonly service:
-    CanaryExecutionService
-      TOrder,
-      TResult
-    >;
+
+export class LiveExecutionBridge<TOrder, TResult> {
+  private readonly service: CanaryExecutionService<TOrder, TResult>;
+
   public constructor(
-    canaryManager:
-      CanaryManager,
-    executor:
-      (
-        order: TOrder,
-      ) => Promise<TResult>,
+    canaryManager: CanaryManager,
+    executor: (order: TOrder) => Promise<TResult>,
   ) {
-    this.service =
-      new CanaryExecutionService(
-        canaryManager,
-        executor,
-      );
+    this.service = new CanaryExecutionService(canaryManager, executor);
   }
+
   public async execute(
-    request:
-      LiveExecutionBridgeRequest
-        TOrder
-      >,
-  ): Promise
-    LiveExecutionResult<TResult>
-  > {
-    const result =
-      await this.service.execute({
-        context:
-          request.context,
-        order:
-          request.order,
-      });
+    request: LiveExecutionBridgeRequest<TOrder>,
+  ): Promise<LiveExecutionResult<TResult>> {
+    const result = await this.service.execute({
+      context: request.context,
+      order: request.order,
+    });
+
     return {
-      decision:
-        result.decision,
-      executionAllowed:
-        result.executed,
-      result:
-        result.result,
-      error:
-        result.error,
+      decision: result.decision,
+      executionAllowed: result.executed,
+      result: result.result,
+      error: result.error,
     };
   }
 }
