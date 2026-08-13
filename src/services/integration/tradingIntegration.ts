@@ -112,6 +112,19 @@ export interface TradingIntegrationOptions {
 }
 
 export class TradingIntegration {
+
+  public readonly name = "trading-integration";
+
+  private readonly execution: TradingExecutionAdapter;
+
+  private readonly risk?: TradingRiskAdapter;
+
+  private readonly safety?: TradingSafetyAdapter;
+
+  private readonly mode: TradingMode;
+
+  private readonly processedRequests = new Set<string>();
+
   private readonly execution: TradingExecutionAdapter;
 
   private readonly risk?: TradingRiskAdapter;
