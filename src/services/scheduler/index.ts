@@ -14,7 +14,6 @@ Core
 ==========================================================
 */
 
-export * from "./schedulerManager";
 export * from "./schedulerPolicy";
 export * from "./schedulerQueue";
 export * from "./schedulerRecovery";
@@ -27,6 +26,5 @@ Schedulers
 ==========================================================
 */
 
-export * from "./cronScheduler";
 export * from "./intervalScheduler";
 
