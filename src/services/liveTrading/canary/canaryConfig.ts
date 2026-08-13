@@ -13,27 +13,17 @@
 
 export interface CanaryConfig {
   enabled: boolean;
-
+  allowedSymbols: string[];
   maxOrdersPerSession: number;
-
   maxOrderValueIdr: number;
-
   maxDailyOrderValueIdr: number;
-
   maxDailyLossIdr: number;
-
   maxOpenOrders: number;
-
   requireReconciliation: boolean;
-
   maxReconciliationAgeMs: number;
-
   requireHealthyExchange: boolean;
-
   requireHealthyRuntime: boolean;
-
   allowBuy: boolean;
-
   allowSell: boolean;
 }
 
