@@ -16,3 +16,9 @@ export * from "./canaryGate";
 export * from "./canaryManager";
 
 export * from "./canaryExecutionService";
+
+export * from "./canaryExecutor.ts";
+
+export * from "./canaryGuard.ts";
+
+export * from "./canaryResult.ts";
