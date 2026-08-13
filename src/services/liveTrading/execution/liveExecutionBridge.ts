@@ -29,7 +29,7 @@ export interface LiveExecutionBridgeRequest<TOrder> {
   order: TOrder;
 }
 
-export interface LiveExecutionResult<TResult> {
+export interface LiveExecutionBridgeResult<TResult> {
   decision: CanaryDecision;
   executionAllowed: boolean;
   result?: TResult;
@@ -48,7 +48,7 @@ export class LiveExecutionBridge<TOrder, TResult> {
 
   public async execute(
     request: LiveExecutionBridgeRequest<TOrder>,
-  ): Promise<LiveExecutionResult<TResult>> {
+  ): Promise<LiveExecutionBridgeResult<TResult>> {
     const result = await this.service.execute({
       context: request.context,
       order: request.order,
