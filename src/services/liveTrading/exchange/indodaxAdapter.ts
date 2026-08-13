@@ -405,3 +405,165 @@ export class IndodaxAdapter {
 
 export const indodaxAdapter =
   new IndodaxAdapter();
+
+
+/*
+==========================================================
+Exchange Client Bridge
+==========================================================
+Phase 38 / Batch (bridge)
+
+IndodaxAdapter di atas sengaja "tipis" dan memakai bentuk
+API asli Indodax (pair, type "buy"/"sell", amount). Kontrak
+generik ExchangeClient (dipakai LiveTradingEngine, dkk.)
+memakai bentuk berbeda (symbol, side "BUY"/"SELL", quantity).
+Class ini menjembatani keduanya tanpa mengubah IndodaxAdapter
+di atas.
+==========================================================
+*/
+
+import type {
+  ExchangeClient,
+} from "./exchangeClient";
+
+import type {
+  ExchangeOrder,
+  ExchangeOrderRequest,
+} from "./exchangeOrder";
+
+/**
+ * Normalisasi simbol ke format pair Indodax ("btc_idr").
+ * Menerima "BTC_IDR", "btc_idr", atau "BTCIDR".
+ */
+function symbolToPair(symbol: string): string {
+  const lower = symbol.toLowerCase();
+
+  if (lower.includes("_")) {
+    return lower;
+  }
+
+  if (lower.endsWith("idr")) {
+    return `${lower.slice(0, -3)}_idr`;
+  }
+
+  return lower;
+}
+
+function pairToSymbol(pair: string): string {
+  return pair.toUpperCase();
+}
+
+function mapStatus(
+  received: boolean,
+): ExchangeOrder["status"] {
+  return received ? "OPEN" : "REJECTED";
+}
+
+export class IndodaxExchangeClient implements ExchangeClient {
+
+  public constructor(
+    private readonly adapter: IndodaxAdapter = indodaxAdapter,
+  ) {}
+
+  public async submitOrder(
+    request: ExchangeOrderRequest,
+  ): Promise<ExchangeOrder> {
+    const amount =
+      request.side === "BUY" && request.quoteAmount !== undefined
+        ? request.quoteAmount
+        : request.quantity;
+
+    const result = await this.adapter.submitOrder({
+      pair: symbolToPair(request.symbol),
+      type: request.side === "BUY" ? "buy" : "sell",
+      amount,
+    });
+
+    const now = Date.now();
+
+    return {
+      id: result.orderId ?? request.clientOrderId,
+      clientOrderId: request.clientOrderId,
+      symbol: request.symbol,
+      side: request.side,
+      quantity: request.quantity,
+      filledQuantity: 0,
+      status: mapStatus(result.received),
+      createdAt: now,
+      updatedAt: now,
+      raw: result.raw,
+    };
+  }
+
+  public async getOrder(
+    orderId: string,
+    symbol: string,
+  ): Promise<ExchangeOrder> {
+    const result = await this.adapter.getOrder(
+      orderId,
+      symbolToPair(symbol),
+    );
+
+    const now = Date.now();
+
+    return {
+      id: result.orderId,
+      clientOrderId: result.orderId,
+      symbol: result.pair ? pairToSymbol(result.pair) : symbol,
+      side: result.type === "sell" ? "SELL" : "BUY",
+      quantity: Number(result.amount ?? 0),
+      filledQuantity: Number(result.executed ?? 0),
+      status: mapExchangeOrderStatus(result.status),
+      createdAt: now,
+      updatedAt: now,
+      raw: result.raw,
+    };
+  }
+
+  public async cancelOrder(
+    orderId: string,
+    symbol: string,
+  ): Promise<ExchangeOrder> {
+    // Indodax butuh tahu sisi (buy/sell) order untuk cancel;
+    // ambil dulu detail order-nya sebelum cancel.
+    const existing = await this.getOrder(orderId, symbol);
+
+    await this.adapter.cancelOrder(
+      orderId,
+      symbolToPair(symbol),
+      existing.side === "SELL" ? "sell" : "buy",
+    );
+
+    return {
+      ...existing,
+      status: "CANCELLED",
+      updatedAt: Date.now(),
+    };
+  }
+
+  public async getBalance(
+    asset: string,
+  ): Promise<number> {
+    const balance = await this.adapter.getBalance();
+
+    return balance[asset.toLowerCase()] ?? 0;
+  }
+
+}
+
+function mapExchangeOrderStatus(
+  status: string | undefined,
+): ExchangeOrder["status"] {
+  switch (status) {
+    case "open":
+      return "OPEN";
+    case "filled":
+      return "FILLED";
+    case "partially_filled":
+      return "PARTIALLY_FILLED";
+    case "cancelled":
+      return "CANCELLED";
+    default:
+      return "UNKNOWN";
+  }
+}
