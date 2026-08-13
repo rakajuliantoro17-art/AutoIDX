@@ -10,7 +10,6 @@
  * - Secrets MUST NOT be stored here.
  * ==========================================================
  */
-
 export interface CanaryConfig {
   enabled: boolean;
   allowedSymbols: string[];
@@ -26,7 +25,6 @@ export interface CanaryConfig {
   allowBuy: boolean;
   allowSell: boolean;
 }
-
 const readBoolean = (
   value: string | undefined,
   fallback: boolean,
@@ -34,10 +32,8 @@ const readBoolean = (
   if (value === undefined) {
     return fallback;
   }
-
   return value.toLowerCase() === "true";
 };
-
 const readNumber = (
   value: string | undefined,
   fallback: number,
@@ -45,73 +41,9 @@ const readNumber = (
   if (value === undefined) {
     return fallback;
   }
-
   const parsed = Number(value);
-
   return Number.isFinite(parsed) ? parsed : fallback;
 };
-
-export const createCanaryConfig = (): CanaryConfig => ({
-  enabled: readBoolean(
-    process.env.AUTOIDX_CANARY_ENABLED,
-    false,
-  ),
-
-  maxOrdersPerSession: readNumber(
-    process.env.AUTOIDX_CANARY_MAX_ORDERS,
-    1,
-  ),
-
-  maxOrderValueIdr: readNumber(
-    process.env.AUTOIDX_CANARY_MAX_ORDER_IDR,
-    10_000,
-  ),
-
-  maxDailyOrderValueIdr: readNumber(
-    process.env.AUTOIDX_CANARY_MAX_DAILY_IDR,
-    25_000,
-  ),
-
-  maxDailyLossIdr: readNumber(
-    process.env.AUTOIDX_CANARY_MAX_DAILY_LOSS_IDR,
-    5_000,
-  ),
-
-  maxOpenOrders: readNumber(
-    process.env.AUTOIDX_CANARY_MAX_OPEN_ORDERS,
-    1,
-  ),
-
-  requireReconciliation: readBoolean(
-    process.env.AUTOIDX_CANARY_REQUIRE_RECONCILIATION,
-    true,
-  ),
-
-  maxReconciliationAgeMs: readNumber(
-    process.env.AUTOIDX_CANARY_RECONCILIATION_MAX_AGE_MS,
-    60_000,
-  ),
-
-  requireHealthyExchange: readBoolean(
-    process.env.AUTOIDX_CANARY_REQUIRE_EXCHANGE_HEALTH,
-    true,
-  ),
-
-  requireHealthyRuntime: readBoolean(
-    process.env.AUTOIDX_CANARY_REQUIRE_RUNTIME_HEALTH,
-    true,
-  ),
-
-  allowBuy: readBoolean(
-    process.env.AUTOIDX_CANARY_ALLOW_BUY,
-    false,
-  ),
-
-  allowSell: readBoolean(
-    process.env.AUTOIDX_CANARY_ALLOW_SELL,
-    false,
-  ),
-});
 const readStringList = (
   value: string | undefined,
 ): string[] => {
@@ -123,7 +55,6 @@ const readStringList = (
     .map((item) => item.trim().toLowerCase())
     .filter((item) => item.length > 0);
 };
-
 export const createCanaryConfig = (): CanaryConfig => ({
   enabled: readBoolean(
     process.env.AUTOIDX_CANARY_ENABLED,
@@ -133,4 +64,47 @@ export const createCanaryConfig = (): CanaryConfig => ({
     process.env.AUTOIDX_CANARY_ALLOWED_SYMBOLS,
   ),
   maxOrdersPerSession: readNumber(
-  // ... sisanya tetap sama
+    process.env.AUTOIDX_CANARY_MAX_ORDERS,
+    1,
+  ),
+  maxOrderValueIdr: readNumber(
+    process.env.AUTOIDX_CANARY_MAX_ORDER_IDR,
+    10_000,
+  ),
+  maxDailyOrderValueIdr: readNumber(
+    process.env.AUTOIDX_CANARY_MAX_DAILY_IDR,
+    25_000,
+  ),
+  maxDailyLossIdr: readNumber(
+    process.env.AUTOIDX_CANARY_MAX_DAILY_LOSS_IDR,
+    5_000,
+  ),
+  maxOpenOrders: readNumber(
+    process.env.AUTOIDX_CANARY_MAX_OPEN_ORDERS,
+    1,
+  ),
+  requireReconciliation: readBoolean(
+    process.env.AUTOIDX_CANARY_REQUIRE_RECONCILIATION,
+    true,
+  ),
+  maxReconciliationAgeMs: readNumber(
+    process.env.AUTOIDX_CANARY_RECONCILIATION_MAX_AGE_MS,
+    60_000,
+  ),
+  requireHealthyExchange: readBoolean(
+    process.env.AUTOIDX_CANARY_REQUIRE_EXCHANGE_HEALTH,
+    true,
+  ),
+  requireHealthyRuntime: readBoolean(
+    process.env.AUTOIDX_CANARY_REQUIRE_RUNTIME_HEALTH,
+    true,
+  ),
+  allowBuy: readBoolean(
+    process.env.AUTOIDX_CANARY_ALLOW_BUY,
+    false,
+  ),
+  allowSell: readBoolean(
+    process.env.AUTOIDX_CANARY_ALLOW_SELL,
+    false,
+  ),
+});
