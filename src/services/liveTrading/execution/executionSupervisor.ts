@@ -7,11 +7,11 @@
 
 import {
   KillSwitch,
-} from "../batch8/killSwitch";
+} from "../monitor/killSwitch";
 
 import {
   ProductionGate,
-} from "../batch8/productionGate";
+} from "../monitor/productionGate";
 
 export interface SupervisorState {
   readonly running: boolean;
