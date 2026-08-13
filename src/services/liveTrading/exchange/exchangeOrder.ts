@@ -8,6 +8,7 @@ export interface ExchangeOrderRequest {
   readonly symbol: string;
   readonly side: ExchangeOrderSide;
   readonly quantity: number;
+  readonly quoteAmount?: number;
   readonly type: "MARKET";
 }
 
