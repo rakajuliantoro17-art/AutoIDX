@@ -38,12 +38,12 @@ export interface Validator<T = unknown> {
 }
 
 import type {
-  Phase37InvariantInput,
-} from "./phase37Invariant";
+  invariantInput as Phase37InvariantInput,
+} from "./invariant";
 
 import {
-  assertPhase37Invariants,
-} from "./phase37Invariant";
+  assertinvariants as assertPhase37Invariants,
+} from "./invariant";
 
 export interface Phase37ValidationResult {
   readonly valid: boolean;
