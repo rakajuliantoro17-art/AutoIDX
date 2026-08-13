@@ -16,31 +16,31 @@ import type {
 
 import {
   createIdempotencyKey,
-} from "../batch6/idempotencyKey";
+} from "../gate/idempotencyKey";
 
 import {
   DuplicateOrderGuard,
-} from "../batch6/duplicateOrderGuard";
+} from "../gate/duplicateOrderGuard";
 
 import {
   UncertainExecutionGuard,
-} from "../batch6/uncertainExecutionGuard";
+} from "../gate/uncertainExecutionGuard";
 
 import type {
   IdempotencyStore,
-} from "../batch6/idempotencyStore";
+} from "../gate/idempotencyStore";
 
 import {
   ExecutionPreflight,
-} from "../batch7/executionPreflight";
+} from "./executionPreflight";
 
 import {
   KillSwitch,
-} from "../batch8/killSwitch";
+} from "../monitor/killSwitch";
 
 import {
   ProductionGate,
-} from "../batch8/productionGate";
+} from "../monitor/productionGate";
 
 import {
   ExecutionSupervisor,
@@ -48,6 +48,7 @@ import {
 
 export interface AutoTradeRequest
   extends ExchangeOrderRequest {
+  readonly price: number;
   readonly balance: number;
   readonly maxTradeAmount: number;
   readonly minTradeAmount: number;
