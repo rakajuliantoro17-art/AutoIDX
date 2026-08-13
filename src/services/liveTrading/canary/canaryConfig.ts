@@ -112,3 +112,25 @@ export const createCanaryConfig = (): CanaryConfig => ({
     false,
   ),
 });
+const readStringList = (
+  value: string | undefined,
+): string[] => {
+  if (!value) {
+    return [];
+  }
+  return value
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item.length > 0);
+};
+
+export const createCanaryConfig = (): CanaryConfig => ({
+  enabled: readBoolean(
+    process.env.AUTOIDX_CANARY_ENABLED,
+    false,
+  ),
+  allowedSymbols: readStringList(
+    process.env.AUTOIDX_CANARY_ALLOWED_SYMBOLS,
+  ),
+  maxOrdersPerSession: readNumber(
+  // ... sisanya tetap sama
