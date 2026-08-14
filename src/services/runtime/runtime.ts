@@ -8,7 +8,7 @@ import type {
 
 import {
   Health,
-} from "./Health";
+} from "./health";
 
 export class Runtime {
   readonly health =
