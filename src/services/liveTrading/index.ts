@@ -230,26 +230,24 @@ export * from "./audit";
 
 
 
-export * from "../idempotencyKey";
-export * from "../idempotencyStore";
-export * from "../duplicateOrderGuard";
-export * from "../uncertainExecutionGuard";
+export * from "./gate/idempotencyKey";
+export * from "./gate/idempotencyStore";
+export * from "./gate/duplicateOrderGuard";
+export * from "./gate/uncertainExecutionGuard";
 
-export * from "../executionSimulation";
-export * from "../executionPreflight";
-export * from "../executionTestReport";
-export * from "../dryRunController";
+export * from "./execution/executionSimulation";
+export * from "./execution/executionPreflight";
+export * from "./execution/executionTestReport";
+export * from "./execution/dryRunController";
 
-export * from "../productionReadiness";
-export * from "../productionGate";
-export * from "../liveTradingConfig";
-export * from "../killSwitch";
+export * from "./monitor/productionReadiness";
+export * from "./monitor/productionGate";
 
-export * from "../canaryConfig";
-export * from "../canaryResult";
-export * from "../canaryGuard";
-export * from "../canaryExecutor";
+// canaryConfig sudah di-export lewat "./canary" di atas -- tidak diulang di sini.
+export * from "./canary/canaryResult";
+export * from "./canary/canaryGuard";
+export * from "./canary/canaryExecutor";
 
-export * from "../executionSupervisor";
-export * from "../reconciliationService";
-export * from "../autoTradingController";
+export * from "./execution/executionSupervisor";
+export * from "./execution/reconciliationService";
+export * from "./execution/autoTradingController";
