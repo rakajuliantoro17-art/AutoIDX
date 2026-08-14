@@ -224,7 +224,7 @@ export class IndodaxClient {
    * Execute a public request with an arbitrary
    * HTTP method.
    */
-  public async publicRequest
+  public async publicRequest<
     T = unknown,
   >(
     path: string,
@@ -259,7 +259,7 @@ export class IndodaxClient {
    * the body and authentication headers produced
    * by IndodaxAuth.
    */
-  public async privateRequest
+  public async privateRequest<
     T = unknown,
   >(
     request: IndodaxSignedRequest,
@@ -319,7 +319,7 @@ export class IndodaxClient {
   /**
    * Generic request entry point.
    */
-  public async request
+  public async request<
     T = unknown,
   >(
     baseUrl: string,
@@ -419,7 +419,7 @@ export class IndodaxClient {
   /**
    * Convenience method for public ticker.
    */
-  public async getTicker
+  public async getTicker<
     T = unknown,
   >(
     pair: string,
@@ -435,7 +435,7 @@ export class IndodaxClient {
   /**
    * Convenience method for public depth/order book.
    */
-  public async getDepth
+  public async getDepth<
     T = unknown,
   >(
     pair: string,
@@ -451,7 +451,7 @@ export class IndodaxClient {
   /**
    * Convenience method for public trades.
    */
-  public async getTrades
+  public async getTrades<
     T = unknown,
   >(
     pair: string,
@@ -467,7 +467,7 @@ export class IndodaxClient {
   /**
    * Convenience method for public summaries.
    */
-  public async getSummaries
+  public async getSummaries<
     T = unknown,
   >(): Promise<T> {
     return this.publicGet<T>(
@@ -481,11 +481,11 @@ export class IndodaxClient {
    * Useful for private APIs where the signed
    * request body is already prepared.
    */
-  public async postForm
+  public async postForm<
     T = unknown,
   >(
     path: string,
-    params: Record
+    params: Record<
       string,
       string | number
     >,
@@ -654,7 +654,7 @@ export class IndodaxClient {
    * Extract API error message.
    */
   private extractApiError(
-    data: Record
+    data: Record<
       string,
       unknown
     >,
@@ -949,7 +949,7 @@ export class IndodaxClient {
    */
   private isRecord(
     value: unknown,
-  ): value is Record
+  ): value is Record<
     string,
     unknown
   > {
