@@ -44,7 +44,7 @@ export interface CanaryExecutionResult<T> {
   error?: unknown;
 }
 
-export type CanaryExecutor<TOrder, TResult> =
+export type CanaryExecutorFn<TOrder, TResult> =
   (
     order: TOrder,
   ) => Promise<TResult>;
@@ -58,7 +58,7 @@ export class CanaryExecutionService<
       CanaryManager,
 
     private readonly executor:
-      CanaryExecutor<
+      CanaryExecutorFn
         TOrder,
         TResult
       >,
