@@ -224,7 +224,7 @@ export class IndodaxClient {
    * Execute a public request with an arbitrary
    * HTTP method.
    */
-  public async publicRequest<
+  public async publicRequest
     T = unknown,
   >(
     path: string,
@@ -259,7 +259,7 @@ export class IndodaxClient {
    * the body and authentication headers produced
    * by IndodaxAuth.
    */
-  public async privateRequest<
+  public async privateRequest
     T = unknown,
   >(
     request: IndodaxSignedRequest,
@@ -303,11 +303,9 @@ export class IndodaxClient {
 
     return this.request<T>(
       this.privateBaseUrl,
-      request.path ??
-        "/tapi",
+      "/tapi",
       {
         method:
-          request.method ??
           "POST",
         headers,
         body:
@@ -321,7 +319,7 @@ export class IndodaxClient {
   /**
    * Generic request entry point.
    */
-  public async request<
+  public async request
     T = unknown,
   >(
     baseUrl: string,
@@ -421,7 +419,7 @@ export class IndodaxClient {
   /**
    * Convenience method for public ticker.
    */
-  public async getTicker<
+  public async getTicker
     T = unknown,
   >(
     pair: string,
@@ -437,7 +435,7 @@ export class IndodaxClient {
   /**
    * Convenience method for public depth/order book.
    */
-  public async getDepth<
+  public async getDepth
     T = unknown,
   >(
     pair: string,
@@ -453,7 +451,7 @@ export class IndodaxClient {
   /**
    * Convenience method for public trades.
    */
-  public async getTrades<
+  public async getTrades
     T = unknown,
   >(
     pair: string,
@@ -469,7 +467,7 @@ export class IndodaxClient {
   /**
    * Convenience method for public summaries.
    */
-  public async getSummaries<
+  public async getSummaries
     T = unknown,
   >(): Promise<T> {
     return this.publicGet<T>(
@@ -483,11 +481,11 @@ export class IndodaxClient {
    * Useful for private APIs where the signed
    * request body is already prepared.
    */
-  public async postForm<
+  public async postForm
     T = unknown,
   >(
     path: string,
-    params: Record<
+    params: Record
       string,
       string | number
     >,
@@ -549,430 +547,4 @@ export class IndodaxClient {
   }
 
   /**
-   * Return configured timeout.
-   */
-  public getTimeoutMs(): number {
-    return this.timeoutMs;
-  }
-
-  /**
-   * Return configured endpoints without
-   * exposing credentials.
-   */
-  public getEndpoints(): {
-    baseUrl: string;
-    publicBaseUrl: string;
-    privateBaseUrl: string;
-  } {
-    return {
-      baseUrl:
-        this.baseUrl,
-      publicBaseUrl:
-        this.publicBaseUrl,
-      privateBaseUrl:
-        this.privateBaseUrl,
-    };
-  }
-
-  /**
-   * Parse Indodax response safely.
-   */
-  private async parseResponse(
-    response: Response,
-  ): Promise<unknown> {
-    const text =
-      await response.text();
-
-    if (
-      text.trim().length ===
-      0
-    ) {
-      return {};
-    }
-
-    const contentType =
-      response.headers.get(
-        "content-type",
-      ) ?? "";
-
-    if (
-      contentType.includes(
-        "application/json",
-      )
-    ) {
-      try {
-        return JSON.parse(
-          text,
-        ) as unknown;
-      } catch {
-        throw new IndodaxClientError(
-          "Invalid JSON response from Indodax",
-          "INVALID_JSON_RESPONSE",
-        );
-      }
-    }
-
-    try {
-      return JSON.parse(
-        text,
-      ) as unknown;
-    } catch {
-      return text;
-    }
-  }
-
-  /**
-   * Detect Indodax application-level failures.
-   */
-  private assertApiSuccess(
-    data: unknown,
-  ): void {
-    if (
-      !this.isRecord(data)
-    ) {
-      return;
-    }
-
-    const success =
-      data.success;
-
-    if (
-      success === 0 ||
-      success === false
-    ) {
-      const message =
-        this.extractApiError(
-          data,
-        );
-
-      throw new IndodaxApiError(
-        message,
-        data,
-      );
-    }
-  }
-
-  /**
-   * Extract API error message.
-   */
-  private extractApiError(
-    data: Record<
-      string,
-      unknown
-    >,
-  ): string {
-    const candidates = [
-      data.error,
-      data.message,
-      data.errorCode,
-    ];
-
-    for (
-      const candidate of candidates
-    ) {
-      if (
-        typeof candidate ===
-        "string" &&
-        candidate.trim()
-          .length > 0
-      ) {
-        return candidate;
-      }
-    }
-
-    return "Indodax API request failed";
-  }
-
-  /**
-   * Resolve HTTP-level error.
-   */
-  private resolveHttpErrorMessage(
-    status: number,
-    data: unknown,
-  ): string {
-    if (
-      this.isRecord(data)
-    ) {
-      const payload =
-        data as IndodaxErrorPayload;
-
-      if (
-        typeof payload.error ===
-        "string"
-      ) {
-        return payload.error;
-      }
-
-      if (
-        typeof payload.message ===
-        "string"
-      ) {
-        return payload.message;
-      }
-    }
-
-    return `Indodax HTTP request failed with status ${status}`;
-  }
-
-  /**
-   * Prepare HTTP headers.
-   */
-  private prepareHeaders(
-    headers?: Record<string, string>,
-  ): Record<string, string> {
-    return {
-      Accept:
-        "application/json",
-      ...headers,
-    };
-  }
-
-  /**
-   * Merge headers without mutating
-   * caller-owned objects.
-   */
-  private mergeHeaders(
-    first?: Record<string, string>,
-    second?: Record<string, string>,
-  ): Record<string, string> {
-    return {
-      ...(first ?? {}),
-      ...(second ?? {}),
-    };
-  }
-
-  /**
-   * Build absolute URL.
-   */
-  private buildUrl(
-    baseUrl: string,
-    path: string,
-  ): string {
-    if (
-      typeof path !==
-        "string" ||
-      path.trim().length ===
-        0
-    ) {
-      throw new IndodaxClientError(
-        "Request path is required",
-        "PATH_REQUIRED",
-      );
-    }
-
-    if (
-      /^https?:\/\//i.test(
-        path,
-      )
-    ) {
-      return path;
-    }
-
-    const normalizedBase =
-      baseUrl.replace(
-        /\/+$/,
-        "",
-      );
-
-    const normalizedPath =
-      path.startsWith("/")
-        ? path
-        : `/${path}`;
-
-    return `${normalizedBase}${normalizedPath}`;
-  }
-
-  /**
-   * Normalize URL configuration.
-   */
-  private normalizeUrl(
-    value: string,
-  ): string {
-    return value.replace(
-      /\/+$/,
-      "",
-    );
-  }
-
-  /**
-   * Normalize trading pair.
-   */
-  private normalizePair(
-    pair: string,
-  ): string {
-    if (
-      typeof pair !==
-        "string" ||
-      pair.trim().length ===
-        0
-    ) {
-      throw new IndodaxClientError(
-        "Trading pair is required",
-        "PAIR_REQUIRED",
-      );
-    }
-
-    return pair
-      .trim()
-      .toLowerCase();
-  }
-
-  /**
-   * Merge two AbortSignals.
-   */
-  private mergeSignals(
-    primary: AbortSignal,
-    secondary?: AbortSignal,
-  ): AbortSignal {
-    if (!secondary) {
-      return primary;
-    }
-
-    if (
-      secondary.aborted
-    ) {
-      primary.dispatchEvent(
-        new Event(
-          "abort",
-        ),
-      );
-
-      return secondary;
-    }
-
-    const controller =
-      new AbortController();
-
-    const abort =
-      () =>
-        controller.abort();
-
-    primary.addEventListener(
-      "abort",
-      abort,
-      {
-        once: true,
-      },
-    );
-
-    secondary.addEventListener(
-      "abort",
-      abort,
-      {
-        once: true,
-      },
-    );
-
-    return controller.signal;
-  }
-
-  /**
-   * Detect AbortError without relying
-   * on a DOM-specific error class.
-   */
-  private isAbortError(
-    error: unknown,
-  ): boolean {
-    return (
-      this.isRecord(error) &&
-      error.name ===
-        "AbortError"
-    );
-  }
-
-  /**
-   * Sanitize unknown errors.
-   */
-  private sanitizeError(
-    error: unknown,
-  ): string {
-    if (
-      error instanceof Error
-    ) {
-      return error.message;
-    }
-
-    if (
-      typeof error ===
-      "string"
-    ) {
-      return error;
-    }
-
-    return "Unknown Indodax network error";
-  }
-
-  /**
-   * Validate client configuration.
-   */
-  private validateConfig(): void {
-    if (
-      !this.baseUrl
-    ) {
-      throw new IndodaxClientError(
-        "Indodax base URL is required",
-        "BASE_URL_REQUIRED",
-      );
-    }
-
-    if (
-      !this.publicBaseUrl
-    ) {
-      throw new IndodaxClientError(
-        "Indodax public base URL is required",
-        "PUBLIC_BASE_URL_REQUIRED",
-      );
-    }
-
-    if (
-      !this.privateBaseUrl
-    ) {
-      throw new IndodaxClientError(
-        "Indodax private base URL is required",
-        "PRIVATE_BASE_URL_REQUIRED",
-      );
-    }
-
-    if (
-      !Number.isFinite(
-        this.timeoutMs,
-      ) ||
-      this.timeoutMs <= 0
-    ) {
-      throw new IndodaxClientError(
-        "Timeout must be a positive finite number",
-        "INVALID_TIMEOUT",
-      );
-    }
-  }
-
-  /**
-   * Generic object guard.
-   */
-  private isRecord(
-    value: unknown,
-  ): value is Record<
-    string,
-    unknown
-  > {
-    return (
-      typeof value ===
-        "object" &&
-      value !== null &&
-      !Array.isArray(value)
-    );
-  }
-}
-
-/**
- * Default factory.
- */
-export function createIndodaxClient(
-  config?: IndodaxClientConfig,
-): IndodaxClient {
-  return new IndodaxClient(
-    config,
-  );
-}
-
-export default IndodaxClient;
+   * Return
