@@ -33,9 +33,11 @@
  * ============================================================
  */
 
+
 import {
   IndodaxAuth,
   type IndodaxSignedRequest,
+  type IndodaxAuthHeaders,
 } from "./auth";
 
 export interface IndodaxBalanceRequest {
@@ -64,7 +66,7 @@ export interface IndodaxBalanceResponse {
 export interface IndodaxBalanceClient {
   request(
     body: string,
-    headers: Record<string, string>,
+    headers: IndodaxAuthHeaders,
   ): Promise<unknown>;
 }
 
