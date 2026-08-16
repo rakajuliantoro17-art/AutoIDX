@@ -172,6 +172,24 @@ riskLevel?:
 
 
 
+/**
+ * Skor dari AI Prediction Engine (services/ai/prediction) --
+ * TERPISAH dari opportunityScore (rule-based RSI/EMA/volume).
+ * Sifatnya masih OBSERVASIONAL (ditampilkan untuk dipantau),
+ * BELUM dipakai untuk keputusan BUY/SELL otomatis. Range -1..1.
+ */
+aiScore?: number;
+
+/**
+ * Arah prediksi AI: BULLISH / BEARISH / NEUTRAL.
+ */
+aiDirection?: "BULLISH" | "BEARISH" | "NEUTRAL";
+
+/**
+ * Confidence dari AI Prediction Engine, range 0..1.
+ */
+aiConfidence?: number;
+
 }
 
 
