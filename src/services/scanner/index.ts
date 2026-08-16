@@ -256,6 +256,7 @@ export class MarketScanner {
       scannedCount: consideredPairs.length,
       qualifiedCount: qualified.length,
       topOpportunities: qualified.slice(0, 10),
+      qualifiedPairs: qualified.map((q) => q.pair),
       scannedAt: new Date().toISOString(),
     };
   }
