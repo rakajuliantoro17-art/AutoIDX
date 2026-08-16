@@ -4,8 +4,6 @@
  * Indodax Balance Service
  * ============================================================
  *
- * Phase 38 - Integration / Fix
- *
  * Responsibility:
  * - Mengambil saldo akun dari Private REST API Indodax.
  * - Menormalisasi response balance.
@@ -32,7 +30,6 @@
  * Risk / Portfolio / Execution
  * ============================================================
  */
-
 
 import {
   IndodaxAuth,
