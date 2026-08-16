@@ -62,12 +62,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `[CRON] Scan selesai: ${summary.qualifiedCount}/${summary.scannedCount} pair qualified`
     );
 
-    // Pair terbaik hasil scan SELURUH market Indodax (bukan cuma
-    // watchlist statis BOT_PAIRS) -- inilah yang menyambungkan
-    // scanner ke eksekusi live trading. executeCron() sendiri yang
-    // menggabungkannya dengan pair yang sedang open position +
-    // watchlist manual, jadi tidak ada posisi yang "ditinggalkan".
-    const candidatePairs = summary.topOpportunities.map((o) => o.pair);
+    // SEMUA pair yang lolos filter opportunityScore (bukan cuma top 10
+    // topOpportunities yang dipakai dashboard) -- inilah yang
+    // menyambungkan scanner ke eksekusi live trading. executeCron()
+    // sendiri yang menggabungkannya dengan pair yang sedang open
+    // position + watchlist manual, jadi tidak ada posisi yang
+    // "ditinggalkan". RISK_CONFIG.maxOpenPosition di TradingEngine
+    // tetap jadi batas jumlah posisi terbuka meskipun candidatePairs
+    // di sini tidak dibatasi.
+    const candidatePairs = summary.qualifiedPairs;
 
     const tradingResult = await executeCron(candidatePairs);
 
