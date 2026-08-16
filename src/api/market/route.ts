@@ -8,9 +8,14 @@ Menggunakan MarketScanner (services/scanner) sebagai sumber
 kebenaran tunggal -- termasuk RSI/EMA + Opportunity Score,
 bukan cuma data ticker mentah.
 
+Default (tanpa ?pairs=): scan SEMUA pair IDR yang aktif di
+Indodax (ditarik live dari /api/pairs, di-cache 6 jam) -- bukan
+lagi daftar 5 pair hardcode.
+
 Query params:
-  ?pairs=btc_idr,eth_idr   (default: 5 pair utama)
+  ?pairs=btc_idr,eth_idr   (opsional - override, default: semua pair IDR)
   ?minVolume=<number>       (default: 50.000.000 IDR)
+  ?limit=<number>           (default: 50 - jumlah opportunity teratas yang dikembalikan)
 ==========================================================
 */
 
@@ -34,8 +39,14 @@ export async function GET(request: NextRequest) {
       ? minVolumeParam
       : undefined;
 
+  const limitParam = Number(params.get("limit"));
+  const limit =
+    Number.isFinite(limitParam) && limitParam > 0
+      ? Math.min(limitParam, 200)
+      : undefined;
+
   try {
-    const summary = await MarketScanner.scanMarket(pairs, { minVolumeIdr });
+    const summary = await MarketScanner.scanMarket(pairs, { minVolumeIdr, limit });
 
     return NextResponse.json({
       success: true,
