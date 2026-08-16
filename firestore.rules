@@ -1,0 +1,59 @@
+// ==========================================================
+// AURA Trade OS
+// Firestore Security Rules
+// Version : 0.0.1 Alpha
+// ==========================================================
+//
+// Prinsip: DENY BY DEFAULT. Semua akses server (cron, API
+// routes lewat services/firebase/admin.ts / Firebase Admin
+// SDK) TIDAK melewati rules ini sama sekali - Admin SDK selalu
+// punya akses penuh. Rules ini HANYA mengatur apa yang boleh
+// diakses langsung dari browser (Client SDK).
+//
+// Kredensial Indodax (users/{uid}/indodaxAccounts/*) SENGAJA
+// ditutup total dari client, walau pemiliknya sendiri -
+// satu-satunya jalur baca/tulis yang sah adalah
+// /api/settings/indodax-accounts (server-side, verifikasi ID
+// token, enkripsi AES-256-GCM sebelum simpan). Client tidak
+// pernah butuh akses Firestore langsung ke sana.
+//
+// Deploy: Firebase Console -> Firestore Database -> Rules,
+// paste isi file ini, lalu Publish. (Atau `firebase deploy
+// --only firestore:rules` kalau pakai Firebase CLI.)
+// ==========================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Profil user sendiri - dibuat/diupdate oleh
+    // services/firebase/users.ts saat login. Tidak ada data
+    // sensitif di sini (email, displayName, photoURL, timestamps).
+    match /users/{uid} {
+      allow read, update: if request.auth != null && request.auth.uid == uid;
+      // create diperbolehkan hanya untuk dokumen milik sendiri,
+      // dan hanya field non-sensitif.
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && !request.resource.data.keys().hasAny(['apiKey', 'secretKey']);
+
+      // Sub-koleksi kredensial Indodax: TUTUP TOTAL dari client,
+      // termasuk dari pemiliknya sendiri. Hanya boleh diakses
+      // lewat /api/settings/indodax-accounts (Admin SDK).
+      match /indodaxAccounts/{accountId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Semua koleksi lain (bot_state, risk_state, paper_positions,
+    // paper_trade_logs, trades, activity_logs, bot_control,
+    // bot_settings, system_status, dst) hanya ditulis/dibaca
+    // lewat Admin SDK di server (cron / API routes). Client tidak
+    // pernah butuh baca Firestore langsung untuk ini - dashboard
+    // mengambil datanya lewat API routes, bukan Firestore SDK.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
