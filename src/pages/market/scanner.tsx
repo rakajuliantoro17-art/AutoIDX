@@ -1,102 +1,32 @@
 /**
 ==========================================================
 AURA Trade OS
-Market Scanner
-Version : 0.0.1 Alpha
+Market Scanner (redirect)
+Version : 0.0.2 Alpha
+
+Halaman ini dulu berisi UI scanner terpisah dengan 3 pair
+hardcode (BTC/ETH/SOL), tidak pernah ditautkan dari sidebar
+manapun (App Router maupun Pages Router keduanya link ke
+/scanner), dan tidak terhubung ke MarketScanner service asli.
+Duplikasi sudah diputuskan: /scanner (App Router,
+src/app/scanner/page.tsx) adalah versi kanonik - sudah
+memindai SEMUA pair IDR Indodax lewat MarketScanner.
+Halaman ini sekarang cuma redirect supaya URL lama tidak jadi
+dead-end kalau ada yang mengaksesnya langsung.
 ==========================================================
 */
 
+import { GetServerSideProps } from "next";
 
-import DashboardLayout from "@/layouts/DashboardLayout";
+export const getServerSideProps: GetServerSideProps = async () => {
+  return {
+    redirect: {
+      destination: "/scanner",
+      permanent: false,
+    },
+  };
+};
 
-
-export default function ScannerPage(){
-
-
-const pairs=[
-
-"BTC_IDR",
-
-"ETH_IDR",
-
-"SOL_IDR"
-
-];
-
-
-
-return (
-
-<DashboardLayout>
-
-
-<div className="space-y-5">
-
-
-<h1 className="text-2xl font-bold">
-
-Market Scanner
-
-</h1>
-
-
-
-<div className="grid md:grid-cols-3 gap-5">
-
-
-{
-
-pairs.map(pair=>(
-
-
-<div
-
-key={pair}
-
-className="card"
-
->
-
-
-<h2 className="font-bold">
-
-{pair}
-
-</h2>
-
-
-<p className="text-sm text-slate-400 mt-2">
-
-Signal:
-
-<span className="text-slate-300">
-
- HOLD
-
-</span>
-
-</p>
-
-
-</div>
-
-
-))
-
-
-}
-
-
-</div>
-
-
-
-</div>
-
-
-</DashboardLayout>
-
-);
-
-
+export default function MarketScannerRedirect() {
+  return null;
 }
