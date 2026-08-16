@@ -24,6 +24,9 @@ interface ScannedPairResult {
   confidence: number;
   signalRecommendation: "BUY" | "SELL" | "HOLD";
   riskLevel?: "LOW" | "MEDIUM" | "HIGH";
+  aiScore?: number;
+  aiDirection?: "BULLISH" | "BEARISH" | "NEUTRAL";
+  aiConfidence?: number;
 }
 
 function formatPair(pair: string) {
@@ -41,6 +44,12 @@ function trendColor(trend: string) {
   if (trend === "BULLISH") return "text-emerald-400";
   if (trend === "BEARISH") return "text-red-400";
   return "text-slate-400";
+}
+
+function aiDirectionColor(direction?: string) {
+  if (direction === "BULLISH") return "text-emerald-400";
+  if (direction === "BEARISH") return "text-red-400";
+  return "text-slate-500";
 }
 
 export default function ScannerPage() {
@@ -142,6 +151,10 @@ export default function ScannerPage() {
                 <th className="text-left">Opportunity Score</th>
                 <th className="text-left">Sinyal</th>
                 <th className="text-left">Confidence</th>
+                <th className="text-left">
+                  AI Score
+                  <span className="text-slate-600 font-normal"> (beta)</span>
+                </th>
               </tr>
             </thead>
 
@@ -177,12 +190,26 @@ export default function ScannerPage() {
                       </span>
                     </td>
                     <td>{item.confidence}%</td>
+                    <td>
+                      {item.aiDirection ? (
+                        <span className={`text-xs font-semibold ${aiDirectionColor(item.aiDirection)}`}>
+                          {item.aiDirection}
+                          {typeof item.aiScore === "number" && (
+                            <span className="text-slate-500 font-normal">
+                              {" "}({item.aiScore.toFixed(2)})
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
 
               {!loading && results.length === 0 && !error && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500">
+                  <td colSpan={8} className="py-8 text-center text-slate-500">
                     Belum ada pair yang memenuhi kriteria minimum volume.
                   </td>
                 </tr>
