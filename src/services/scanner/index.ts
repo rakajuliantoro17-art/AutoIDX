@@ -48,7 +48,11 @@ from "./types";
 export class MarketScanner {
 
 
-private defaultPairs=[
+// Dipakai HANYA sebagai fallback darurat kalau fetch daftar pair
+// IDR dari Indodax (/api/pairs) gagal total - bukan lagi sumber
+// kebenaran utama. Sumber utama: indodaxMarketService.getAllIdrPairs(),
+// yang menarik SEMUA pair IDR yang aktif di Indodax (di-cache 6 jam).
+private fallbackPairs=[
 
 "btc_idr",
 
@@ -68,13 +72,36 @@ private defaultPairs=[
 
 
 
+/**
+ * Ambil seluruh pair IDR yang aktif di Indodax. Kalau gagal
+ * (network error dll), fallback ke daftar minimal supaya scanner
+ * tidak mati total.
+ */
+private async resolvePairsToScan(): Promise<string[]> {
+  try {
+    const idrPairs = await indodaxMarketService.getAllIdrPairs();
+
+    if (idrPairs.length > 0) {
+      return idrPairs.map((p: { pair: string }) => p.pair);
+    }
+
+    return this.fallbackPairs;
+  } catch (error) {
+    console.error("MarketScanner: failed to resolve IDR pairs, using fallback", error);
+
+    return this.fallbackPairs;
+  }
+}
+
 async scanMarket(
 
-pairsToScan=this.defaultPairs,
+pairsToScan?:string[],
 
 criteria:Partial<ScanCriteria>={}
 
 ):Promise<MarketScanSummary>{
+
+const resolvedPairs = pairsToScan ?? (await this.resolvePairsToScan());
 
 
 
@@ -94,7 +121,7 @@ const qualified:ScannedPairResult[]=[];
 
 const tasks=
 
-pairsToScan.map(async pair=>{
+resolvedPairs.map(async pair=>{
 
 
 try{
@@ -296,7 +323,7 @@ a.opportunityScore
 return {
 
 
-scannedCount:pairsToScan.length,
+scannedCount:resolvedPairs.length,
 
 
 qualifiedCount:qualified.length,
@@ -304,7 +331,7 @@ qualifiedCount:qualified.length,
 
 topOpportunities:
 
-qualified.slice(0,10),
+qualified.slice(0, criteria.limit ?? 50),
 
 
 scannedAt:
