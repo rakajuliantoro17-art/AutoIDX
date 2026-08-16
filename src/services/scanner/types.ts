@@ -217,12 +217,22 @@ ScannedPairResult[];
 
 
 
+/**
+ * Ticker_id SEMUA pair yang lolos filter opportunityScore (bukan
+ * cuma top 10 seperti topOpportunities) -- dipakai cron/scan.ts
+ * untuk mengirim SEMUA pair qualified ke Trading Engine, bukan
+ * cuma yang tampil di dashboard.
+ */
+
+qualifiedPairs:string[];
+
+
+
 scannedAt:string;
 
 
 
 durationMs?:number;
-
 
 
 }
