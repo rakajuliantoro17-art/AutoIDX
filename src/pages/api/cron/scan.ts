@@ -62,7 +62,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `[CRON] Scan selesai: ${summary.qualifiedCount}/${summary.scannedCount} pair qualified`
     );
 
-    const tradingResult = await executeCron();
+    // Pair terbaik hasil scan SELURUH market Indodax (bukan cuma
+    // watchlist statis BOT_PAIRS) -- inilah yang menyambungkan
+    // scanner ke eksekusi live trading. executeCron() sendiri yang
+    // menggabungkannya dengan pair yang sedang open position +
+    // watchlist manual, jadi tidak ada posisi yang "ditinggalkan".
+    const candidatePairs = summary.topOpportunities.map((o) => o.pair);
+
+    const tradingResult = await executeCron(candidatePairs);
 
     console.log("[CRON] Trading engine:", tradingResult);
 
