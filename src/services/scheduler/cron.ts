@@ -2,13 +2,28 @@
 ==========================================================
 AURA Trade OS
 Trading Scheduler (Cron)
-Version : 0.0.9 Alpha
+Version : 0.1.0
 
-Perubahan dari 0.0.8: mendukung MULTI-PAIR. Loop atas
-TRADING_CONFIG.pairs (bukan cuma TRADING_CONFIG.pair
-tunggal). Setiap pair diproses dengan try/catch terpisah
-supaya satu pair gagal (mis. data candle tidak cukup)
-TIDAK menggagalkan pair lain dalam siklus yang sama.
+Perubahan dari 0.0.9: executeCron() sekarang bisa menerima
+daftar pair DINAMIS (hasil MarketScanner, seluruh market
+Indodax) lewat parameter `candidatePairs`, bukan cuma
+TRADING_CONFIG.pairs statis dari env var BOT_PAIRS.
+
+Universe pair yang diproses tiap siklus = gabungan dari:
+1. candidatePairs   -- top opportunities hasil scan seluruh
+                        pair Indodax (kalau diberikan)
+2. openPositionPairs -- pair yang SEDANG punya posisi terbuka,
+                        SELALU diproses supaya stop-loss/
+                        take-profit/SELL tetap jalan walau
+                        pair itu sudah tidak lagi masuk top
+                        opportunities di siklus scan berikutnya
+3. TRADING_CONFIG.pairs -- watchlist manual dari env var
+                        BOT_PAIRS, tetap dihormati sebagai
+                        pair yang mau selalu dipantau operator
+
+Kalau `candidatePairs` tidak diberikan (mis. dipanggil manual
+tanpa scan), perilaku lama tetap jalan: TRADING_CONFIG.pairs +
+openPositionPairs.
 ==========================================================
 */
 import { getClosePrices } from "../indodax/candles";
@@ -16,6 +31,7 @@ import { calculateRSI } from "../indicators/rsi";
 import { calculateEMA } from "../indicators/movingAverage";
 import { TradingEngine } from "../trading/engine";
 import { recordLog } from "../firebase/logService";
+import { getOpenPositionPairs } from "../firebase/botState";
 import { TRADING_CONFIG } from "@/config/trading";
 
 const RSI_PERIOD = 14;
@@ -34,6 +50,7 @@ export interface CronResult {
   startedAt: string;
   finishedAt: string;
   durationMs: number;
+  pairsProcessed: string[];
   results: CronPairResult[];
 }
 
@@ -107,10 +124,36 @@ async function processPair(pair: string): Promise<CronPairResult> {
 
 }
 
-export async function executeCron(): Promise<CronResult> {
+export async function executeCron(
+  candidatePairs?: string[]
+): Promise<CronResult> {
 
   const started = Date.now();
-  const pairs = TRADING_CONFIG.pairs;
+
+  // Pair yang SEDANG open position -- selalu ikut diproses supaya
+  // stop-loss/take-profit/SELL tetap jalan walau pair itu sudah
+  // tidak lagi jadi top opportunity di siklus scan berikutnya.
+  const openPositionPairs = await getOpenPositionPairs();
+
+  const pairs = Array.from(
+    new Set(
+      [
+        ...(candidatePairs ?? []),
+        ...openPositionPairs,
+        ...TRADING_CONFIG.pairs,
+      ]
+        .map((p) => p.trim().toLowerCase())
+        .filter(Boolean)
+    )
+  );
+
+  if (candidatePairs && candidatePairs.length > 0) {
+    await recordLog(
+      "SYSTEM",
+      "info",
+      `Cron memproses ${pairs.length} pair (${candidatePairs.length} dari hasil scan market, ${openPositionPairs.length} posisi terbuka, ${TRADING_CONFIG.pairs.length} watchlist manual).`
+    );
+  }
 
   const results: CronPairResult[] = [];
 
@@ -126,6 +169,7 @@ export async function executeCron(): Promise<CronResult> {
     startedAt: new Date(started).toISOString(),
     finishedAt: new Date(finished).toISOString(),
     durationMs: finished - started,
+    pairsProcessed: pairs,
     results,
   };
 
