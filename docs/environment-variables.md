@@ -43,6 +43,15 @@ Wajib prefix `NEXT_PUBLIC_` karena dibaca di browser.
 | `INDODAX_SECRET_KEY` | Ya (untuk live trading) | **Nama variabelnya `INDODAX_SECRET_KEY`, BUKAN `INDODAX_SECRET`** — pernah salah tulis dan menyebabkan client baca `undefined` |
 | `INDODAX_API_URL` | Tidak (ada default) | Default: `https://indodax.com` |
 
+## Multi-Account Indodax (Encrypted Credential Storage)
+
+**Jangan pernah** diberi prefix `NEXT_PUBLIC_` — kalau bocor ke client bundle, semua API key/secret Indodax yang tersimpan di Firestore bisa didekripsi siapa saja.
+
+| Variabel | Wajib | Keterangan |
+|---|---|---|
+| `ACCOUNT_ENCRYPTION_KEY` | Ya (kalau fitur multi-akun Indodax dipakai) | Hex string 64 karakter (32 byte) untuk AES-256-GCM di `services/security/encryption.ts`. Generate dengan `openssl rand -hex 32`. **Kalau berubah, semua credential terenkripsi lama tidak bisa didekripsi lagi** — jangan diganti sembarangan setelah ada data tersimpan. |
+| `BOT_OWNER_UID` | Ya (kalau live trading pakai akun dari multi-account flow) | UID Firebase Auth pemilik dashboard. `services/firebase/indodaxAccountsAdmin.ts` pakai ini untuk cari akun Indodax yang `isActive=true` milik user ini saat live trading jalan (saat ini masih single-account per siklus). |
+
 ## AI Providers
 
 | Variabel | Wajib | Keterangan |
