@@ -26,7 +26,7 @@ tanpa scan), perilaku lama tetap jalan: TRADING_CONFIG.pairs +
 openPositionPairs.
 ==========================================================
 */
-import { getClosePrices } from "../indodax/candles";
+import { getCandles } from "../indodax/candles";
 import { calculateRSI } from "../indicators/rsi";
 import { calculateEMA } from "../indicators/movingAverage";
 import { TradingEngine } from "../trading/engine";
@@ -66,7 +66,9 @@ async function processPair(pair: string): Promise<CronPairResult> {
 
     await recordLog("SYSTEM", "info", `Cron execution started (${pair}).`);
 
-    const closePrices = await getClosePrices({ pair, limit: 100 });
+    const candles = await getCandles({ pair, limit: 100 });
+
+    const closePrices = candles.map((c) => c.close);
 
     if (closePrices.length < EMA_SLOW_PERIOD) {
       throw new Error(
@@ -79,12 +81,18 @@ async function processPair(pair: string): Promise<CronPairResult> {
     const emaFast = calculateEMA(closePrices, EMA_FAST_PERIOD);
     const emaSlow = calculateEMA(closePrices, EMA_SLOW_PERIOD);
 
+    // candles OHLCV lengkap diteruskan ke TradingEngine HANYA untuk
+    // filter konfirmasi strategi orphan (indicatorManager butuh
+    // minimal 30 candle; kalau kurang, filter otomatis fail-safe
+    // menurunkan BUY ke HOLD -- lihat confirmBuyWithOrphanStrategies
+    // di src/services/trading/engine.ts).
     const engineResult = await TradingEngine.run({
       pair,
       price,
       rsi,
       emaFast,
       emaSlow,
+      candles,
     });
 
     await recordLog(
