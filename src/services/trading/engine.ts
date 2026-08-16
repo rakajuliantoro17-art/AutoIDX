@@ -33,6 +33,14 @@ import LiveTradingService from "./live";
 
 import RiskManager from "./risk";
 
+import type { Candle } from "@/services/indodax/candles";
+
+import indicatorManager from "@/services/indicator/manager";
+import type { IndicatorCandle } from "@/services/indicator/types";
+
+import strategyManager from "@/services/strategy/manager";
+import type { StrategyDecision } from "@/services/strategy/types";
+
 import {
   getBotState,
   updateBotState,
@@ -70,6 +78,15 @@ export interface TradingEngineInput {
   emaFast: number;
 
   emaSlow: number;
+
+  /**
+   * Candle OHLCV lengkap (opsional). Dipakai HANYA untuk filter
+   * konfirmasi strategi orphan (src/services/strategy/*) sebelum
+   * BUY dari DecisionEngine dieksekusi -- lihat
+   * confirmBuyWithOrphanStrategies() di bawah. Kalau tidak
+   * disuplai, filter otomatis fail-safe (BUY diturunkan ke HOLD).
+   */
+  candles?: Candle[];
 
 }
 
@@ -126,6 +143,109 @@ function isLiveModeActive(
     control.mode === "live" &&
     process.env.BOT_LIVE_CONFIRM === "true"
   );
+
+}
+
+/**
+ * Ambang konfirmasi filter strategi orphan.
+ * - Minimal 2 dari 3 strategi (AURA_TREND, EMA_CROSSOVER, MOMENTUM)
+ *   harus searah BUY.
+ * - Confidence tiap strategi (skala 0..1 dari core/evaluator.ts)
+ *   minimal 0.60 supaya dihitung "setuju".
+ */
+const STRATEGY_CONFIRM_MIN_AGREE = 2;
+const STRATEGY_CONFIRM_MIN_CONFIDENCE = 0.6;
+
+export interface StrategyConfirmationResult {
+
+  confirmed: boolean;
+
+  agreeCount: number;
+
+  totalCount: number;
+
+  auditLog: string;
+
+}
+
+/**
+ * Filter konfirmasi di atas DecisionEngine, KHUSUS untuk sinyal BUY.
+ *
+ * SELL/exit dari DecisionEngine SENGAJA tidak melewati filter ini,
+ * konsisten dengan prinsip yang sudah ada di TradingEngine.run()
+ * (emergency stop hanya blokir BUY, tidak pernah blokir SELL) --
+ * plus strategyManager.compare() saat ini tidak meneruskan parameter
+ * `position`, jadi rule exit di strategi orphan tidak reliable
+ * dipakai untuk konfirmasi SELL.
+ *
+ * Fail-safe: kalau data candle tidak ada/tidak cukup, dianggap TIDAK
+ * terkonfirmasi (BUY diturunkan ke HOLD), bukan sebaliknya.
+ */
+async function confirmBuyWithOrphanStrategies(
+  pair: string,
+  candles: Candle[] | undefined
+): Promise<StrategyConfirmationResult> {
+
+  if (!candles || candles.length === 0) {
+
+    return {
+      confirmed: false,
+      agreeCount: 0,
+      totalCount: 0,
+      auditLog:
+        "Data candle tidak tersedia untuk filter strategi orphan -- BUY diturunkan ke HOLD (fail-safe).",
+    };
+
+  }
+
+  const mappedCandles: IndicatorCandle[] = candles.map((c) => ({
+    symbol: pair.toUpperCase(),
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+    volume: c.volume,
+    timestamp: c.time,
+  }));
+
+  const calc = indicatorManager.calculate(mappedCandles, pair);
+
+  if (!calc) {
+
+    return {
+      confirmed: false,
+      agreeCount: 0,
+      totalCount: 0,
+      auditLog:
+        "Candle kurang dari minimum (30) untuk indicatorManager -- BUY diturunkan ke HOLD (fail-safe).",
+    };
+
+  }
+
+  const results: StrategyDecision[] = strategyManager.compare(calc.features);
+
+  const agreeing = results.filter(
+    (r) =>
+      r.action === "BUY" &&
+      r.confidence >= STRATEGY_CONFIRM_MIN_CONFIDENCE
+  );
+
+  const confirmed =
+    results.length > 0 &&
+    agreeing.length >= STRATEGY_CONFIRM_MIN_AGREE;
+
+  const detail = results
+    .map((r) => `${r.strategy}=${r.action}(${r.confidence.toFixed(2)})`)
+    .join(", ");
+
+  return {
+    confirmed,
+    agreeCount: agreeing.length,
+    totalCount: results.length,
+    auditLog: confirmed
+      ? `Terkonfirmasi ${agreeing.length}/${results.length} strategi orphan setuju BUY [${detail}].`
+      : `Ditolak filter -- hanya ${agreeing.length}/${results.length} strategi orphan setuju BUY (butuh minimal ${STRATEGY_CONFIRM_MIN_AGREE}, confidence>=${STRATEGY_CONFIRM_MIN_CONFIDENCE}) [${detail}].`,
+  };
 
 }
 
@@ -275,10 +395,45 @@ export class TradingEngine {
 
       };
 
-      const decision: DecisionResult =
+      let decision: DecisionResult =
         DecisionEngine.evaluate(
           decisionInput
         );
+
+      // --- 2b. Filter konfirmasi strategi orphan (KHUSUS BUY) ---
+      // DecisionEngine tetap sumber sinyal utama. Strategi orphan
+      // (src/services/strategy/*) di sini hanya menolak/mengonfirmasi,
+      // TIDAK PERNAH mengubah HOLD jadi BUY/SELL, dan TIDAK PERNAH
+      // mengubah arah BUY jadi SELL atau sebaliknya.
+      if (decision.signal === "BUY") {
+
+        const confirmation =
+          await confirmBuyWithOrphanStrategies(
+            input.pair,
+            input.candles
+          );
+
+        await recordLog(
+          "BOT",
+          confirmation.confirmed ? "success" : "warning",
+          `[Filter Konfirmasi ${input.pair.toUpperCase()}] ${confirmation.auditLog}`
+        );
+
+        if (!confirmation.confirmed) {
+
+          decision = {
+
+            signal: "HOLD",
+
+            confidence: decision.confidence,
+
+            reason: `BUY (${decision.reason}) ditolak filter konfirmasi strategi orphan: ${confirmation.auditLog}`,
+
+          };
+
+        }
+
+      }
 
       // --- Persist currentPrice/lastSignal SETIAP siklus ---
       // (sebelumnya cuma di-update saat BUY/SELL, jadi nilai ini
