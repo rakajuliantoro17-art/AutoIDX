@@ -109,6 +109,83 @@ class IndodaxMarketService {
   }
 
   /**
+   * Mengambil daftar ticker_id SEMUA pair IDR dalam bentuk array string
+   * (mis. ["btc_idr", "eth_idr", ...]) -- dipakai scanner untuk membangun
+   * "universe" pair yang dipindai kalau tidak diberi daftar spesifik.
+   * @returns {Promise<string[]>}
+   */
+  async getAllTradingPairs() {
+    try {
+      const idrPairs = await this.getAllIdrPairs();
+      return idrPairs.map((p) => p.pair);
+    } catch (error) {
+      console.error('[Market Service Error] Failed to build trading pairs list:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Mengambil snapshot ticker SEMUA pair sekaligus dalam satu request
+   * (GET /api/ticker_all), termasuk change24h yang dihitung dari
+   * prices_24h bawaan endpoint yang sama. Dipakai scanner supaya bisa
+   * prefilter volume/perubahan harga TANPA request ticker per-pair.
+   * @returns {Promise<{pair:string, symbol:string, lastPrice:number, high24h:number, low24h:number, change24h:number, buyPrice:number, sellPrice:number, volCoin:number, volIdr:number, serverTime?:number}[]>}
+   */
+  async getSummaryTickers() {
+    try {
+      const response = await fetch('https://indodax.com/api/ticker_all');
+
+      if (!response.ok) {
+        throw new Error(`ticker_all failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const tickers = data.tickers || {};
+      const prices24h = data.prices_24h || {};
+
+      const snapshot = Object.keys(tickers)
+        .map((pair) => {
+          const ticker = tickers[pair];
+
+          if (!ticker) {
+            return null;
+          }
+
+          const baseCoin = pair.split('_')[0];
+          const lastPrice = parseFloat(ticker.last);
+          const change24hKey = pair.replace('_', '').toLowerCase();
+          const priceBefore = parseFloat(prices24h[change24hKey]);
+
+          let change24h = 0;
+          const hasValidPriceBefore = priceBefore && priceBefore !== 0 && !isNaN(priceBefore);
+          if (hasValidPriceBefore) {
+            change24h = Math.round(((lastPrice - priceBefore) / priceBefore) * 100 * 100) / 100;
+          }
+
+          return {
+            pair,
+            symbol: baseCoin.toUpperCase(),
+            lastPrice,
+            high24h: parseFloat(ticker.high),
+            low24h: parseFloat(ticker.low),
+            change24h,
+            buyPrice: parseFloat(ticker.buy),
+            sellPrice: parseFloat(ticker.sell),
+            volCoin: parseFloat(ticker[`vol_${baseCoin}`] || 0),
+            volIdr: parseFloat(ticker.vol_idr || 0),
+            serverTime: parseInt(ticker.server_time, 10),
+          };
+        })
+        .filter((item) => item !== null);
+
+      return snapshot;
+    } catch (error) {
+      console.error('[Market Service Error] Failed to fetch summary tickers:', error.message);
+      return [];
+    }
+  }
+
+  /**
    * Memeriksa spread persentase antara harga Beli terbaik (Best Bid) dan Jual terbaik (Best Ask)
    * @param {string} pair 
    */
