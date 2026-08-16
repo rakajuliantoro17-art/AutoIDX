@@ -2,17 +2,21 @@
 ==========================================================
 AURA Trade OS
 Scheduler Heartbeat Service
-Version : 0.0.7 Alpha
+Version : 0.0.8 Alpha
+
+CATATAN (audit keamanan): sebelumnya file ini pakai Client SDK
+("firebase/firestore") meskipun dipanggil dari server
+(liveTrading/engine, automation/*) - pola bug yang sama persis
+yang sudah pernah diperbaiki di botState.ts dan
+paperTradingStore.ts. Begitu firestore.rules diperketat (deny
+by default), write ini akan gagal diam-diam (masuk catch,
+return false) karena request.auth selalu null di context
+server. Sudah diperbaiki pakai Admin SDK.
 ==========================================================
 */
 
-import { db } from "../firebase/config";
-import {
-  doc,
-  setDoc,
-  getDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { adminDb } from "../firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 export interface HeartbeatStatus {
   service: string;
@@ -27,22 +31,25 @@ const DOCUMENT = "heartbeat";
 
 let startedAt = Date.now();
 
+function heartbeatRef() {
+  return adminDb.collection(COLLECTION).doc(DOCUMENT);
+}
+
 /**
  * Mengirim heartbeat ke Firestore
  */
 export async function sendHeartbeat(): Promise<boolean> {
   try {
-    await setDoc(
-      doc(db, COLLECTION, DOCUMENT),
+    await heartbeatRef().set(
       {
         service: "Trading Engine",
         status: "ONLINE",
-        version: "0.0.7-alpha",
+        version: "0.0.8-alpha",
         uptime: Math.floor(
           (Date.now() - startedAt) / 1000
         ),
         lastHeartbeat: new Date().toISOString(),
-        serverTime: serverTimestamp(),
+        serverTime: FieldValue.serverTimestamp(),
       },
       {
         merge: true,
@@ -65,11 +72,9 @@ export async function sendHeartbeat(): Promise<boolean> {
  */
 export async function getHeartbeat(): Promise<HeartbeatStatus | null> {
   try {
-    const snapshot = await getDoc(
-      doc(db, COLLECTION, DOCUMENT)
-    );
+    const snapshot = await heartbeatRef().get();
 
-    if (!snapshot.exists()) {
+    if (!snapshot.exists) {
       return null;
     }
 
@@ -89,8 +94,7 @@ export async function getHeartbeat(): Promise<HeartbeatStatus | null> {
  */
 export async function markOffline(): Promise<void> {
   try {
-    await setDoc(
-      doc(db, COLLECTION, DOCUMENT),
+    await heartbeatRef().set(
       {
         status: "OFFLINE",
         lastHeartbeat: new Date().toISOString(),
