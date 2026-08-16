@@ -2,7 +2,12 @@
 ==========================================================
 AURA Trade OS
 Trading Configuration
-Version : 0.0.1 Alpha
+Version : 0.0.2 Alpha
+
+Update dari 0.0.1: tambah minVolumeIdr -- ambang batas
+volume 24 jam (IDR) yang dipakai untuk menyaring pair mana
+saja yang boleh dieksekusi BUY/SELL otomatis oleh cron saat
+mode full-pair (BOT_PAIRS tidak diisi manual).
 ==========================================================
 */
 export type TradingMode = "paper" | "live";
@@ -13,6 +18,27 @@ export const TRADING_CONFIG = {
     .split(",")
     .map((p) => p.trim().toLowerCase())
     .filter(Boolean),
+
+  /**
+   * Kalau true (default ketika BOT_PAIRS tidak diisi), cron
+   * akan otomatis mengambil SEMUA pair IDR yang lolos filter
+   * minVolumeIdr dari scanner, bukan cuma daftar `pairs` di atas.
+   *
+   * Set BOT_PAIRS secara eksplisit di env untuk memaksa mode
+   * manual (daftar pair tetap), atau set BOT_FULL_PAIR_MODE=false
+   * untuk menonaktifkan mode dinamis ini walau BOT_PAIRS kosong.
+   */
+  fullPairMode:
+    process.env.BOT_FULL_PAIR_MODE !== undefined
+      ? process.env.BOT_FULL_PAIR_MODE === "true"
+      : !process.env.BOT_PAIRS,
+
+  /**
+   * Ambang batas volume 24 jam (IDR) minimum supaya pair
+   * dianggap cukup likuid untuk auto-trading. Pair di bawah
+   * ini dilewati sama sekali oleh cron.
+   */
+  minVolumeIdr: Number(process.env.BOT_MIN_VOLUME_IDR ?? 50_000_000),
 
   defaultTradeAmount: Number(process.env.BOT_DEFAULT_TRADE_AMOUNT ?? 10000),
 
