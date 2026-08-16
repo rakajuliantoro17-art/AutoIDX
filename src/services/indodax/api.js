@@ -1,5 +1,12 @@
 import crypto from 'crypto';
 import querystring from 'querystring';
+import indodaxLimiter from './limiter';
+import IndodaxCache from './cache';
+
+// Cache khusus daftar pair (/api/pairs jarang berubah - TTL 6 jam cukup
+// aman, tetap bisa dipaksa refresh lewat forceRefresh()).
+const pairsCache = new IndodaxCache({ ttlMs: 6 * 60 * 60 * 1000, maxEntries: 4 });
+const PAIRS_CACHE_KEY = 'indodax:pairs:all';
 
 /**
  * Service Wrapper untuk Indodax Public & Private API (TAPI)
@@ -22,10 +29,12 @@ class IndodaxService {
    */
   async getTicker(pair = 'btc_idr') {
     try {
-      const response = await fetch(`${this.publicBaseUrl}/${pair}/ticker`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await indodaxLimiter.executePublic(() =>
+        fetch(`${this.publicBaseUrl}/${pair}/ticker`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
 
       if (!response.ok) {
         throw new Error(`Public API Error: ${response.statusText}`);
@@ -40,12 +49,38 @@ class IndodaxService {
   }
 
   /**
+   * Mengambil ticker SEMUA pair sekaligus dalam satu request
+   * (jauh lebih efisien daripada memanggil getTicker() per-pair
+   * saat mau scan ratusan pair).
+   * Response asli: { tickers: { btc_idr: {...}, eth_idr: {...}, ... } }
+   */
+  async getAllTickers() {
+    try {
+      const response = await indodaxLimiter.executePublic(() =>
+        fetch(`${this.publicBaseUrl}/ticker_all`)
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.tickers || {};
+    } catch (error) {
+      console.error('[Indodax API Error] Failed to fetch ticker_all:', error.message);
+      return {};
+    }
+  }
+
+  /**
    * Mengambil antrean order book (Bids & Asks)
    * @param {string} pair - Contoh: 'btc_idr'
    */
   async getDepth(pair = 'btc_idr') {
     try {
-      const response = await fetch(`${this.publicBaseUrl}/${pair}/depth`);
+      const response = await indodaxLimiter.executePublic(() =>
+        fetch(`${this.publicBaseUrl}/${pair}/depth`)
+      );
       if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       return await response.json();
     } catch (error) {
@@ -60,13 +95,73 @@ class IndodaxService {
    */
   async getTrades(pair = 'btc_idr') {
     try {
-      const response = await fetch(`${this.publicBaseUrl}/${pair}/trades`);
+      const response = await indodaxLimiter.executePublic(() =>
+        fetch(`${this.publicBaseUrl}/${pair}/trades`)
+      );
       if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
       return await response.json();
     } catch (error) {
       console.error(`[Indodax API Error] Failed to fetch trades (${pair}):`, error.message);
       return [];
     }
+  }
+
+  /**
+   * Mengambil metadata SEMUA pair yang terdaftar di Indodax
+   * (bukan cuma harga - termasuk base_currency, min order, dst).
+   * Di-cache 6 jam karena daftar pair jarang berubah.
+   * @param {boolean} forceRefresh - lewati cache, ambil fresh dari Indodax
+   */
+  async getPairs(forceRefresh = false) {
+    if (!forceRefresh) {
+      const cached = pairsCache.getValue(PAIRS_CACHE_KEY);
+      if (cached) return cached;
+    }
+
+    try {
+      const response = await indodaxLimiter.executePublic(() =>
+        fetch(`${this.publicBaseUrl}/pairs`)
+      );
+
+      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+
+      const data = await response.json();
+
+      if (!Array.isArray(data)) {
+        throw new Error('Format respons /api/pairs tidak dikenali');
+      }
+
+      pairsCache.set(PAIRS_CACHE_KEY, data);
+      return data;
+    } catch (error) {
+      console.error('[Indodax API Error] Failed to fetch pairs list:', error.message);
+
+      // Fallback ke cache basi (kalau ada) daripada kosong total,
+      // supaya scanner tidak mendadak kehilangan seluruh daftar pair
+      // hanya karena satu request /api/pairs gagal sesaat.
+      const stale = pairsCache.getStale(PAIRS_CACHE_KEY);
+      return stale ? stale.value : [];
+    }
+  }
+
+  /**
+   * Mengambil daftar ticker_id (mis. "btc_idr") untuk SEMUA pair
+   * yang di-quote dalam Rupiah (base_currency === "idr").
+   * Ini yang dipakai scanner/dashboard untuk menampilkan semua
+   * pair IDR Indodax, bukan daftar hardcode.
+   */
+  async getIdrPairs(forceRefresh = false) {
+    const pairs = await this.getPairs(forceRefresh);
+
+    return pairs
+      .filter((p) => p && p.base_currency === 'idr' && p.is_active !== false)
+      .map((p) => ({
+        pair: p.ticker_id,
+        symbol: (p.traded_currency_unit || p.traded_currency || '').toUpperCase(),
+        name: p.description || p.symbol || p.ticker_id,
+        minOrderIdr: Number(p.trade_min_base_currency) || 0,
+      }))
+      .filter((p) => !!p.pair);
   }
 
   // ==========================================

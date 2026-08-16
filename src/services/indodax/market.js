@@ -93,6 +93,22 @@ class IndodaxMarketService {
   }
 
   /**
+   * Mengambil seluruh pair yang di-quote dalam Rupiah (IDR) di Indodax
+   * (bukan daftar hardcode - ditarik langsung dari /api/pairs, di-cache
+   * 6 jam). Dipakai scanner supaya bisa memindai semua pair IDR, bukan
+   * cuma beberapa pair populer.
+   * @returns {Promise<{pair:string, symbol:string, name:string, minOrderIdr:number}[]>}
+   */
+  async getAllIdrPairs() {
+    try {
+      return await indodaxApi.getIdrPairs();
+    } catch (error) {
+      console.error('[Market Service Error] Failed to fetch IDR pairs list:', error.message);
+      return [];
+    }
+  }
+
+  /**
    * Memeriksa spread persentase antara harga Beli terbaik (Best Bid) dan Jual terbaik (Best Ask)
    * @param {string} pair 
    */
