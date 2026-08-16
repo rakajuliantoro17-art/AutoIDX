@@ -4,6 +4,8 @@
  * Indodax HTTP Client
  * ============================================================
  *
+ * Phase 38 - Integration / Fix
+ *
  * Responsibility:
  * - HTTP communication with Indodax.
  * - Public REST request.
@@ -302,12 +304,9 @@ export class IndodaxClient {
 
     return this.request<T>(
       this.privateBaseUrl,
-      request.path ??
-        "/tapi",
+      "/tapi",
       {
-        method:
-          request.method ??
-          "POST",
+        method: "POST",
         headers,
         body:
           request.body,
