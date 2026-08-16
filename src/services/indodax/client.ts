@@ -1,88 +1,97 @@
 /**
  * ============================================================
  * AURA Trade OS
- * Indodax Balance Service
+ * Indodax HTTP Client
  * ============================================================
  *
  * Responsibility:
- * - Mengambil saldo akun dari Private REST API Indodax.
- * - Menormalisasi response balance.
- * - Menyediakan helper untuk membaca saldo currency tertentu.
- * - Menjaga agar credential/signature tidak bocor.
+ * - HTTP communication with Indodax.
+ * - Public REST request.
+ * - Private signed REST request.
+ * - Timeout handling.
+ * - HTTP error normalization.
+ * - Response parsing.
  *
  * NOT responsible for:
- * - Order placement
- * - Buy/Sell
  * - Strategy
- * - Risk decision
- * - Portfolio mutation
+ * - Risk
+ * - Portfolio
+ * - Buy/Sell decisions
+ * - Position management
  *
- * Flow:
+ * Architecture:
  *
+ * Market / Balance / Order Service
+ *              ↓
+ *        IndodaxClient
+ *              ↓
+ *        Indodax REST API
+ *
+ * Private requests:
+ *
+ * Service
+ *   ↓
  * IndodaxAuth
- *      ↓
- * BalanceService
- *      ↓
- * Indodax Private API
- *      ↓
- * Normalized Balance
- *      ↓
- * Risk / Portfolio / Execution
+ *   ↓
+ * Signed Request
+ *   ↓
+ * IndodaxClient
+ *   ↓
+ * Indodax
  * ============================================================
  */
 
-import {
-  IndodaxAuth,
-  type IndodaxSignedRequest,
-  type IndodaxAuthHeaders,
+import type {
+  IndodaxSignedRequest,
+  IndodaxAuthHeaders,
 } from "./auth";
 
-export interface IndodaxBalanceRequest {
-  currency?: string;
+export interface IndodaxClientConfig {
+  baseUrl?: string;
+  publicBaseUrl?: string;
+  privateBaseUrl?: string;
+  timeoutMs?: number;
+  fetchImpl?: typeof fetch;
 }
 
-export interface IndodaxBalanceRaw {
-  [currency: string]: string | number;
+export interface IndodaxRequestOptions {
+  signal?: AbortSignal;
+  headers?: Record<string, string>;
 }
 
-export interface IndodaxBalance {
-  currency: string;
-  available: number;
-  locked: number;
-  total: number;
+export interface IndodaxHttpResponse<T = unknown> {
+  status: number;
+  ok: boolean;
+  headers: Record<string, string>;
+  data: T;
 }
 
-export interface IndodaxBalanceResponse {
-  success: number;
-  return?: {
-    balance?: IndodaxBalanceRaw;
-  };
+export interface IndodaxErrorPayload {
+  success?: number;
   error?: string;
+  errorCode?: string;
+  message?: string;
 }
 
-export interface IndodaxBalanceClient {
-  request(
-    body: string,
-    headers: IndodaxAuthHeaders,
-  ): Promise<unknown>;
-}
-
-export interface BalanceSnapshot {
-  balances: IndodaxBalance[];
-  timestamp: number;
-}
-
-export class IndodaxBalanceError extends Error {
+export class IndodaxClientError extends Error {
   public readonly code: string;
+  public readonly status?: number;
+  public readonly details?: unknown;
 
   public constructor(
     message: string,
-    code = "INDODAX_BALANCE_ERROR",
+    code = "INDODAX_CLIENT_ERROR",
+    status?: number,
+    details?: unknown,
   ) {
     super(message);
 
-    this.name = "IndodaxBalanceError";
+    this.name =
+      "IndodaxClientError";
+
     this.code = code;
+    this.status = status;
+    this.details = details;
 
     Object.setPrototypeOf(
       this,
@@ -91,402 +100,789 @@ export class IndodaxBalanceError extends Error {
   }
 }
 
-export class IndodaxBalanceService {
-  private readonly auth: IndodaxAuth;
+export class IndodaxTimeoutError extends IndodaxClientError {
+  public constructor(
+    message =
+      "Indodax request timed out",
+  ) {
+    super(
+      message,
+      "INDODAX_TIMEOUT",
+    );
 
-  private readonly client: IndodaxBalanceClient;
+    this.name =
+      "IndodaxTimeoutError";
+  }
+}
+
+export class IndodaxHttpError extends IndodaxClientError {
+  public constructor(
+    message: string,
+    status: number,
+    details?: unknown,
+  ) {
+    super(
+      message,
+      "INDODAX_HTTP_ERROR",
+      status,
+      details,
+    );
+
+    this.name =
+      "IndodaxHttpError";
+  }
+}
+
+export class IndodaxApiError extends IndodaxClientError {
+  public constructor(
+    message: string,
+    details?: unknown,
+  ) {
+    super(
+      message,
+      "INDODAX_API_ERROR",
+      undefined,
+      details,
+    );
+
+    this.name =
+      "IndodaxApiError";
+  }
+}
+
+export class IndodaxClient {
+  private readonly baseUrl: string;
+
+  private readonly publicBaseUrl: string;
+
+  private readonly privateBaseUrl: string;
+
+  private readonly timeoutMs: number;
+
+  private readonly fetchImpl: typeof fetch;
 
   public constructor(
-    auth: IndodaxAuth,
-    client: IndodaxBalanceClient,
+    config: IndodaxClientConfig = {},
   ) {
-    if (!auth) {
-      throw new IndodaxBalanceError(
-        "IndodaxAuth is required",
-        "AUTH_REQUIRED",
+    this.baseUrl =
+      this.normalizeUrl(
+        config.baseUrl ??
+          "https://indodax.com",
       );
-    }
 
-    if (!client) {
-      throw new IndodaxBalanceError(
-        "Indodax balance client is required",
-        "CLIENT_REQUIRED",
+    this.publicBaseUrl =
+      this.normalizeUrl(
+        config.publicBaseUrl ??
+          this.baseUrl,
       );
-    }
 
-    this.auth = auth;
-    this.client = client;
+    this.privateBaseUrl =
+      this.normalizeUrl(
+        config.privateBaseUrl ??
+          this.baseUrl,
+      );
+
+    this.timeoutMs =
+      config.timeoutMs ??
+      10_000;
+
+    this.fetchImpl =
+      config.fetchImpl ??
+      fetch;
+
+    this.validateConfig();
   }
 
   /**
-   * Fetch all account balances.
-   */
-  public async getBalances(): Promise<
-    IndodaxBalance[]
-  > {
-    const request =
-      this.auth.createSignedRequest({
-        method: "getInfo",
-      });
-
-    const response =
-      await this.executeRequest(request);
-
-    return this.normalizeBalances(
-      response,
-    );
-  }
-
-  /**
-   * Fetch a specific currency balance.
+   * Execute a public GET request.
    *
    * Example:
    *
-   * getBalance("idr")
-   * getBalance("btc")
+   * client.publicGet(
+   *   "/api/ticker/btcidr"
+   * );
    */
-  public async getBalance(
-    currency: string,
-  ): Promise<IndodaxBalance> {
-    const normalizedCurrency =
-      this.normalizeCurrency(currency);
-
-    const balances =
-      await this.getBalances();
-
-    const balance =
-      balances.find(
-        (item) =>
-          item.currency ===
-          normalizedCurrency,
-      );
-
-    if (!balance) {
-      return {
-        currency: normalizedCurrency,
-        available: 0,
-        locked: 0,
-        total: 0,
-      };
-    }
-
-    return balance;
-  }
-
-  /**
-   * Return available balance only.
-   */
-  public async getAvailableBalance(
-    currency: string,
-  ): Promise<number> {
-    const balance =
-      await this.getBalance(currency);
-
-    return balance.available;
-  }
-
-  /**
-   * Return locked balance only.
-   */
-  public async getLockedBalance(
-    currency: string,
-  ): Promise<number> {
-    const balance =
-      await this.getBalance(currency);
-
-    return balance.locked;
-  }
-
-  /**
-   * Return total balance.
-   */
-  public async getTotalBalance(
-    currency: string,
-  ): Promise<number> {
-    const balance =
-      await this.getBalance(currency);
-
-    return balance.total;
-  }
-
-  /**
-   * Fetch and return a complete timestamped
-   * balance snapshot.
-   */
-  public async getSnapshot(): Promise<
-    BalanceSnapshot
-  > {
-    const balances =
-      await this.getBalances();
-
-    return {
-      balances,
-      timestamp: Date.now(),
-    };
-  }
-
-  /**
-   * Check whether the account has enough
-   * available balance.
-   */
-  public async hasAvailableBalance(
-    currency: string,
-    requiredAmount: number,
-  ): Promise<boolean> {
-    if (
-      !Number.isFinite(
-        requiredAmount,
-      ) ||
-      requiredAmount < 0
-    ) {
-      throw new IndodaxBalanceError(
-        "Required balance amount must be a non-negative finite number",
-        "INVALID_REQUIRED_AMOUNT",
-      );
-    }
-
-    const available =
-      await this.getAvailableBalance(
-        currency,
-      );
-
-    return available >=
-      requiredAmount;
-  }
-
-  /**
-   * Normalize the raw Indodax balance response.
-   */
-  private normalizeBalances(
-    response: unknown,
-  ): IndodaxBalance[] {
-    const parsed =
-      this.parseResponse(response);
-
-    if (
-      parsed.success !== 1
-    ) {
-      throw new IndodaxBalanceError(
-        parsed.error ??
-          "Indodax balance request failed",
-        "BALANCE_REQUEST_FAILED",
-      );
-    }
-
-    const rawBalance =
-      parsed.return?.balance;
-
-    if (!rawBalance) {
-      throw new IndodaxBalanceError(
-        "Indodax response does not contain balance data",
-        "BALANCE_DATA_MISSING",
-      );
-    }
-
-    return Object.entries(
-      rawBalance,
-    ).map(
-      ([currency, value]) =>
-        this.normalizeBalance(
-          currency,
-          value,
-        ),
+  public async publicGet<T = unknown>(
+    path: string,
+    options: IndodaxRequestOptions = {},
+  ): Promise<T> {
+    return this.request<T>(
+      this.publicBaseUrl,
+      path,
+      {
+        method: "GET",
+        headers:
+          options.headers,
+        signal:
+          options.signal,
+      },
     );
   }
 
   /**
-   * Normalize a single currency balance.
-   *
-   * Indodax commonly exposes available
-   * balance as the currency value and may
-   * expose locked values separately depending
-   * on API response shape.
+   * Execute a public request with an arbitrary
+   * HTTP method.
    */
-  private normalizeBalance(
-    currency: string,
-    value:
-      | string
-      | number,
-  ): IndodaxBalance {
-    const numericValue =
-      this.toNumber(value);
-
-    return {
-      currency:
-        this.normalizeCurrency(
-          currency,
-        ),
-      available: numericValue,
-      locked: 0,
-      total: numericValue,
-    };
+  public async publicRequest<
+    T = unknown,
+  >(
+    path: string,
+    options: {
+      method?: string;
+      headers?: Record<string, string>;
+      body?: string;
+      signal?: AbortSignal;
+    } = {},
+  ): Promise<T> {
+    return this.request<T>(
+      this.publicBaseUrl,
+      path,
+      {
+        method:
+          options.method ??
+          "GET",
+        headers:
+          options.headers,
+        body:
+          options.body,
+        signal:
+          options.signal,
+      },
+    );
   }
 
   /**
-   * Execute signed request through the
-   * injected private API client.
+   * Execute an Indodax private signed request.
+   *
+   * The request is expected to already contain
+   * the body and authentication headers produced
+   * by IndodaxAuth.
    */
-  private async executeRequest(
+  public async privateRequest<
+    T = unknown,
+  >(
     request: IndodaxSignedRequest,
-  ): Promise<unknown> {
-    try {
-      return await this.client.request(
-        request.body,
-        request.headers,
+    options: IndodaxRequestOptions = {},
+  ): Promise<T> {
+    if (!request) {
+      throw new IndodaxClientError(
+        "Signed request is required",
+        "SIGNED_REQUEST_REQUIRED",
       );
+    }
+
+    if (
+      typeof request.body !==
+        "string" ||
+      request.body.length ===
+        0
+    ) {
+      throw new IndodaxClientError(
+        "Signed request body is required",
+        "SIGNED_BODY_REQUIRED",
+      );
+    }
+
+    if (
+      !request.headers ||
+      typeof request.headers !==
+        "object"
+    ) {
+      throw new IndodaxClientError(
+        "Signed request headers are required",
+        "SIGNED_HEADERS_REQUIRED",
+      );
+    }
+
+    const headers =
+      this.mergeHeaders(
+        request.headers,
+        options.headers,
+      );
+
+    return this.request<T>(
+      this.privateBaseUrl,
+      request.path ??
+        "/tapi",
+      {
+        method:
+          request.method ??
+          "POST",
+        headers,
+        body:
+          request.body,
+        signal:
+          options.signal,
+      },
+    );
+  }
+
+  /**
+   * Generic request entry point.
+   */
+  public async request<
+    T = unknown,
+  >(
+    baseUrl: string,
+    path: string,
+    options: {
+      method: string;
+      headers?: Record<string, string>;
+      body?: string;
+      signal?: AbortSignal;
+    },
+  ): Promise<T> {
+    const url =
+      this.buildUrl(
+        baseUrl,
+        path,
+      );
+
+    const controller =
+      new AbortController();
+
+    const timeout =
+      setTimeout(
+        () =>
+          controller.abort(),
+        this.timeoutMs,
+      );
+
+    const signal =
+      this.mergeSignals(
+        controller.signal,
+        options.signal,
+      );
+
+    try {
+      const response =
+        await this.fetchImpl(
+          url,
+          {
+            method:
+              options.method,
+            headers:
+              this.prepareHeaders(
+                options.headers,
+              ),
+            body:
+              options.body,
+            signal,
+          },
+        );
+
+      const data =
+        await this.parseResponse(
+          response,
+        );
+
+      if (!response.ok) {
+        throw new IndodaxHttpError(
+          this.resolveHttpErrorMessage(
+            response.status,
+            data,
+          ),
+          response.status,
+          data,
+        );
+      }
+
+      this.assertApiSuccess(
+        data,
+      );
+
+      return data as T;
     } catch (error) {
-      throw new IndodaxBalanceError(
-        this.sanitizeErrorMessage(
+      if (
+        error instanceof
+        IndodaxClientError
+      ) {
+        throw error;
+      }
+
+      if (
+        this.isAbortError(error)
+      ) {
+        throw new IndodaxTimeoutError();
+      }
+
+      throw new IndodaxClientError(
+        this.sanitizeError(
           error,
         ),
-        "BALANCE_NETWORK_ERROR",
+        "INDODAX_NETWORK_ERROR",
       );
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
   /**
-   * Validate and normalize API response.
+   * Convenience method for public ticker.
    */
-  private parseResponse(
-    response: unknown,
-  ): IndodaxBalanceResponse {
-    if (
-      !this.isRecord(response)
+  public async getTicker<
+    T = unknown,
+  >(
+    pair: string,
+  ): Promise<T> {
+    const normalized =
+      this.normalizePair(pair);
+
+    return this.publicGet<T>(
+      `/api/ticker/${normalized}`,
+    );
+  }
+
+  /**
+   * Convenience method for public depth/order book.
+   */
+  public async getDepth<
+    T = unknown,
+  >(
+    pair: string,
+  ): Promise<T> {
+    const normalized =
+      this.normalizePair(pair);
+
+    return this.publicGet<T>(
+      `/api/depth/${normalized}`,
+    );
+  }
+
+  /**
+   * Convenience method for public trades.
+   */
+  public async getTrades<
+    T = unknown,
+  >(
+    pair: string,
+  ): Promise<T> {
+    const normalized =
+      this.normalizePair(pair);
+
+    return this.publicGet<T>(
+      `/api/trades/${normalized}`,
+    );
+  }
+
+  /**
+   * Convenience method for public summaries.
+   */
+  public async getSummaries<
+    T = unknown,
+  >(): Promise<T> {
+    return this.publicGet<T>(
+      "/api/summaries",
+    );
+  }
+
+  /**
+   * POST form-encoded request.
+   *
+   * Useful for private APIs where the signed
+   * request body is already prepared.
+   */
+  public async postForm<
+    T = unknown,
+  >(
+    path: string,
+    params: Record<
+      string,
+      string | number
+    >,
+    options: IndodaxRequestOptions = {},
+  ): Promise<T> {
+    const body =
+      new URLSearchParams();
+
+    for (
+      const [
+        key,
+        value,
+      ] of Object.entries(params)
     ) {
-      throw new IndodaxBalanceError(
-        "Invalid Indodax balance response",
-        "INVALID_RESPONSE",
+      body.set(
+        key,
+        String(value),
       );
     }
 
-    const success =
-      response.success;
+    return this.publicRequest<T>(
+      path,
+      {
+        method: "POST",
+        headers:
+          this.mergeHeaders(
+            {
+              "Content-Type":
+                "application/x-www-form-urlencoded",
+            },
+            options.headers,
+          ),
+        body:
+          body.toString(),
+        signal:
+          options.signal,
+      },
+    );
+  }
 
-    if (
-      typeof success !==
-      "number"
-    ) {
-      throw new IndodaxBalanceError(
-        "Invalid Indodax response success field",
-        "INVALID_SUCCESS_FIELD",
-      );
-    }
+  /**
+   * Create a child client with a different
+   * timeout.
+   */
+  public withTimeout(
+    timeoutMs: number,
+  ): IndodaxClient {
+    return new IndodaxClient({
+      baseUrl:
+        this.baseUrl,
+      publicBaseUrl:
+        this.publicBaseUrl,
+      privateBaseUrl:
+        this.privateBaseUrl,
+      timeoutMs,
+      fetchImpl:
+        this.fetchImpl,
+    });
+  }
 
+  /**
+   * Return configured timeout.
+   */
+  public getTimeoutMs(): number {
+    return this.timeoutMs;
+  }
+
+  /**
+   * Return configured endpoints without
+   * exposing credentials.
+   */
+  public getEndpoints(): {
+    baseUrl: string;
+    publicBaseUrl: string;
+    privateBaseUrl: string;
+  } {
     return {
-      success,
-
-      return:
-        this.isRecord(
-          response.return,
-        )
-          ? {
-              balance:
-                this.isRecord(
-                  response.return
-                    .balance,
-                )
-                  ? this.toBalanceRecord(
-                      response.return
-                        .balance,
-                    )
-                  : undefined,
-            }
-          : undefined,
-
-      error:
-        typeof response.error ===
-        "string"
-          ? response.error
-          : undefined,
+      baseUrl:
+        this.baseUrl,
+      publicBaseUrl:
+        this.publicBaseUrl,
+      privateBaseUrl:
+        this.privateBaseUrl,
     };
   }
 
   /**
-   * Convert unknown object into a
-   * normalized balance record.
+   * Parse Indodax response safely.
    */
-  private toBalanceRecord(
-    value: Record<
-      string,
-      unknown
-    >,
-  ): IndodaxBalanceRaw {
-    const result: IndodaxBalanceRaw =
-      {};
+  private async parseResponse(
+    response: Response,
+  ): Promise<unknown> {
+    const text =
+      await response.text();
 
-    for (
-      const [key, item] of Object.entries(
-        value,
+    if (
+      text.trim().length ===
+      0
+    ) {
+      return {};
+    }
+
+    const contentType =
+      response.headers.get(
+        "content-type",
+      ) ?? "";
+
+    if (
+      contentType.includes(
+        "application/json",
       )
     ) {
-      if (
-        typeof item ===
-          "string" ||
-        typeof item ===
-          "number"
-      ) {
-        result[key] = item;
+      try {
+        return JSON.parse(
+          text,
+        ) as unknown;
+      } catch {
+        throw new IndodaxClientError(
+          "Invalid JSON response from Indodax",
+          "INVALID_JSON_RESPONSE",
+        );
       }
     }
 
-    return result;
+    try {
+      return JSON.parse(
+        text,
+      ) as unknown;
+    } catch {
+      return text;
+    }
   }
 
   /**
-   * Convert supported numeric values
-   * into finite numbers.
+   * Detect Indodax application-level failures.
    */
-  private toNumber(
-    value:
-      | string
-      | number,
-  ): number {
-    const parsed =
-      typeof value ===
-      "number"
-        ? value
-        : Number(value);
-
+  private assertApiSuccess(
+    data: unknown,
+  ): void {
     if (
-      !Number.isFinite(parsed)
+      !this.isRecord(data)
     ) {
-      throw new IndodaxBalanceError(
-        "Invalid numeric balance value",
-        "INVALID_BALANCE_VALUE",
-      );
+      return;
     }
 
-    return parsed;
+    const success =
+      data.success;
+
+    if (
+      success === 0 ||
+      success === false
+    ) {
+      const message =
+        this.extractApiError(
+          data,
+        );
+
+      throw new IndodaxApiError(
+        message,
+        data,
+      );
+    }
   }
 
   /**
-   * Normalize currency symbols.
+   * Extract API error message.
    */
-  private normalizeCurrency(
-    currency: string,
+  private extractApiError(
+    data: Record<
+      string,
+      unknown
+    >,
+  ): string {
+    const candidates = [
+      data.error,
+      data.message,
+      data.errorCode,
+    ];
+
+    for (
+      const candidate of candidates
+    ) {
+      if (
+        typeof candidate ===
+        "string" &&
+        candidate.trim()
+          .length > 0
+      ) {
+        return candidate;
+      }
+    }
+
+    return "Indodax API request failed";
+  }
+
+  /**
+   * Resolve HTTP-level error.
+   */
+  private resolveHttpErrorMessage(
+    status: number,
+    data: unknown,
   ): string {
     if (
-      typeof currency !==
-        "string" ||
-      currency.trim()
-        .length === 0
+      this.isRecord(data)
     ) {
-      throw new IndodaxBalanceError(
-        "Currency is required",
-        "CURRENCY_REQUIRED",
+      const payload =
+        data as IndodaxErrorPayload;
+
+      if (
+        typeof payload.error ===
+        "string"
+      ) {
+        return payload.error;
+      }
+
+      if (
+        typeof payload.message ===
+        "string"
+      ) {
+        return payload.message;
+      }
+    }
+
+    return `Indodax HTTP request failed with status ${status}`;
+  }
+
+  /**
+   * Prepare HTTP headers.
+   */
+  private prepareHeaders(
+    headers?: Record<string, string>,
+  ): Record<string, string> {
+    return {
+      Accept:
+        "application/json",
+      ...headers,
+    };
+  }
+
+  /**
+   * Merge headers without mutating
+   * caller-owned objects.
+   */
+  private mergeHeaders(
+    first?: Record<string, string> | IndodaxAuthHeaders,
+    second?: Record<string, string>,
+  ): Record<string, string> {
+    return {
+      ...(first ?? {}),
+      ...(second ?? {}),
+    };
+  }
+
+  /**
+   * Build absolute URL.
+   */
+  private buildUrl(
+    baseUrl: string,
+    path: string,
+  ): string {
+    if (
+      typeof path !==
+        "string" ||
+      path.trim().length ===
+        0
+    ) {
+      throw new IndodaxClientError(
+        "Request path is required",
+        "PATH_REQUIRED",
       );
     }
 
-    return currency
+    if (
+      /^https?:\/\//i.test(
+        path,
+      )
+    ) {
+      return path;
+    }
+
+    const normalizedBase =
+      baseUrl.replace(
+        /\/+$/,
+        "",
+      );
+
+    const normalizedPath =
+      path.startsWith("/")
+        ? path
+        : `/${path}`;
+
+    return `${normalizedBase}${normalizedPath}`;
+  }
+
+  /**
+   * Normalize URL configuration.
+   */
+  private normalizeUrl(
+    value: string,
+  ): string {
+    return value.replace(
+      /\/+$/,
+      "",
+    );
+  }
+
+  /**
+   * Normalize trading pair.
+   */
+  private normalizePair(
+    pair: string,
+  ): string {
+    if (
+      typeof pair !==
+        "string" ||
+      pair.trim().length ===
+        0
+    ) {
+      throw new IndodaxClientError(
+        "Trading pair is required",
+        "PAIR_REQUIRED",
+      );
+    }
+
+    return pair
       .trim()
       .toLowerCase();
   }
 
   /**
-   * Prevent sensitive authentication
-   * information from appearing in errors.
+   * Merge two AbortSignals.
    */
-  private sanitizeErrorMessage(
+  private mergeSignals(
+    primary: AbortSignal,
+    secondary?: AbortSignal,
+  ): AbortSignal {
+    if (!secondary) {
+      return primary;
+    }
+
+    if (
+      secondary.aborted
+    ) {
+      primary.dispatchEvent(
+        new Event(
+          "abort",
+        ),
+      );
+
+      return secondary;
+    }
+
+    const controller =
+      new AbortController();
+
+    const abort =
+      () =>
+        controller.abort();
+
+    primary.addEventListener(
+      "abort",
+      abort,
+      {
+        once: true,
+      },
+    );
+
+    secondary.addEventListener(
+      "abort",
+      abort,
+      {
+        once: true,
+      },
+    );
+
+    return controller.signal;
+  }
+
+  /**
+   * Detect AbortError without relying
+   * on a DOM-specific error class.
+   */
+  private isAbortError(
+    error: unknown,
+  ): boolean {
+    return (
+      this.isRecord(error) &&
+      error.name ===
+        "AbortError"
+    );
+  }
+
+  /**
+   * Sanitize unknown errors.
+   */
+  private sanitizeError(
     error: unknown,
   ): string {
     if (
@@ -502,9 +898,56 @@ export class IndodaxBalanceService {
       return error;
     }
 
-    return "Unknown Indodax balance request error";
+    return "Unknown Indodax network error";
   }
 
+  /**
+   * Validate client configuration.
+   */
+  private validateConfig(): void {
+    if (
+      !this.baseUrl
+    ) {
+      throw new IndodaxClientError(
+        "Indodax base URL is required",
+        "BASE_URL_REQUIRED",
+      );
+    }
+
+    if (
+      !this.publicBaseUrl
+    ) {
+      throw new IndodaxClientError(
+        "Indodax public base URL is required",
+        "PUBLIC_BASE_URL_REQUIRED",
+      );
+    }
+
+    if (
+      !this.privateBaseUrl
+    ) {
+      throw new IndodaxClientError(
+        "Indodax private base URL is required",
+        "PRIVATE_BASE_URL_REQUIRED",
+      );
+    }
+
+    if (
+      !Number.isFinite(
+        this.timeoutMs,
+      ) ||
+      this.timeoutMs <= 0
+    ) {
+      throw new IndodaxClientError(
+        "Timeout must be a positive finite number",
+        "INVALID_TIMEOUT",
+      );
+    }
+  }
+
+  /**
+   * Generic object guard.
+   */
   private isRecord(
     value: unknown,
   ): value is Record<
@@ -521,16 +964,14 @@ export class IndodaxBalanceService {
 }
 
 /**
- * Factory helper.
+ * Default factory.
  */
-export function createIndodaxBalanceService(
-  auth: IndodaxAuth,
-  client: IndodaxBalanceClient,
-): IndodaxBalanceService {
-  return new IndodaxBalanceService(
-    auth,
-    client,
+export function createIndodaxClient(
+  config?: IndodaxClientConfig,
+): IndodaxClient {
+  return new IndodaxClient(
+    config,
   );
 }
 
-export default IndodaxBalanceService;
+export default IndodaxClient;
