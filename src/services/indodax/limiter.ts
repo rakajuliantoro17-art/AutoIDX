@@ -180,7 +180,7 @@ interface LimiterBucket {
 
   requests: RequestRecord[];
 
-  queue: QueueItem<unknown>[];
+  queue: QueueItem<any>[];
 
   rejectedRequests: number;
 
