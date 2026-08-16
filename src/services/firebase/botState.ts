@@ -400,3 +400,41 @@ export async function getOpenPositionsCount(): Promise<number> {
   }
 
 }
+
+/**
+ * Daftar pair yang SAAT INI sedang punya posisi terbuka.
+ *
+ * Dipakai scheduler (cron) supaya pair yang lagi dipegang tetap
+ * diproses setiap siklus -- untuk cek stop-loss/take-profit/SELL --
+ * walaupun pair itu sudah tidak lagi masuk daftar top opportunities
+ * hasil scan market siklus berikutnya. Tanpa ini, posisi bisa
+ * "nyangkut" tidak pernah dicek lagi kalau scanner sudah pindah
+ * fokus ke pair lain.
+ */
+export async function getOpenPositionPairs(): Promise<string[]> {
+
+  try {
+
+    const snapshot = await adminDb
+      .collection(STATE_COLLECTION)
+      .where("inPosition", "==", true)
+      .get();
+
+    return snapshot.docs.map((doc) => doc.id);
+
+  } catch (error) {
+
+    console.error(
+      "[BOT STATE OPEN POSITION PAIRS ERROR]",
+      error
+    );
+
+    // Fail-safe: kalau query gagal, kembalikan array kosong.
+    // (Beda dengan getOpenPositionsCount yang fail-safe ke angka
+    // besar -- di sini kita tidak tahu PAIR mana yang open, jadi
+    // tidak ada yang aman untuk "ditebak".)
+    return [];
+
+  }
+
+}
