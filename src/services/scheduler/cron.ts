@@ -2,21 +2,29 @@
 ==========================================================
 AURA Trade OS
 Trading Scheduler (Cron)
-Version : 0.1.0
+Version : 0.2.0
 
-Perubahan dari 0.0.9: executeCron() sekarang bisa menerima
-daftar pair DINAMIS (hasil MarketScanner, seluruh market
-Indodax) lewat parameter `candidatePairs`, bukan cuma
-TRADING_CONFIG.pairs statis dari env var BOT_PAIRS.
+Perubahan dari 0.1.0: cron.ts sekarang membangun
+IndicatorFeatureVector LENGKAP (RSI/EMA/MACD/ATR/ADX/Stochastic/
+Bollinger, lewat services/strategy/featureBuilder.ts) dari candle
+OHLC asli, dan mengirimkannya ke TradingEngine sebagai `features`.
+TradingEngine memakai ini untuk mengevaluasi sinyal lewat
+services/strategy/* (strategyManager, default AURA_TREND) --
+BUKAN lagi DecisionEngine lama (RSI+EMA doang, AND-gate kaku).
+
+(Sebelumnya sempat ada percobaan lain yang mengirim `candles` mentah
+ke TradingEngine untuk filter konfirmasi terpisah -- pendekatan itu
+digantikan pendekatan ini karena filter konfirmasi menumpuk dua
+AND-gate sekaligus dan membuat sinyal BUY makin jarang muncul.)
 
 Universe pair yang diproses tiap siklus = gabungan dari:
-1. candidatePairs   -- top opportunities hasil scan seluruh
-                        pair Indodax (kalau diberikan)
+1. candidatePairs   -- SEMUA pair qualified hasil scan seluruh
+                        market Indodax (kalau diberikan)
 2. openPositionPairs -- pair yang SEDANG punya posisi terbuka,
                         SELALU diproses supaya stop-loss/
                         take-profit/SELL tetap jalan walau
-                        pair itu sudah tidak lagi masuk top
-                        opportunities di siklus scan berikutnya
+                        pair itu sudah tidak lagi qualified di
+                        siklus scan berikutnya
 3. TRADING_CONFIG.pairs -- watchlist manual dari env var
                         BOT_PAIRS, tetap dihormati sebagai
                         pair yang mau selalu dipantau operator
@@ -27,16 +35,14 @@ openPositionPairs.
 ==========================================================
 */
 import { getCandles } from "../indodax/candles";
-import { calculateRSI } from "../indicators/rsi";
-import { calculateEMA } from "../indicators/movingAverage";
+import {
+  buildFeatureVector,
+  MIN_CANDLES_FOR_FEATURES,
+} from "../strategy/featureBuilder";
 import { TradingEngine } from "../trading/engine";
 import { recordLog } from "../firebase/logService";
 import { getOpenPositionPairs } from "../firebase/botState";
 import { TRADING_CONFIG } from "@/config/trading";
-
-const RSI_PERIOD = 14;
-const EMA_FAST_PERIOD = 9;
-const EMA_SLOW_PERIOD = 21;
 
 export interface CronPairResult {
   pair: string;
@@ -68,31 +74,18 @@ async function processPair(pair: string): Promise<CronPairResult> {
 
     const candles = await getCandles({ pair, limit: 100 });
 
-    const closePrices = candles.map((c) => c.close);
-
-    if (closePrices.length < EMA_SLOW_PERIOD) {
+    if (candles.length < MIN_CANDLES_FOR_FEATURES) {
       throw new Error(
-        `Data harga tidak cukup untuk ${pair} (dapat ${closePrices.length}, butuh minimal ${EMA_SLOW_PERIOD})`
+        `Data candle tidak cukup untuk ${pair} (dapat ${candles.length}, butuh minimal ${MIN_CANDLES_FOR_FEATURES})`
       );
     }
 
-    const price = closePrices[closePrices.length - 1];
-    const rsi = calculateRSI(closePrices, RSI_PERIOD);
-    const emaFast = calculateEMA(closePrices, EMA_FAST_PERIOD);
-    const emaSlow = calculateEMA(closePrices, EMA_SLOW_PERIOD);
+    const features = buildFeatureVector(pair, candles);
 
-    // candles OHLCV lengkap diteruskan ke TradingEngine HANYA untuk
-    // filter konfirmasi strategi orphan (indicatorManager butuh
-    // minimal 30 candle; kalau kurang, filter otomatis fail-safe
-    // menurunkan BUY ke HOLD -- lihat confirmBuyWithOrphanStrategies
-    // di src/services/trading/engine.ts).
     const engineResult = await TradingEngine.run({
       pair,
-      price,
-      rsi,
-      emaFast,
-      emaSlow,
-      candles,
+      price: features.price,
+      features,
     });
 
     await recordLog(
@@ -140,7 +133,7 @@ export async function executeCron(
 
   // Pair yang SEDANG open position -- selalu ikut diproses supaya
   // stop-loss/take-profit/SELL tetap jalan walau pair itu sudah
-  // tidak lagi jadi top opportunity di siklus scan berikutnya.
+  // tidak lagi qualified di siklus scan berikutnya.
   const openPositionPairs = await getOpenPositionPairs();
 
   const pairs = Array.from(
