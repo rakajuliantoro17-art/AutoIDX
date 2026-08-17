@@ -59,7 +59,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     console.log(
-      `[CRON] Scan selesai: ${summary.qualifiedCount}/${summary.scannedCount} pair qualified`
+      `[CRON] Scan selesai: ${summary.qualifiedCount}/${summary.scannedCount} pair qualified ` +
+      `(skor dianalisa: ${summary.scoreStats.analyzedCount}, ` +
+      `min ${summary.scoreStats.minScore}, max ${summary.scoreStats.maxScore}, ` +
+      `avg ${summary.scoreStats.avgScore}, threshold ${summary.scoreStats.thresholdUsed})`
     );
 
     // SEMUA pair yang lolos filter opportunityScore (bukan cuma top 10
