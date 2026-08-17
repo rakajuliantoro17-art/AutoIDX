@@ -15,6 +15,10 @@ Perubahan dari versi sebelumnya:
   untuk kandidat yang sudah lolos filter volume, dengan concurrency
   terbatas supaya tetap aman di bawah rate limit publik Indodax
   (180 request/menit).
+- minOpportunityScore SEKARANG BENAR-BENAR dipakai dari ScanCriteria
+  (sebelumnya hardcode 60, parameter ini ada di tipe tapi diam-diam
+  diabaikan). scoreStats juga ditambahkan supaya threshold-nya bisa
+  dievaluasi pakai data asli, bukan tebakan.
 ==========================================================
 */
 
@@ -173,7 +177,16 @@ export class MarketScanner {
       .sort((a, b) => b.volIdr - a.volIdr)
       .slice(0, DEEP_SCAN_LIMIT);
 
+    const minOpportunityScore = criteria.minOpportunityScore ?? 60;
+
     const qualified: ScannedPairResult[] = [];
+
+    // Skor SEMUA kandidat yang berhasil dianalisa (bukan cuma yang
+    // qualified) -- dipakai untuk scoreStats di bawah, supaya bisa
+    // dipantau apakah threshold minOpportunityScore terlalu ketat
+    // (skor-skor menumpuk sedikit di bawah threshold) atau memang
+    // market sedang sepi peluang (skor jauh di bawah threshold).
+    const allScores: number[] = [];
 
     // 5. Analisa RSI/EMA (butuh data trades per-pair) hanya untuk kandidat,
     //    dengan concurrency terbatas.
@@ -195,7 +208,9 @@ export class MarketScanner {
           change24h: ticker.change24h ?? 0,
         });
 
-        if (score < 60) {
+        allScores.push(score);
+
+        if (score < minOpportunityScore) {
           return;
         }
 
@@ -252,11 +267,32 @@ export class MarketScanner {
 
     qualified.sort((a, b) => b.opportunityScore - a.opportunityScore);
 
+    const scoreStats =
+      allScores.length > 0
+        ? {
+            analyzedCount: allScores.length,
+            minScore: Math.min(...allScores),
+            maxScore: Math.max(...allScores),
+            avgScore:
+              Math.round(
+                (allScores.reduce((sum, s) => sum + s, 0) / allScores.length) * 100
+              ) / 100,
+            thresholdUsed: minOpportunityScore,
+          }
+        : {
+            analyzedCount: 0,
+            minScore: 0,
+            maxScore: 0,
+            avgScore: 0,
+            thresholdUsed: minOpportunityScore,
+          };
+
     return {
       scannedCount: consideredPairs.length,
       qualifiedCount: qualified.length,
       topOpportunities: qualified.slice(0, 10),
       qualifiedPairs: qualified.map((q) => q.pair),
+      scoreStats,
       scannedAt: new Date().toISOString(),
     };
   }
