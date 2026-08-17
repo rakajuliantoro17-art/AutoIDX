@@ -2,7 +2,7 @@
 ==========================================================
 AURA Trade OS
 Trading Engine
-Version : 0.0.9 Alpha
+Version : 0.1.0 Alpha
 (Gabungan perubahan:
 1. Validasi risk sebelum eksekusi - emergency stop, batas rugi
    harian, cooldown, max exposure, max open position, dan
@@ -19,27 +19,36 @@ Version : 0.0.9 Alpha
    harga turun.
 4. updateBotState dipanggil SETIAP siklus (bukan cuma saat
    BUY/SELL) supaya currentPrice/lastSignal di dashboard selalu
-   segar walau hasil siklusnya HOLD.)
+   segar walau hasil siklusnya HOLD.
+5. Sinyal BUY/SELL SEKARANG langsung dari services/strategy/*
+   (strategyManager, default mode BALANCED -> AURA_TREND -- rule
+   berbobot EMA+MACD+ADX+RSI+Stochastic) -- BUKAN lagi dari
+   DecisionEngine lama (AND-gate kaku RSI+EMA saja, yang bikin
+   sinyal nyaris selalu HOLD). DecisionEngine sudah tidak dipakai
+   di sini lagi.
+   Sempat ada percobaan pendekatan "filter konfirmasi" (DecisionEngine
+   tetap utama, strategi orphan cuma menolak BUY lewat
+   confirmBuyWithOrphanStrategies + services/indicator/ singular) --
+   pendekatan itu SENGAJA tidak dipakai karena menumpuk dua AND-gate
+   sekaligus dan membuat BUY makin jarang muncul, bertentangan dengan
+   tujuan awal (mengatasi sinyal yang macet di HOLD). services/indicator/
+   (singular, terpisah dari services/indicators/ yang dipakai di sini)
+   sekarang orphan lagi -- aman dihapus/diarsipkan kapan saja.)
 ==========================================================
 */
 
-import DecisionEngine, {
-  DecisionInput,
+import type {
   DecisionResult,
 } from "./decision";
+
+import strategyManager from "@/services/strategy/manager";
+import type { StrategyManagerResult } from "@/services/strategy/manager";
+import type { IndicatorFeatureVector } from "@/services/indicators";
 
 import PaperTradingService from "./paper";
 import LiveTradingService from "./live";
 
 import RiskManager from "./risk";
-
-import type { Candle } from "@/services/indodax/candles";
-
-import indicatorManager from "@/services/indicator/manager";
-import type { IndicatorCandle } from "@/services/indicator/types";
-
-import strategyManager from "@/services/strategy/manager";
-import type { StrategyDecision } from "@/services/strategy/types";
 
 import {
   getBotState,
@@ -73,20 +82,7 @@ export interface TradingEngineInput {
 
   price: number;
 
-  rsi: number;
-
-  emaFast: number;
-
-  emaSlow: number;
-
-  /**
-   * Candle OHLCV lengkap (opsional). Dipakai HANYA untuk filter
-   * konfirmasi strategi orphan (src/services/strategy/*) sebelum
-   * BUY dari DecisionEngine dieksekusi -- lihat
-   * confirmBuyWithOrphanStrategies() di bawah. Kalau tidak
-   * disuplai, filter otomatis fail-safe (BUY diturunkan ke HOLD).
-   */
-  candles?: Candle[];
+  features: IndicatorFeatureVector;
 
 }
 
@@ -147,104 +143,41 @@ function isLiveModeActive(
 }
 
 /**
- * Ambang konfirmasi filter strategi orphan.
- * - Minimal 2 dari 3 strategi (AURA_TREND, EMA_CROSSOVER, MOMENTUM)
- *   harus searah BUY.
- * - Confidence tiap strategi (skala 0..1 dari core/evaluator.ts)
- *   minimal 0.60 supaya dihitung "setuju".
+ * Adaptor: StrategyManagerResult (services/strategy/*) -> DecisionResult
+ * (bentuk lama yang dipakai TradingEngine di bawah). Dibuat supaya
+ * alur risk-gate/eksekusi TradingEngine TIDAK perlu diubah besar-
+ * besaran -- cukup SUMBER sinyalnya saja yang diganti, dari
+ * DecisionEngine lama (AND-gate kaku RSI+EMA doang) ke strategyManager
+ * (rule-based berbobot, banyak indikator, default mode BALANCED ->
+ * strategi AURA_TREND).
  */
-const STRATEGY_CONFIRM_MIN_AGREE = 2;
-const STRATEGY_CONFIRM_MIN_CONFIDENCE = 0.6;
+function mapStrategyResultToDecision(
+  result: StrategyManagerResult
+): DecisionResult {
 
-export interface StrategyConfirmationResult {
-
-  confirmed: boolean;
-
-  agreeCount: number;
-
-  totalCount: number;
-
-  auditLog: string;
-
-}
-
-/**
- * Filter konfirmasi di atas DecisionEngine, KHUSUS untuk sinyal BUY.
- *
- * SELL/exit dari DecisionEngine SENGAJA tidak melewati filter ini,
- * konsisten dengan prinsip yang sudah ada di TradingEngine.run()
- * (emergency stop hanya blokir BUY, tidak pernah blokir SELL) --
- * plus strategyManager.compare() saat ini tidak meneruskan parameter
- * `position`, jadi rule exit di strategi orphan tidak reliable
- * dipakai untuk konfirmasi SELL.
- *
- * Fail-safe: kalau data candle tidak ada/tidak cukup, dianggap TIDAK
- * terkonfirmasi (BUY diturunkan ke HOLD), bukan sebaliknya.
- */
-async function confirmBuyWithOrphanStrategies(
-  pair: string,
-  candles: Candle[] | undefined
-): Promise<StrategyConfirmationResult> {
-
-  if (!candles || candles.length === 0) {
+  if (!result.decision) {
 
     return {
-      confirmed: false,
-      agreeCount: 0,
-      totalCount: 0,
-      auditLog:
-        "Data candle tidak tersedia untuk filter strategi orphan -- BUY diturunkan ke HOLD (fail-safe).",
+      signal: "HOLD",
+      confidence: 0,
+      reason: `Strategi "${result.strategy}" tidak menghasilkan keputusan.`,
     };
 
   }
 
-  const mappedCandles: IndicatorCandle[] = candles.map((c) => ({
-    symbol: pair.toUpperCase(),
-    open: c.open,
-    high: c.high,
-    low: c.low,
-    close: c.close,
-    volume: c.volume,
-    timestamp: c.time,
-  }));
-
-  const calc = indicatorManager.calculate(mappedCandles, pair);
-
-  if (!calc) {
-
-    return {
-      confirmed: false,
-      agreeCount: 0,
-      totalCount: 0,
-      auditLog:
-        "Candle kurang dari minimum (30) untuk indicatorManager -- BUY diturunkan ke HOLD (fail-safe).",
-    };
-
-  }
-
-  const results: StrategyDecision[] = strategyManager.compare(calc.features);
-
-  const agreeing = results.filter(
-    (r) =>
-      r.action === "BUY" &&
-      r.confidence >= STRATEGY_CONFIRM_MIN_CONFIDENCE
-  );
-
-  const confirmed =
-    results.length > 0 &&
-    agreeing.length >= STRATEGY_CONFIRM_MIN_AGREE;
-
-  const detail = results
-    .map((r) => `${r.strategy}=${r.action}(${r.confidence.toFixed(2)})`)
-    .join(", ");
+  const reasonText =
+    result.decision.reasons.length > 0
+      ? result.decision.reasons.join(", ")
+      : "Tidak ada rule yang terpenuhi.";
 
   return {
-    confirmed,
-    agreeCount: agreeing.length,
-    totalCount: results.length,
-    auditLog: confirmed
-      ? `Terkonfirmasi ${agreeing.length}/${results.length} strategi orphan setuju BUY [${detail}].`
-      : `Ditolak filter -- hanya ${agreeing.length}/${results.length} strategi orphan setuju BUY (butuh minimal ${STRATEGY_CONFIRM_MIN_AGREE}, confidence>=${STRATEGY_CONFIRM_MIN_CONFIDENCE}) [${detail}].`,
+
+    signal: result.decision.action,
+
+    confidence: result.decision.confidence,
+
+    reason: `[${result.strategy}] ${reasonText}`,
+
   };
 
 }
@@ -305,7 +238,7 @@ export class TradingEngine {
 
       // --- 1. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
       // Ini dicek TERPISAH dari sinyal strategi, supaya posisi tetap
-      // ditutup walau EMA/RSI belum kasih sinyal SELL. TIDAK diblokir
+      // ditutup walau strategi belum kasih sinyal SELL. TIDAK diblokir
       // emergency stop (lihat catatan di atas).
       if (state.inPosition) {
 
@@ -380,60 +313,21 @@ export class TradingEngine {
 
       }
 
-      // --- 2. Evaluasi sinyal strategi seperti biasa ---
-      const decisionInput: DecisionInput = {
+      // --- 2. Evaluasi sinyal strategi (services/strategy/*, multi-
+      //    indikator EMA+MACD+ADX+RSI+Stochastic, weighted rules --
+      //    BUKAN lagi DecisionEngine lama yang AND-gate kaku RSI+EMA
+      //    saja, yang bikin sinyal nyaris selalu HOLD) ---
+      const position: "NONE" | "LONG" =
+        state.inPosition ? "LONG" : "NONE";
 
-        price: input.price,
-
-        rsi: input.rsi,
-
-        emaFast: input.emaFast,
-
-        emaSlow: input.emaSlow,
-
-        inPosition: state.inPosition,
-
-      };
-
-      let decision: DecisionResult =
-        DecisionEngine.evaluate(
-          decisionInput
+      const strategyResult: StrategyManagerResult =
+        strategyManager.evaluate(
+          input.features,
+          position
         );
 
-      // --- 2b. Filter konfirmasi strategi orphan (KHUSUS BUY) ---
-      // DecisionEngine tetap sumber sinyal utama. Strategi orphan
-      // (src/services/strategy/*) di sini hanya menolak/mengonfirmasi,
-      // TIDAK PERNAH mengubah HOLD jadi BUY/SELL, dan TIDAK PERNAH
-      // mengubah arah BUY jadi SELL atau sebaliknya.
-      if (decision.signal === "BUY") {
-
-        const confirmation =
-          await confirmBuyWithOrphanStrategies(
-            input.pair,
-            input.candles
-          );
-
-        await recordLog(
-          "BOT",
-          confirmation.confirmed ? "success" : "warning",
-          `[Filter Konfirmasi ${input.pair.toUpperCase()}] ${confirmation.auditLog}`
-        );
-
-        if (!confirmation.confirmed) {
-
-          decision = {
-
-            signal: "HOLD",
-
-            confidence: decision.confidence,
-
-            reason: `BUY (${decision.reason}) ditolak filter konfirmasi strategi orphan: ${confirmation.auditLog}`,
-
-          };
-
-        }
-
-      }
+      const decision: DecisionResult =
+        mapStrategyResultToDecision(strategyResult);
 
       // --- Persist currentPrice/lastSignal SETIAP siklus ---
       // (sebelumnya cuma di-update saat BUY/SELL, jadi nilai ini
