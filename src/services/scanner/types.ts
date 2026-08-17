@@ -228,6 +228,30 @@ qualifiedPairs:string[];
 
 
 
+/**
+ * Statistik skor opportunityScore SEMUA kandidat yang berhasil
+ * dianalisa siklus ini (bukan cuma yang qualified) -- dipakai untuk
+ * memantau apakah threshold minOpportunityScore terlalu ketat
+ * (skor menumpuk sedikit di bawah thresholdUsed) atau market memang
+ * sedang sepi peluang (skor jauh di bawah thresholdUsed).
+ */
+
+scoreStats:{
+
+  analyzedCount:number;
+
+  minScore:number;
+
+  maxScore:number;
+
+  avgScore:number;
+
+  thresholdUsed:number;
+
+};
+
+
+
 scannedAt:string;
 
 
