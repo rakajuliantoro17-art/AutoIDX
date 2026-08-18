@@ -2,7 +2,7 @@
 ==========================================================
 AURA Trade OS
 AURA Trend Strategy
-Version : 0.1.0 Alpha
+Version : 0.1.1 Alpha
 ==========================================================
 EMA + MACD + ADX + RSI + Stochastic Strategy
 ==========================================================
@@ -52,13 +52,6 @@ import {
 }
 
 from "../rules/filterRules";
-
-
-
-import strategyScore
-
-from "../scoring/strategyScore";
-
 
 
 
@@ -188,9 +181,31 @@ const auraTrend:StrategyDefinition = {
 
 
 
-
         /**
          * Entry Evaluation
+         *
+         * CATATAN PERBAIKAN (v0.1.1): sebelumnya BUY butuh DUA syarat
+         * terpisah sekaligus -- entry.status === "PASS" (dari
+         * entryRules, yang namanya muncul di reasons/log) DAN
+         * strategyScore.calculate().score >= 0.70 (rumus TERPISAH,
+         * bobot beda: trend/momentum/strength/volume/volatility --
+         * sama sekali tidak nyambung dengan entryRules). Akibatnya
+         * BUY bisa diam-diam terblokir walau SEMUA kriteria di
+         * entryRules sudah lolos 100% -- log menampilkan reasons
+         * yang semuanya positif ("EMA Bullish Trend, MACD Bullish
+         * Confirmation, ADX Strong Trend, RSI Healthy Zone,
+         * Stochastic Bullish Momentum" dst) tapi hasilnya tetap HOLD,
+         * karena gerbang kedua yang tidak terlihat (dan tidak
+         * tercermin di reasons) itu.
+         *
+         * Sekarang entry.status (weighted PASS dari entryRules yang
+         * SAMA PERSIS dengan yang ditampilkan di reasons) jadi
+         * SATU-SATUNYA penentu BUY -- konsisten dengan EMA_CROSSOVER
+         * dan MOMENTUM yang dari awal memang cuma pakai satu gerbang
+         * begini. services/strategy/scoring/strategyScore.ts TIDAK
+         * dihapus (masih bisa dipakai untuk analitik/dashboard di
+         * masa depan), hanya sudah tidak dipakai untuk MEMBLOKIR
+         * keputusan BUY di sini lagi.
          */
         const entry =
 
@@ -203,37 +218,15 @@ const auraTrend:StrategyDefinition = {
             );
 
 
-
-
-
-
-        const score =
-
-            strategyScore.calculate(
-
-                features
-
-            );
-
-
-
-
         if(
 
             entry.status === "PASS"
-
-            &&
-
-            score.score >=0.70
 
         ){
 
             return "BUY";
 
         }
-
-
-
 
 
         return "HOLD";
