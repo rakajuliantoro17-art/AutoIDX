@@ -11,6 +11,13 @@ import indicatorRegistry
 from "./registry";
 
 
+import type {
+    MarketCandle,
+    Timeframe,
+}
+from "@/services/market";
+
+
 import {
     IndicatorCandle,
     IndicatorFeatureVector,
@@ -302,6 +309,69 @@ export class IndicatorManager {
             });
 
 
+        /**
+         * SMA & OBV pakai signature beda (butuh MarketCandle[]
+         * penuh, bukan {close}/{high,low,close}) -- lihat
+         * SMAIndicator/OBVIndicator di ./trend/sma.ts dan
+         * ./volume/obv.ts.
+         */
+        const marketCandles: MarketCandle[] =
+
+            candles.map(
+
+                (c) => ({
+
+                    symbol: pair,
+
+                    timeframe: "1h" as Timeframe,
+
+                    open: c.open,
+
+                    high: c.high,
+
+                    low: c.low,
+
+                    close: c.close,
+
+                    volume: c.volume,
+
+                    timestamp: c.timestamp,
+
+                })
+
+            );
+
+
+        const sma =
+
+            this.registry
+
+            .get("SMA")
+
+            ?.instance
+
+            .calculate(
+
+                marketCandles
+
+            );
+
+
+        const obv =
+
+            this.registry
+
+            .get("OBV")
+
+            ?.instance
+
+            .calculate(
+
+                marketCandles
+
+            );
+
+
 
 
 
@@ -340,6 +410,10 @@ export class IndicatorManager {
 
                 ema?.slow ?? 0,
 
+
+            sma:
+
+                sma?.value ?? 0,
 
 
 
@@ -413,6 +487,10 @@ export class IndicatorManager {
 
                 bollinger?.lower ?? 0,
 
+
+            obv:
+
+                obv?.value ?? 0,
 
 
 
