@@ -396,6 +396,14 @@ export interface IndicatorFeatureVector {
     emaSlow:number;
 
 
+    /**
+     * Simple Moving Average (20 periode, default SMAIndicator).
+     * Dipakai TrendRule (src/services/strategy/rules/trendRule.ts)
+     * di gerbang konfirmasi ScoreEngine.
+     */
+    sma:number;
+
+
     macd:number;
 
 
@@ -433,6 +441,13 @@ export interface IndicatorFeatureVector {
 
 
     bollingerLower:number;
+
+
+    /**
+     * On Balance Volume. Dipakai VolumeRule di gerbang konfirmasi
+     * ScoreEngine.
+     */
+    obv:number;
 
 
 
