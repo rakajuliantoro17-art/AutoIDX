@@ -13,6 +13,8 @@ import macd from "./trend/macd";
 
 import adx from "./trend/adx";
 
+import { SMAIndicator } from "./trend/sma";
+
 
 import rsi from "./momentum/rsi";
 
@@ -22,6 +24,13 @@ import stochastic from "./momentum/stochastic";
 import atr from "./volatility/atr";
 
 import bollinger from "./volatility/bollinger";
+
+import { OBVIndicator } from "./volume/obv";
+
+
+const sma = new SMAIndicator();
+
+const obv = new OBVIndicator();
 
 
 
@@ -36,13 +45,17 @@ export type IndicatorName =
 
     | "ADX"
 
+    | "SMA"
+
     | "RSI"
 
     | "STOCHASTIC"
 
     | "ATR"
 
-    | "BOLLINGER";
+    | "BOLLINGER"
+
+    | "OBV";
 
 
 
@@ -66,7 +79,9 @@ export interface RegisteredIndicator {
 
         | "MOMENTUM"
 
-        | "VOLATILITY";
+        | "VOLATILITY"
+
+        | "VOLUME";
 
 
 }
@@ -167,6 +182,23 @@ export class IndicatorRegistry {
 
         this.register({
 
+            name:"SMA",
+
+            instance:sma,
+
+            description:
+
+                "Simple Moving Average trend detector",
+
+            category:"TREND"
+
+        });
+
+
+
+
+        this.register({
+
             name:"RSI",
 
             instance:rsi,
@@ -227,6 +259,23 @@ export class IndicatorRegistry {
                 "Bollinger Bands volatility indicator",
 
             category:"VOLATILITY"
+
+        });
+
+
+
+
+        this.register({
+
+            name:"OBV",
+
+            instance:obv,
+
+            description:
+
+                "On Balance Volume flow indicator",
+
+            category:"VOLUME"
 
         });
 
