@@ -81,6 +81,24 @@ takeProfit:number;
 
 
 
+/**
+ * Level HARGA ABSOLUT stop-loss/take-profit, dihitung SEKALI
+ * dari ATR saat BUY (lihat services/trading/risk.ts,
+ * calculateAtrStopLevels) dan disimpan di sini -- BUKAN
+ * dihitung ulang dari persentase statis tiap siklus. 0 berarti
+ * belum diset (posisi lama dari sebelum ATR SL/TP dipasang,
+ * atau memang sedang tidak posisi) -- risk.ts fallback ke
+ * RISK_CONFIG persentase statis kalau nilainya 0.
+ */
+
+stopLossPrice:number;
+
+
+
+takeProfitPrice:number;
+
+
+
 lastSignal:
 
 "BUY"
@@ -122,30 +140,21 @@ function defaultState(pair:string):BotState{
 
 return {
 
-
 pair,
-
 
 status:"IDLE",
 
-
 inPosition:false,
-
 
 entryPrice:0,
 
-
 currentPrice:0,
-
 
 coinAmount:0,
 
-
 positionValue:0,
 
-
 profitPercent:0,
-
 
 stopLoss:1,
 
@@ -153,16 +162,18 @@ stopLoss:1,
 takeProfit:3,
 
 
+stopLossPrice:0,
+
+
+takeProfitPrice:0,
+
+
 lastSignal:"HOLD",
 
 
 updatedAt:new Date()
 
-
-
 };
-
-
 
 }
 
@@ -204,8 +215,6 @@ await ref.get();
 
 
 
-
-
 if(snapshot.exists){
 
 
@@ -221,8 +230,6 @@ return {
 
 
 }
-
-
 
 
 
@@ -283,7 +290,6 @@ pair:string}
 
 
 
-
 if(!state.pair){
 
 
@@ -309,7 +315,6 @@ adminDb
 .collection(STATE_COLLECTION)
 
 .doc(state.pair);
-
 
 
 
