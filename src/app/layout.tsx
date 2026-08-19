@@ -12,6 +12,7 @@ import { AuthProvider } from "@/services/auth/AuthContext";
 import RouteGuard from "@/components/auth/RouteGuard";
 import UserMenu from "@/components/auth/UserMenu";
 import SidebarAppRouter from "@/layouts/SidebarAppRouter";
+import SystemStatusBadge from "@/components/SystemStatusBadge";
 
 export const metadata: Metadata = {
   title: "AutoIDX • Automated Indodax Trading Engine",
@@ -58,13 +59,7 @@ export default function RootLayout({
                 </div>
                 {/* SYSTEM STATUS + USER MENU */}
                 <div className="flex items-center gap-5">
-                  <div className="glass flex items-center gap-3 rounded-full px-4 py-2">
-                    <span className="status-dot status-online" />
-                    <div className="text-right">
-                      <p className="text-sm text-slate-300">Paper Trading</p>
-                      <p className="text-xs text-slate-500">v0.0.2 Alpha</p>
-                    </div>
-                  </div>
+                  <SystemStatusBadge />
                   <UserMenu />
                 </div>
               </div>
