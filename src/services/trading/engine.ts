@@ -837,6 +837,16 @@ export class TradingEngine {
 
           });
 
+                    // Hitung level SL/TP dari ATR pair ini SEKALI di sini
+          // (saat entry) -- disimpan sebagai harga absolut, BUKAN
+          // dihitung ulang tiap siklus. input.features.atr sudah
+          // tersedia dari featureBuilder.ts (dihitung dari candle
+          // OHLC asli), jadi tidak perlu request tambahan.
+          const atrLevels = RiskManager.calculateAtrStopLevels(
+            result.price,
+            input.features.atr
+          );
+
           await updateBotState({
 
             pair: input.pair,
@@ -847,7 +857,17 @@ export class TradingEngine {
 
             coinAmount: result.amount,
 
+            stopLossPrice: atrLevels.stopLossPrice,
+
+            takeProfitPrice: atrLevels.takeProfitPrice,
+
           });
+
+          await recordLog(
+            "RISK",
+            "info",
+            `[${modeLabel.toUpperCase()}] SL/TP (ATR) ${input.pair.toUpperCase()}: SL ${atrLevels.stopLossPrice.toFixed(2)} (-${atrLevels.stopLossPercent}%), TP ${atrLevels.takeProfitPrice.toFixed(2)} (+${atrLevels.takeProfitPercent}%).`
+          );
 
           await recordLog(
             "BOT",
