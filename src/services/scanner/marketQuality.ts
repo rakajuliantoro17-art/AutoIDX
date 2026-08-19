@@ -37,7 +37,11 @@ kalibrasi, TIDAK dipakai untuk menolak pair.
 
 import { SpreadFilter } from "@/services/market/filters/spreadFilter";
 import { LiquidityFilter } from "@/services/market/filters/liquidityFilter";
+import { VolumeAggregator } from "@/services/market/aggregators/volumeAggregator";
+import { CandleAggregator } from "@/services/market/aggregators/candleAggregator";
 import type { OrderBook } from "@/services/exchange/public/orderBook";
+import type { Candle as ExchangeCandle } from "@/services/exchange/models/candle";
+import type { Candle as IndodaxCandle } from "@/services/indodax/candles";
 
 export interface OrderBookDepthRaw {
   bids: Array<{ price: number; amount: number; totalIdr?: number }>;
@@ -93,5 +97,77 @@ export function evaluateMarketQuality(
     bidLiquidity: liquidityResult.bidLiquidity,
     askLiquidity: liquidityResult.askLiquidity,
     reason: spreadResult.passed ? undefined : spreadResult.reason,
+  };
+}
+
+/**
+ * Adaptor: candle aktif (indodax/candles.ts, dari endpoint
+ * TradingView history_v2) -> bentuk exchange Candle yang
+ * diharapkan CandleAggregator/VolumeAggregator. Field yang tidak
+ * tersedia dari sumber aktif (interval label, quoteVolume,
+ * jumlah trades, status closed) diisi nilai turunan/placeholder
+ * yang wajar -- aggregator ini cuma memakai open/high/low/close/
+ * volume, jadi field lain sekadar melengkapi bentuk tipe.
+ */
+function toExchangeCandles(
+  candles: IndodaxCandle[],
+  pair: string
+): ExchangeCandle[] {
+  return candles.map((c) => ({
+    symbol: pair,
+    interval: "1h",
+    openTime: c.time * 1000,
+    closeTime: c.time * 1000,
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+    volume: c.volume,
+    quoteVolume: c.volume * c.close,
+    trades: 0,
+    closed: true,
+  }));
+}
+
+export interface VolumeSurgeResult {
+  volumeRatio: number;
+  latestVolume: number;
+  averageVolume: number;
+  priceRangePercent: number;
+}
+
+/**
+ * Menghitung "volume surge" (volume candle terkini vs rata-rata)
+ * dan rentang harga (high-low) sebagai sinyal momentum tambahan --
+ * melengkapi RSI/EMA yang sudah ada. Ini murni INFORMASIONAL,
+ * dilampirkan ke hasil scan untuk dipantau, BELUM dipakai sebagai
+ * gerbang wajib (beda ambang batas yang jelas antar pair belum
+ * divalidasi cukup untuk dijadikan hard filter).
+ */
+export function evaluateVolumeSurge(
+  candles: IndodaxCandle[],
+  pair: string
+): VolumeSurgeResult | null {
+  if (candles.length === 0) {
+    return null;
+  }
+
+  const exchangeCandles = toExchangeCandles(candles, pair);
+
+  const volumeStats = VolumeAggregator.aggregate(exchangeCandles);
+  const candleStats = CandleAggregator.aggregate(exchangeCandles);
+
+  const lastClose = exchangeCandles[exchangeCandles.length - 1].close;
+
+  const priceRangePercent =
+    lastClose === 0
+      ? 0
+      : ((candleStats.highestHigh - candleStats.lowestLow) / lastClose) * 100;
+
+  return {
+    volumeRatio: Math.round(volumeStats.volumeRatio * 100) / 100,
+    latestVolume: volumeStats.latestVolume,
+    averageVolume: volumeStats.averageVolume,
+    priceRangePercent: Math.round(priceRangePercent * 100) / 100,
   };
 }
