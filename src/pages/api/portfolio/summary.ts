@@ -2,7 +2,7 @@
 ==========================================================
 AURA Trade OS
 Portfolio Summary API (Server-side)
-Version : 0.1.0 Alpha
+Version : 0.1.1 Alpha
 
 Mengagregasi data portfolio ASLI dari Firestore -- sebelumnya
 src/app/portfolio/page.tsx pakai object dummy hardcode (balance
@@ -24,6 +24,13 @@ diintegrasikan ke endpoint ini, openPositionsCount & recentTrades
 tetap akurat untuk live (dari bot_state & koleksi trades), tapi
 balance/available untuk live sengaja TIDAK ditampilkan seolah-
 olah akurat kalau belum benar-benar diambil dari saldo asli.
+
+CATATAN v0.1.1: sebelumnya pakai `new Map<string, {...}>()` yang
+dipecah jadi beberapa baris -- karakter `<` yang berdiri sendiri
+di akhir baris hilang saat paste ke editor browser GitHub (bug
+yang sama seperti operator perbandingan yang suka hilang). Diganti
+ke object biasa dengan index signature supaya tidak butuh syntax
+generic sama sekali.
 ==========================================================
 */
 
@@ -61,6 +68,15 @@ async function getUidFromRequest(
 
   }
 
+}
+
+interface PendingBuy {
+  price: number;
+  timestamp: number;
+}
+
+interface PendingBuyLookup {
+  [pair: string]: PendingBuy;
 }
 
 interface ClosedTradeRow {
@@ -144,15 +160,14 @@ export default async function handler(
     // --- Pairing BUY -> SELL per pair dari paper_trade_logs ---
     // (dokumen BUY & SELL tersimpan terpisah -- dipasangkan di sini
     // supaya "Recent Trades" bisa tampil satu baris per posisi,
-    // bukan satu baris per event BUY/SELL mentah.)
+    // bukan satu baris per event BUY/SELL mentah. Pakai object biasa
+    // (bukan Map) supaya tidak butuh syntax generic -- lihat catatan
+    // v0.1.1 di atas.)
     const logsAscending = tradeLogsSnapshot.docs
       .map((doc) => doc.data())
       .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
 
-    const pendingBuyByPair = new Map
-      string,
-      { price: number; timestamp: number }
-    >();
+    const pendingBuyByPair: PendingBuyLookup = {};
 
     const closedTrades: ClosedTradeRow[] = [];
 
@@ -163,10 +178,10 @@ export default async function handler(
 
       if (log.side === "BUY") {
 
-        pendingBuyByPair.set(log.pair, {
+        pendingBuyByPair[log.pair] = {
           price: log.price,
           timestamp: log.timestamp ?? 0,
-        });
+        };
 
         continue;
 
@@ -174,11 +189,11 @@ export default async function handler(
 
       if (log.side === "SELL") {
 
-        const pendingBuy = pendingBuyByPair.get(log.pair);
+        const pendingBuy = pendingBuyByPair[log.pair];
 
-        pendingBuyByPair.delete(log.pair);
+        delete pendingBuyByPair[log.pair];
 
-        const buyPrice = pendingBuy?.price ?? 0;
+        const buyPrice = pendingBuy ? pendingBuy.price : 0;
 
         const pnlIdr =
           typeof log.pnlIdr === "number" ? log.pnlIdr : 0;
@@ -215,12 +230,12 @@ export default async function handler(
     const openTradeRows: OpenTradeRow[] = openPositions.map((position) => {
 
       const pendingBuy =
-        pendingBuyByPair.get(position.pair);
+        pendingBuyByPair[position.pair];
 
       return {
         pair: position.pair,
         status: "OPEN",
-        buyPrice: pendingBuy?.price ?? position.entryPrice,
+        buyPrice: pendingBuy ? pendingBuy.price : position.entryPrice,
         sellPrice: null,
         pnlIdr: 0,
         pnlPercent: 0,
