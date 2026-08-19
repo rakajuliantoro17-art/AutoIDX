@@ -42,7 +42,9 @@ import {
   getOpenPaperPositions,
 } from "@/services/firebase/paperTradingStore";
 import { getBotControl } from "@/services/firebase/botControl";
-import { getBotState } from "@/services/firebase/botState";
+import { getBotState, getOpenPositionPairs } from "@/services/firebase/botState";
+import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
+import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
 
 async function getUidFromRequest(
   req: NextApiRequest
@@ -101,6 +103,395 @@ interface OpenTradeRow {
 
 type TradeRow = ClosedTradeRow | OpenTradeRow;
 
+interface PortfolioSummaryResponse {
+  mode: "paper" | "live";
+  balance: number;
+  available: number;
+  invested: number;
+  openPositionsCount: number;
+  realizedPnl: number;
+  unrealizedPnl: number;
+  winRate: number;
+  totalClosedTrades: number;
+  recentTrades: TradeRow[];
+  fetchedAt: string;
+  liveBalanceError?: string;
+}
+
+/**
+ * Ringkasan mode PAPER -- LOGIKA ASLI, tidak diubah sama sekali
+ * dari versi sebelumnya. Sumber: paper_portfolio, paper_positions,
+ * paper_trade_logs (semua ditulis oleh services/trading/paper.ts).
+ */
+async function buildPaperSummary(): Promise<PortfolioSummaryResponse> {
+
+  const [portfolio, openPositions, tradeLogsSnapshot] = await Promise.all([
+
+    getPaperPortfolio(BOT_CONFIG.startingBalance),
+
+    getOpenPaperPositions(),
+
+    adminDb
+      .collection("paper_trade_logs")
+      .orderBy("timestamp", "desc")
+      .limit(100)
+      .get(),
+
+  ]);
+
+  let unrealizedPnl = 0;
+  let investedIdr = 0;
+
+  for (const position of openPositions) {
+
+    investedIdr += position.entryValue;
+
+    const state = await getBotState(position.pair);
+
+    const currentPrice =
+      state.currentPrice > 0
+        ? state.currentPrice
+        : position.entryPrice;
+
+    unrealizedPnl +=
+      (currentPrice - position.entryPrice) * position.coinAmount;
+
+  }
+
+  const logsAscending = tradeLogsSnapshot.docs
+    .map((doc) => doc.data())
+    .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+
+  const pendingBuyByPair: PendingBuyLookup = {};
+
+  const closedTrades: ClosedTradeRow[] = [];
+
+  let winCount = 0;
+  let closedCount = 0;
+
+  for (const log of logsAscending) {
+
+    if (log.side === "BUY") {
+
+      pendingBuyByPair[log.pair] = {
+        price: log.price,
+        timestamp: log.timestamp ?? 0,
+      };
+
+      continue;
+
+    }
+
+    if (log.side === "SELL") {
+
+      const pendingBuy = pendingBuyByPair[log.pair];
+
+      delete pendingBuyByPair[log.pair];
+
+      const buyPrice = pendingBuy ? pendingBuy.price : 0;
+
+      const pnlIdr =
+        typeof log.pnlIdr === "number" ? log.pnlIdr : 0;
+
+      const pnlPercent =
+        typeof log.pnlPercent === "number" ? log.pnlPercent : 0;
+
+      closedTrades.push({
+        pair: log.pair,
+        status: "CLOSED",
+        buyPrice,
+        sellPrice: log.price,
+        pnlIdr,
+        pnlPercent,
+        closedAt:
+          log.timestamp
+            ? new Date(log.timestamp).toISOString()
+            : null,
+      });
+
+      closedCount += 1;
+
+      if (pnlIdr > 0) {
+        winCount += 1;
+      }
+
+    }
+
+  }
+
+  closedTrades.reverse();
+
+  const openTradeRows: OpenTradeRow[] = openPositions.map((position) => {
+
+    const pendingBuy =
+      pendingBuyByPair[position.pair];
+
+    return {
+      pair: position.pair,
+      status: "OPEN",
+      buyPrice: pendingBuy ? pendingBuy.price : position.entryPrice,
+      sellPrice: null,
+      pnlIdr: 0,
+      pnlPercent: 0,
+      closedAt: null,
+    };
+
+  });
+
+  const recentTrades: TradeRow[] = [
+    ...openTradeRows,
+    ...closedTrades,
+  ].slice(0, 20);
+
+  const realizedPnl = closedTrades.reduce(
+    (sum, t) => sum + t.pnlIdr,
+    0
+  );
+
+  const winRate =
+    closedCount > 0
+      ? Number(((winCount / closedCount) * 100).toFixed(1))
+      : 0;
+
+  return {
+
+    mode: "paper",
+
+    balance:
+      portfolio.availableBalance + investedIdr + unrealizedPnl,
+
+    available: portfolio.availableBalance,
+
+    invested: investedIdr,
+
+    openPositionsCount: openPositions.length,
+
+    realizedPnl,
+
+    unrealizedPnl: Number(unrealizedPnl.toFixed(2)),
+
+    winRate,
+
+    totalClosedTrades: closedCount,
+
+    recentTrades,
+
+    fetchedAt: new Date().toISOString(),
+
+  };
+
+}
+
+/**
+ * Ringkasan mode LIVE -- BARU. Sebelumnya endpoint ini SELALU
+ * membaca koleksi paper_*, walau bot sedang live -- artinya
+ * halaman Portfolio menampilkan data basi begitu live aktif,
+ * karena trading/live.ts menulis ke koleksi "trades" & "bot_state",
+ * BUKAN paper_trade_logs/paper_positions.
+ *
+ * Sumber data live:
+ * - Posisi terbuka & harga terkini: bot_state (field inPosition,
+ *   entryPrice, coinAmount, currentPrice -- sudah di-update
+ *   TradingEngine tiap siklus).
+ * - Riwayat trade: koleksi "trades" (ditulis recordTrade() di
+ *   services/firebase/logService.ts, field `type` BUY/SELL --
+ *   BUKAN `side` seperti di paper_trade_logs).
+ * - Saldo asli: IndodaxClient.getInfo() dengan kredensial akun
+ *   aktif (sama seperti yang dipakai trading/live.ts sendiri).
+ *
+ * PnL untuk live TIDAK disimpan pre-computed di koleksi trades
+ * (beda dengan paper_trade_logs yang punya field pnlIdr siap
+ * pakai) -- jadi dihitung di sini dari pasangan BUY/SELL harga.
+ */
+async function buildLiveSummary(): Promise<PortfolioSummaryResponse> {
+
+  const openPairs = await getOpenPositionPairs();
+
+  let unrealizedPnl = 0;
+  let investedIdr = 0;
+
+  const openTradeRows: OpenTradeRow[] = [];
+
+  for (const pair of openPairs) {
+
+    const state = await getBotState(pair);
+
+    const entryValue = state.entryPrice * state.coinAmount;
+
+    investedIdr += entryValue;
+
+    const currentPrice =
+      state.currentPrice > 0 ? state.currentPrice : state.entryPrice;
+
+    unrealizedPnl += (currentPrice - state.entryPrice) * state.coinAmount;
+
+    openTradeRows.push({
+      pair,
+      status: "OPEN",
+      buyPrice: state.entryPrice,
+      sellPrice: null,
+      pnlIdr: 0,
+      pnlPercent: 0,
+      closedAt: null,
+    });
+
+  }
+
+  // --- Pairing BUY -> SELL dari koleksi "trades" (live) ---
+  const tradeLogsSnapshot = await adminDb
+    .collection("trades")
+    .orderBy("timestamp", "desc")
+    .limit(100)
+    .get();
+
+  const logsAscending = tradeLogsSnapshot.docs
+    .map((doc) => doc.data())
+    .sort((a, b) => (a.timestamp?.toMillis?.() ?? 0) - (b.timestamp?.toMillis?.() ?? 0));
+
+  const pendingBuyByPair: PendingBuyLookup = {};
+
+  const closedTrades: ClosedTradeRow[] = [];
+
+  let winCount = 0;
+  let closedCount = 0;
+
+  for (const log of logsAscending) {
+
+    const timestampMs: number = log.timestamp?.toMillis?.() ?? 0;
+
+    if (log.type === "BUY") {
+
+      pendingBuyByPair[log.pair] = {
+        price: log.price,
+        timestamp: timestampMs,
+      };
+
+      continue;
+
+    }
+
+    if (log.type === "SELL") {
+
+      const pendingBuy = pendingBuyByPair[log.pair];
+
+      delete pendingBuyByPair[log.pair];
+
+      const buyPrice = pendingBuy ? pendingBuy.price : 0;
+
+      // Live tidak punya pnlIdr pre-computed seperti paper -- hitung
+      // manual dari selisih harga * jumlah koin yang dijual.
+      const pnlIdr =
+        buyPrice > 0 ? (log.price - buyPrice) * log.amount : 0;
+
+      const pnlPercent =
+        buyPrice > 0 ? ((log.price - buyPrice) / buyPrice) * 100 : 0;
+
+      closedTrades.push({
+        pair: log.pair,
+        status: "CLOSED",
+        buyPrice,
+        sellPrice: log.price,
+        pnlIdr,
+        pnlPercent: Number(pnlPercent.toFixed(2)),
+        closedAt: timestampMs ? new Date(timestampMs).toISOString() : null,
+      });
+
+      closedCount += 1;
+
+      if (pnlIdr > 0) {
+        winCount += 1;
+      }
+
+    }
+
+  }
+
+  closedTrades.reverse();
+
+  const recentTrades: TradeRow[] = [
+    ...openTradeRows,
+    ...closedTrades,
+  ].slice(0, 20);
+
+  const realizedPnl = closedTrades.reduce((sum, t) => sum + t.pnlIdr, 0);
+
+  const winRate =
+    closedCount > 0
+      ? Number(((winCount / closedCount) * 100).toFixed(1))
+      : 0;
+
+  // --- Saldo asli dari Indodax (bukan simulasi) ---
+  let available = 0;
+  let liveBalanceError: string | undefined;
+
+  try {
+
+    const account = await getActiveIndodaxAccount();
+
+    if (!account) {
+      throw new Error("Tidak ada akun Indodax aktif yang dikonfigurasi.");
+    }
+
+    const client = new IndodaxClient({
+      apiKey: account.apiKey,
+      secretKey: account.secretKey,
+    });
+
+    const info = await client.getInfo();
+
+    if (!info.success) {
+      throw new Error(info.message ?? "Gagal mengambil saldo Indodax.");
+    }
+
+    available = parseFloat(info.data.balance.idr ?? "0");
+
+    if (!Number.isFinite(available)) {
+      available = 0;
+    }
+
+  } catch (error) {
+
+    // Fail-safe: kalau saldo asli gagal diambil (mis. kredensial
+    // salah, Indodax down), JANGAN tampilkan angka seolah-olah 0
+    // adalah saldo sungguhan -- available tetap 0 tapi liveBalanceError
+    // diisi supaya UI bisa memberi tahu penggunanya, bukan diam-diam
+    // menampilkan Rp 0 yang menyesatkan.
+    console.error("[Portfolio Summary API] Live balance fetch failed", error);
+    liveBalanceError =
+      error instanceof Error ? error.message : "Gagal mengambil saldo live.";
+
+  }
+
+  return {
+
+    mode: "live",
+
+    balance: available + investedIdr + unrealizedPnl,
+
+    available,
+
+    invested: investedIdr,
+
+    openPositionsCount: openPairs.length,
+
+    realizedPnl,
+
+    unrealizedPnl: Number(unrealizedPnl.toFixed(2)),
+
+    winRate,
+
+    totalClosedTrades: closedCount,
+
+    recentTrades,
+
+    fetchedAt: new Date().toISOString(),
+
+    liveBalanceError,
+
+  };
+
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -130,171 +521,12 @@ export default async function handler(
     const effectiveMode: "paper" | "live" =
       control.mode === "live" && liveConfirmed ? "live" : "paper";
 
-    const [portfolio, openPositions, tradeLogsSnapshot] = await Promise.all([
+    const summary =
+      effectiveMode === "live"
+        ? await buildLiveSummary()
+        : await buildPaperSummary();
 
-      getPaperPortfolio(BOT_CONFIG.startingBalance),
-
-      getOpenPaperPositions(),
-
-      adminDb
-        .collection("paper_trade_logs")
-        .orderBy("timestamp", "desc")
-        .limit(100)
-        .get(),
-
-    ]);
-
-    // --- Unrealized PnL posisi terbuka ---
-    // paper_positions tidak menyimpan harga terkini -- diambil dari
-    // bot_state (yang di-update TradingEngine SETIAP siklus, walau
-    // hasilnya HOLD) untuk pair yang sama.
-    let unrealizedPnl = 0;
-    let investedIdr = 0;
-
-    for (const position of openPositions) {
-
-      investedIdr += position.entryValue;
-
-      const state = await getBotState(position.pair);
-
-      const currentPrice =
-        state.currentPrice > 0
-          ? state.currentPrice
-          : position.entryPrice;
-
-      unrealizedPnl +=
-        (currentPrice - position.entryPrice) * position.coinAmount;
-
-    }
-
-    // --- Pairing BUY -> SELL per pair dari paper_trade_logs ---
-    // (dokumen BUY & SELL tersimpan terpisah -- dipasangkan di sini
-    // supaya "Recent Trades" bisa tampil satu baris per posisi,
-    // bukan satu baris per event BUY/SELL mentah. Pakai object biasa
-    // (bukan Map) supaya tidak butuh syntax generic -- lihat catatan
-    // v0.1.1 di atas.)
-    const logsAscending = tradeLogsSnapshot.docs
-      .map((doc) => doc.data())
-      .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
-
-    const pendingBuyByPair: PendingBuyLookup = {};
-
-    const closedTrades: ClosedTradeRow[] = [];
-
-    let winCount = 0;
-    let closedCount = 0;
-
-    for (const log of logsAscending) {
-
-      if (log.side === "BUY") {
-
-        pendingBuyByPair[log.pair] = {
-          price: log.price,
-          timestamp: log.timestamp ?? 0,
-        };
-
-        continue;
-
-      }
-
-      if (log.side === "SELL") {
-
-        const pendingBuy = pendingBuyByPair[log.pair];
-
-        delete pendingBuyByPair[log.pair];
-
-        const buyPrice = pendingBuy ? pendingBuy.price : 0;
-
-        const pnlIdr =
-          typeof log.pnlIdr === "number" ? log.pnlIdr : 0;
-
-        const pnlPercent =
-          typeof log.pnlPercent === "number" ? log.pnlPercent : 0;
-
-        closedTrades.push({
-          pair: log.pair,
-          status: "CLOSED",
-          buyPrice,
-          sellPrice: log.price,
-          pnlIdr,
-          pnlPercent,
-          closedAt:
-            log.timestamp
-              ? new Date(log.timestamp).toISOString()
-              : null,
-        });
-
-        closedCount += 1;
-
-        if (pnlIdr > 0) {
-          winCount += 1;
-        }
-
-      }
-
-    }
-
-    // Baris terbaru dulu untuk ditampilkan.
-    closedTrades.reverse();
-
-    const openTradeRows: OpenTradeRow[] = openPositions.map((position) => {
-
-      const pendingBuy =
-        pendingBuyByPair[position.pair];
-
-      return {
-        pair: position.pair,
-        status: "OPEN",
-        buyPrice: pendingBuy ? pendingBuy.price : position.entryPrice,
-        sellPrice: null,
-        pnlIdr: 0,
-        pnlPercent: 0,
-        closedAt: null,
-      };
-
-    });
-
-    const recentTrades: TradeRow[] = [
-      ...openTradeRows,
-      ...closedTrades,
-    ].slice(0, 20);
-
-    const realizedPnl = closedTrades.reduce(
-      (sum, t) => sum + t.pnlIdr,
-      0
-    );
-
-    const winRate =
-      closedCount > 0
-        ? Number(((winCount / closedCount) * 100).toFixed(1))
-        : 0;
-
-    return res.status(200).json({
-
-      mode: effectiveMode,
-
-      balance:
-        portfolio.availableBalance + investedIdr + unrealizedPnl,
-
-      available: portfolio.availableBalance,
-
-      invested: investedIdr,
-
-      openPositionsCount: openPositions.length,
-
-      realizedPnl,
-
-      unrealizedPnl: Number(unrealizedPnl.toFixed(2)),
-
-      winRate,
-
-      totalClosedTrades: closedCount,
-
-      recentTrades,
-
-      fetchedAt: new Date().toISOString(),
-
-    });
+    return res.status(200).json(summary);
 
   } catch (error) {
 
