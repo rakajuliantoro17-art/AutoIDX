@@ -2,9 +2,19 @@
 ==========================================================
 AURA Trade OS
 Dashboard Header
-Version : 0.0.2 Alpha
+Version : 0.1.0 Alpha
+
+Perubahan dari 0.0.2: badge "SYSTEM ACTIVE" sebelumnya hardcode
+dengan titik hijau animate-pulse yang SELALU menyala hijau, tidak
+peduli mode paper/live atau emergency stop sedang aktif atau
+tidak. Sekarang pakai SystemStatusBadge (komponen yang sama
+dipakai App Router layout.tsx) supaya konsisten menampilkan mode
+ASLI dari bot_control, termasuk di halaman Settings tempat mode
+ini di-toggle.
 ==========================================================
 */
+
+import SystemStatusBadge from "@/components/SystemStatusBadge";
 
 export default function Header() {
   return (
@@ -17,10 +27,7 @@ export default function Header() {
           <p className="text-xs text-slate-500">Automated Trading Engine</p>
         </div>
 
-        <div className="glass flex items-center gap-3 rounded-full px-4 py-2">
-          <span className="status-dot status-online animate-pulse" />
-          <span className="text-sm text-slate-300">SYSTEM ACTIVE</span>
-        </div>
+        <SystemStatusBadge />
       </div>
     </header>
   );
