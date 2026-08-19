@@ -69,16 +69,14 @@ Shared Types
 */
 
 export type {
-
   TrainingAlgorithm,
-
   TrainingConfig,
-
   TrainingResult,
-
-  TrainingSample
-
+  TrainedModelWeights,
+  EvaluationMetrics,
 } from "./trainer";
+
+export type { TrainingSample } from "../types";
 
 export type {
 

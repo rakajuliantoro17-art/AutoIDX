@@ -2,192 +2,133 @@
 ==========================================================
 AURA Trade OS
 ML Model Predictor
-Version : 0.1.0 Alpha
+Version : 0.2.0 Alpha
+
+GANTI TOTAL dari versi sebelumnya (komentarnya sendiri jujur:
+"Placeholder inference... akan diganti dengan adapter
+TensorFlow/XGBoost/ONNX/Ensemble" - belum pernah diganti).
+
+Sekarang benar-benar menjalankan inference dari model yang
+dilatih trainer.ts (logistic regression, softmax) dan
+disimpan di Firestore lewat storage/modelStore.ts.
+
+PENTING: modul ini HANYA memberi prediksi + confidence.
+TIDAK terhubung ke eksekusi order (services/execution,
+services/liveTrading) di versi ini - itu keputusan terpisah
+yang didokumentasikan di docs/claude.md, "Audit Detail:
+AI/ML Layer", untuk didiskusikan dulu sebelum disambungkan
+ke uang asli.
 ==========================================================
 */
 
 import { PredictionLabel } from "../types";
-import modelRegistry from "./registry";
+import { getActiveModel, StoredModel } from "../storage/modelStore";
 
 export interface PredictionInput {
-
-  features:number[];
-
+  /**
+   * Fitur MENTAH (belum dinormalisasi) - key HARUS cocok dengan
+   * featureOrder yang dipakai saat training (lihat
+   * dataset/collector.ts untuk daftar key yang dihasilkan).
+   */
+  features: Record<string, number>;
 }
 
 export interface PredictionResult {
+  label: PredictionLabel;
+  confidence: number;
+  probabilities: Partial<Record<PredictionLabel, number>>;
+  modelId: string;
+  modelTrainedAt: string;
+  modelValidationAccuracy: number;
+  durationMs: number;
+  timestamp: Date;
+}
 
-  label:PredictionLabel;
-
-  confidence:number;
-
-  modelId:string;
-
-  durationMs:number;
-
-  timestamp:Date;
-
+function softmax(logits: number[]): number[] {
+  const max = Math.max(...logits);
+  const exps = logits.map((v) => Math.exp(v - max));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map((v) => v / (sum || 1));
 }
 
 export class ModelPredictor {
+  /**
+   * Cache model aktif di memory (masih valid selama satu warm
+   * invocation serverless) supaya tidak query Firestore di setiap
+   * pemanggilan predict() kalau dipanggil berkali-kali berurutan.
+   */
+  private cachedModel: StoredModel | null = null;
+  private cachedAt = 0;
+  private readonly CACHE_TTL_MS = 60_000;
 
-  async predict(
+  private async loadModel(): Promise<StoredModel> {
+    const now = Date.now();
 
-    input:PredictionInput
-
-  ):Promise<PredictionResult>{
-
-    const model =
-
-      modelRegistry.getActive();
-
-    if(!model){
-
-      throw new Error(
-
-        "No active model registered."
-
-      );
-
+    if (this.cachedModel && now - this.cachedAt < this.CACHE_TTL_MS) {
+      return this.cachedModel;
     }
 
-    const started =
+    const model = await getActiveModel();
 
-      performance.now();
-
-    /**
-     * Placeholder inference.
-     *
-     * Phase berikutnya akan
-     * diganti dengan adapter:
-     *
-     * TensorFlow
-     * XGBoost
-     * ONNX
-     * Ensemble
-     */
-
-    const score =
-
-      this.simpleScore(
-
-        input.features
-
+    if (!model) {
+      throw new Error(
+        "Belum ada model ML yang terlatih. Jalankan training dulu lewat POST /api/ml/train."
       );
+    }
 
-    const label =
+    this.cachedModel = model;
+    this.cachedAt = now;
 
-      this.scoreToLabel(score);
+    return model;
+  }
 
-    const confidence =
+  async predict(input: PredictionInput): Promise<PredictionResult> {
+    const started = performance.now();
 
-      Math.min(
+    const model = await this.loadModel();
+    const { weights: w } = model;
 
-        1,
+    const x = w.featureOrder.map((key) => {
+      const raw = input.features[key];
 
-        Math.abs(score)
+      if (raw === undefined) {
+        console.warn(
+          `[ModelPredictor] Fitur "${key}" tidak ada di input, dianggap 0. ` +
+            `Cek apakah dataset/collector.ts berubah tapi model belum dilatih ulang.`
+        );
+      }
 
-      );
+      return raw ?? 0;
+    });
 
-    const durationMs =
+    const normalizedX = x.map((v, j) => (v - w.featureMean[j]) / (w.featureStd[j] || 1));
 
-      performance.now()
+    const logits = w.weights.map(
+      (wk, k) => wk.reduce((s, wj, j) => s + wj * normalizedX[j], 0) + w.bias[k]
+    );
 
-      -
+    const probs = softmax(logits);
 
-      started;
+    const bestIndex = probs.indexOf(Math.max(...probs));
+    const label = w.classes[bestIndex];
+
+    const probabilities: Partial<Record<PredictionLabel, number>> = {};
+    w.classes.forEach((c, i) => {
+      probabilities[c] = probs[i];
+    });
 
     return {
-
       label,
-
-      confidence,
-
-      modelId:model.id,
-
-      durationMs,
-
-      timestamp:new Date()
-
+      confidence: probs[bestIndex],
+      probabilities,
+      modelId: model.id,
+      modelTrainedAt: model.trainedAt,
+      modelValidationAccuracy: model.validationMetrics.accuracy,
+      durationMs: performance.now() - started,
+      timestamp: new Date(),
     };
-
   }
-
-  /**
-   * Dummy scoring.
-   */
-  private simpleScore(
-
-    features:number[]
-
-  ):number{
-
-    if(features.length===0){
-
-      return 0;
-
-    }
-
-    const average =
-
-      features.reduce(
-
-        (a,b)=>a+b,
-
-        0
-
-      )
-
-      /
-
-      features.length;
-
-    return average;
-
-  }
-
-  /**
-   * Convert score
-   * menjadi label.
-   */
-  private scoreToLabel(
-
-    score:number
-
-  ):PredictionLabel{
-
-    if(score>=0.75){
-
-      return "STRONG_BUY";
-
-    }
-
-    if(score>=0.55){
-
-      return "BUY";
-
-    }
-
-    if(score<=0.25){
-
-      return "STRONG_SELL";
-
-    }
-
-    if(score<=0.45){
-
-      return "SELL";
-
-    }
-
-    return "HOLD";
-
-  }
-
 }
 
-const modelPredictor =
-
-new ModelPredictor();
-
+const modelPredictor = new ModelPredictor();
 export default modelPredictor;
