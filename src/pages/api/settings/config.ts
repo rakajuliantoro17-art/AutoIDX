@@ -76,9 +76,24 @@ export default async function handler(
 
     const control = await getBotControl();
 
+    // Live trading HANYA aktif kalau DUA syarat terpenuhi -- sama
+    // persis logika isLiveModeActive() di services/trading/engine.ts.
+    // control.mode="live" saja TIDAK CUKUP (itu cuma toggle dashboard,
+    // bisa diklik siapa saja yang login tanpa akses Vercel). Dipisah
+    // dari `mode` mentah supaya UI bisa dengan jujur membedakan
+    // "live DIMINTA" vs "live BENAR-BENAR jalan".
+    const liveConfirmed = process.env.BOT_LIVE_CONFIRM === "true";
+
+    const effectiveMode: "paper" | "live" =
+      control.mode === "live" && liveConfirmed ? "live" : "paper";
+
     return res.status(200).json({
 
-      mode: control.mode,
+      requestedMode: control.mode,
+
+      liveConfirmed,
+
+      effectiveMode,
 
       emergencyStop: RISK_CONFIG.emergencyStop || control.emergencyStop,
 
