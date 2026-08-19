@@ -2,15 +2,15 @@
 ==========================================================
 AURA Trade OS
 Portfolio Page
-Version : 0.1.0 Alpha
+Version : 0.1.1 Alpha
 
-Perubahan dari 0.0.1: sebelumnya `portfolio` adalah object
-statis hardcode (balance 500000, invested 25000, dst -- TIDAK
-PERNAH berubah apa pun yang terjadi di trading engine). Sekarang
-fetch data ASLI dari /api/portfolio/summary (paper_portfolio +
-paper_positions + paper_trade_logs + bot_state Firestore),
-auto-refresh tiap 5 detik, pola yang sama persis dengan
-src/app/activity/page.tsx.
+Perubahan dari 0.1.0: banner peringatan "saldo BELUM menarik
+dari akun Indodax" sudah tidak akurat -- /api/portfolio/summary
+sekarang benar-benar menarik saldo live dari IndodaxClient.getInfo()
+saat mode live aktif (lihat catatan di summary.ts). Banner diganti
+jadi kondisional: hijau kalau saldo live berhasil ditarik, merah
+dengan pesan error spesifik kalau gagal (mis. kredensial salah) --
+supaya pengguna tidak salah kira angka Rp 0 adalah saldo sungguhan.
 ==========================================================
 */
 "use client";
@@ -39,6 +39,7 @@ interface PortfolioSummary {
   winRate: number;
   totalClosedTrades: number;
   recentTrades: TradeRow[];
+  liveBalanceError?: string;
 }
 
 const REFRESH_INTERVAL_MS = 5000;
@@ -157,10 +158,19 @@ export default function PortfolioPage() {
           </p>
         )}
 
-        {portfolio.mode === "live" && (
-          <p className="mt-4 text-sm text-yellow-400">
-            Mode LIVE aktif -- saldo di bawah ini berbasis catatan internal
-            (bot_state), BELUM menarik saldo asli langsung dari akun Indodax.
+        {portfolio.mode === "live" && !portfolio.liveBalanceError && (
+          <p className="mt-4 text-sm text-emerald-400">
+            Mode LIVE aktif -- saldo Available di bawah ditarik langsung
+            dari akun Indodax secara real-time.
+          </p>
+        )}
+
+        {portfolio.mode === "live" && portfolio.liveBalanceError && (
+          <p className="mt-4 text-sm text-red-400">
+            Mode LIVE aktif, tapi saldo asli Indodax gagal diambil:{" "}
+            {portfolio.liveBalanceError}. Angka Available di bawah ini
+            TIDAK akurat -- cek kredensial akun Indodax di halaman
+            Settings.
           </p>
         )}
 
