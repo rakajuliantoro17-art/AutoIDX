@@ -60,6 +60,8 @@ import geminiProvider from "@/services/intelligence/ai/providers/gemini";
 import claudeProvider from "@/services/intelligence/ai/providers/claude";
 import deepSeekProvider from "@/services/intelligence/ai/providers/deepseek";
 import type { AIAnalysis } from "@/services/intelligence/types";
+import aiConsensus from "@/services/intelligence/ai/consensus";
+import type { AIConsensusInput } from "@/services/intelligence/ai/consensus";
 
 import PaperTradingService from "./paper";
 import LiveTradingService from "./live";
@@ -319,6 +321,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
  * tidak menghentikan alur trading, sambil tetap mengumpulkan data
  * untuk dievaluasi/dikalibrasi nanti (mis. dijadikan gerbang wajib
  * kalau setelah beberapa minggu terbukti akurat).
+ *
+ * Update: sebelumnya cuma memanggil SATU provider (yang pertama
+ * ketemu API key-nya). Sekarang memanggil SEMUA provider yang
+ * API key-nya tersedia SECARA PARALEL (bukan sekuensial -- jadi
+ * total latency tetap dibatasi ~AI_CALL_TIMEOUT_MS, tidak
+ * berkali-lipat), lalu hasilnya digabung lewat aiConsensus
+ * (weighted voting) supaya satu LLM yang halusinasi/salah tidak
+ * mendominasi. Kalau cuma 1 provider yang valid, consensus
+ * dilewati (tidak ada gunanya voting dengan 1 suara).
  */
 async function logAIAdvisory(
   pair: string,
@@ -326,11 +337,11 @@ async function logAIAdvisory(
   features: IndicatorFeatureVector
 ): Promise<void> {
 
-  const candidate = AI_PROVIDER_CANDIDATES.find(
+  const availableCandidates = AI_PROVIDER_CANDIDATES.filter(
     (c) => !!process.env[c.envKey]
   );
 
-  if (!candidate) {
+  if (availableCandidates.length === 0) {
     return;
   }
 
@@ -340,41 +351,72 @@ async function logAIAdvisory(
 
     const prompt = aiPrompt.build({ pair, featureVector: features, context });
 
-    const response = await withTimeout(
-      candidate.query(prompt),
-      AI_CALL_TIMEOUT_MS
+    const responses = await Promise.all(
+      availableCandidates.map(async (candidate) => ({
+        candidate,
+        response: await withTimeout(candidate.query(prompt), AI_CALL_TIMEOUT_MS),
+      }))
     );
 
-    if (!response || !response.success) {
+    const consensusInputs: AIConsensusInput[] = [];
+
+    for (const { candidate, response } of responses) {
+
+      if (!response || !response.success) {
+
+        await recordLog(
+          "BOT",
+          "info",
+          `[AI Advisory ${pair.toUpperCase()}] Panggilan ${candidate.name} gagal/timeout -- tidak mempengaruhi keputusan.`
+        );
+
+        continue;
+
+      }
+
+      const analysis: AIAnalysis | null = parseAIResponse(response.content);
+
+      if (!analysis) {
+
+        await recordLog(
+          "BOT",
+          "info",
+          `[AI Advisory ${pair.toUpperCase()}] Balasan ${candidate.name} tidak valid JSON -- tidak mempengaruhi keputusan.`
+        );
+
+        continue;
+
+      }
 
       await recordLog(
         "BOT",
         "info",
-        `[AI Advisory ${pair.toUpperCase()}] Panggilan ${candidate.name} gagal/timeout -- tidak mempengaruhi keputusan.`
+        `[AI Advisory ${pair.toUpperCase()}] ${candidate.name}: signal=${analysis.signal}, confidence=${analysis.confidence}. ${analysis.summary}`
       );
 
-      return;
+      consensusInputs.push({
+        provider: candidate.name as AIConsensusInput["provider"],
+        signal: analysis.signal,
+        confidence: analysis.confidence,
+        weight: 20,
+        explanation: analysis.summary,
+      });
 
     }
 
-    const analysis: AIAnalysis | null = parseAIResponse(response.content);
-
-    if (!analysis) {
-
-      await recordLog(
-        "BOT",
-        "info",
-        `[AI Advisory ${pair.toUpperCase()}] Balasan ${candidate.name} tidak valid JSON -- tidak mempengaruhi keputusan.`
-      );
-
+    // Consensus cuma bermakna kalau ada 2+ provider yang jawabannya
+    // valid -- kalau cuma 1 (atau 0), hasil per-provider di atas
+    // sudah cukup, tidak perlu "voting" dengan 1 suara.
+    if (consensusInputs.length < 2) {
       return;
-
     }
+
+    const consensus = aiConsensus.evaluate(consensusInputs);
 
     await recordLog(
       "BOT",
       "info",
-      `[AI Advisory ${pair.toUpperCase()}] ${candidate.name}: signal=${analysis.signal}, confidence=${analysis.confidence}. ${analysis.summary}`
+      `[AI Consensus ${pair.toUpperCase()}] signal=${consensus.signal}, agreement=${consensus.agreement}%, providers=${consensus.providers.join(", ")}. ${consensus.explanation}`
     );
 
   } catch (error) {
