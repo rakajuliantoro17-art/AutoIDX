@@ -208,6 +208,20 @@ aiConfidence?: number;
  */
 spreadPercent?: number;
 
+/**
+ * Rasio volume candle terkini vs rata-rata (dari CandleAggregator/
+ * VolumeAggregator, services/market/aggregators). >1 berarti
+ * volume sedang di atas rata-rata (momentum naik), <1 di bawah
+ * rata-rata. Murni informasional, belum jadi gerbang wajib.
+ */
+volumeRatio?: number;
+
+/**
+ * Rentang high-low candle relatif terhadap harga terakhir (%).
+ * Indikator volatilitas kasar, murni informasional.
+ */
+priceRangePercent?: number;
+
 }
 
 
