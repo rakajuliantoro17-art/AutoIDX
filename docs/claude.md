@@ -1,8 +1,72 @@
 # Claude Development Guide
 
 **Project:** AURA Trade OS
-**Version:** 0.1.2 Alpha
-**Terakhir diaudit:** sesi build-fix marathon (lihat "Session Log" di bawah)
+**Version:** 0.2.0 Alpha
+**Terakhir diaudit:** sesi integrasi strategi orphan + AI advisory + audit keamanan (lihat "Session Log 4" di paling bawah dokumen)
+
+---
+
+# ⚠️ CATATAN STRUKTUR DOKUMEN INI (penting, baca sebelum scroll)
+
+Dokumen ini punya **dua narasi sesi lama yang tumpang tindih** (bekas beberapa akun Claude/ChatGPT paralel menulis ke file yang sama tanpa koordinasi) -- bagian yang lebih AWAL di dokumen ini kadang berisi klaim yang sudah DIKOREKSI oleh bagian yang lebih AKHIR pada topik yang sama (contoh nyata: soal penyimpanan API key Indodax -- bagian awal bilang "belum diperbaiki (plaintext)", bagian lebih akhir mengoreksi jadi "sudah diperbaiki (AES-256-GCM + firestore.rules)" -- sudah diverifikasi ulang ke kode sesi ini, **klaim yang BENAR adalah yang sudah diperbaiki**).
+
+**Aturan baca:** kalau ada dua klaim yang bertentangan soal topik yang sama, **percaya yang posisinya lebih akhir di dokumen**, DAN tetap verifikasi ke kode -- jangan berhenti di salah satu klaim tanpa cek. Bagian "✅ STATUS TERVERIFIKASI" tepat di bawah ini adalah yang paling baru dan sudah diverifikasi ulang paling menyeluruh (npm install penuh + tsc bersih + baca kode langsung), tapi tetap bisa basi kalau ada sesi lain setelah ini yang belum tercatat.
+
+---
+
+# 🔴 PERINGATAN KEAMANAN — SEMPAT ADA KEY MENTAH DI DOKUMEN INI
+
+**`ACCOUNT_ENCRYPTION_KEY` sempat tertulis dalam bentuk mentah (plaintext hex) di dokumen ini, kemungkinan ter-commit ke repo.** Key ini dipakai untuk mendekripsi API key/secret Indodax ASLI milik semua user yang tersimpan di Firestore (`users/{uid}/indodaxAccounts`, lihat `services/security/encryption.ts`). Sudah di-redact di versi ini, TAPI:
+
+1. **Kalau key itu belum pernah diganti sejak ditulis di dokumen ini -- anggap sudah bocor.** Generate `ACCOUNT_ENCRYPTION_KEY` baru sekarang, update di Vercel env var.
+2. Semua user yang sudah pernah input API key/secret Indodax lewat dashboard **perlu input ulang** setelah key diganti -- data lama terenkripsi key lama, tidak bisa didekripsi key baru.
+3. Kalau key lama itu pernah dipakai untuk kredensial Indodax **asli** (bukan cuma testing) -- revoke & regenerate API key-nya juga langsung di Indodax, jangan cuma ganti encryption key.
+4. **Jangan pernah tulis nilai secret/key asli di dokumen ini lagi**, sekalipun untuk memudahkan sesi berikutnya -- tulis instruksi "generate baru, simpan di Vercel", bukan nilainya.
+
+---
+
+# ✅ STATUS TERVERIFIKASI (per audit sesi ini -- dicek langsung ke kode + tsc bersih + npm install penuh, bukan klaim tanpa verifikasi)
+
+**Build/tipe:** `npm install` penuh + `./node_modules/.bin/tsc --noEmit` (versi proyek 5.5.3 -- BUKAN `npx tsc`, yang di sesi ini sempat resolve ke versi lain dan gagal diam-diam di level config tanpa memeriksa satu file pun) -> **0 error TypeScript di seluruh proyek.** `npm run build` (Next.js) BELUM dijalankan sesi ini -- minta build log Vercel terbaru sebelum klaim "siap deploy".
+
+**Jalur trading UTAMA yang aktif (cron -> engine), diverifikasi baris demi baris sesi ini:**
+```
+scheduler/cron.ts
+  -> bangun IndicatorFeatureVector (dari @/services/indicators -- RSI/EMA/MACD/ATR/ADX/Stochastic/Bollinger, dihitung dari candle asli via indodax/candles.ts)
+  -> TradingEngine.run({pair, price, features})   [src/services/trading/engine.ts]
+      -> strategyManager.evaluate(features, position)   -- SUMBER SINYAL UTAMA, mode BALANCED -> strategi AURA_TREND
+      -> [KHUSUS BUY] Sanity Check 1: tolak HANYA kalau EMA_CROSSOVER *dan* MOMENTUM kompak bilang SELL (longgar, bukan AND-gate ketat)
+      -> [KHUSUS BUY, kalau check 1 lolos] Sanity Check 2: MomentumRule+VolatilityRule -> ScoreEngine, tolak HANYA kalau SELL atau HOLD dgn confidence<30
+      -> [KHUSUS BUY, kalau check 1&2 lolos] AI advisory (OpenAI/Gemini/Claude/DeepSeek, auto-detect provider dari API key yg ada di env) -- HANYA dicatat ke log, TIDAK memblokir eksekusi
+      -> risk gate (emergency stop dual-source, max open position, max daily loss, cooldown, max exposure)
+      -> PaperTradingService / LiveTradingService (dual-gate: bot_control.mode==="live" DAN env BOT_LIVE_CONFIRM==="true")
+```
+`DecisionEngine` (`trading/decision.ts`, AND-gate kaku EMA+RSI, penyebab awal sinyal macet di HOLD) **SUDAH TIDAK dipakai** di jalur ini -- cuma tipe `DecisionResult`-nya yang dipinjam sebagai bentuk internal adapter. **Klaim versi lama dokumen ini di bawah yang bilang "jalur live pakai DecisionEngine sederhana" sudah basi, jangan dipercaya.**
+
+**🟡 Jalur trading LAIN yang terpisah & BELUM diverifikasi sesi ini (berpotensi konflik, jangan asumsikan orphan/aktif tanpa cek dulu):**
+- `src/services/trading/strategy.ts` -- masih memanggil `DecisionEngine.evaluate()` langsung. Belum dicek siapa pemanggilnya / apakah aktif.
+- `src/api/bot/execute.ts` (`executeBot()`) + `src/services/execution/executionEngine.ts` -- jalur eksekusi terpisah sepenuhnya dari `cron.ts`->`engine.ts` di atas. Belum diverifikasi apakah dipanggil API route aktif manapun.
+
+**🟡 Duplikasi konfigurasi bot yang BELUM diselesaikan (bug nyata, bukan cuma soal kerapian):**
+Dua sumber "pengaturan bot" hidup berdampingan, TIDAK saling sinkron:
+1. `bot_control` (Firestore `main`, via `botControl.ts`) + `BOT_CONFIG`/`RISK_CONFIG` (env var) -- **ini yang dibaca `trading/engine.ts`** untuk mode paper/live, emergency stop, trade amount, semua risk-gate.
+2. `bot_settings` (Firestore `default`, via `settingsService.ts`, tipe `BotSettings`) -- **ini yang diedit lewat dashboard `/settings/bot` & `/settings/risk`** (slider Trade Amount, dll).
+
+**Titik temu keduanya berbahaya:** `trading/paper.ts` (`buy()`) fallback ke `getBotSettings().tradeAmountIdr` kalau caller tidak kirim `tradeAmountIdr` eksplisit -- dan `engine.ts` memang tidak mengirimnya. Akibatnya: **risk-gate di `engine.ts` memvalidasi pakai `BOT_CONFIG.defaultTradeAmount` (env var statis), tapi paper-trading benar-benar mengeksekusi pakai nominal dari `BotSettings.tradeAmountIdr` (Firestore, bisa diubah user lewat slider dashboard) -- dua angka yang bisa berbeda.** Kalau user menaikkan slider melebihi `BOT_CONFIG.maxTradeAmount`, risk-gate tetap menghitung pakai angka lama yang sudah tervalidasi, padahal eksekusi nyata pakai angka baru yang belum tentu lolos kalau divalidasi ulang. **Belum diperbaiki sesi ini.** Mode **live** (`live.ts`) tidak kena masalah ini -- fallback-nya ke `BOT_CONFIG.defaultTradeAmount` juga, konsisten dengan `engine.ts`.
+
+**Status orphan/aktif modul-modul besar (diverifikasi ulang sesi ini):**
+| Modul | Status |
+|---|---|
+| `services/strategy/core/*` + `strategies/{auraTrend,emaCrossover,momentum}.ts` + `manager.ts` | ✅ AKTIF -- sumber sinyal utama |
+| `services/strategy/rules/{momentumRule,volatilityRule}.ts` + `scoring/scoreEngine.ts` | ✅ AKTIF SEBAGIAN -- dipakai Sanity Check 2 |
+| `services/strategy/rules/{trendRule,volumeRule}.ts` (butuh SMA/OBV) | ❌ TIDAK dipakai -- kontrak input `engine.ts` sekarang cuma `features` ringkas, bukan candle penuh |
+| `services/strategy/scoring/confidence.ts` + `signals/*.ts` | ❌ Orphan -- tidak dipanggil dari jalur yang dipakai |
+| `services/indicator/` (singular) | ❌ Orphan lagi -- sempat diperluas (+SMA,+OBV) untuk pendekatan gerbang berlapis yang akhirnya tidak dipakai di arsitektur final. Aman dihapus. |
+| `services/intelligence/ai/{orchestrator.ts,analyzer.ts}` | ❌ Tidak dipakai jalur trading. `orchestrator.ts` ada bug lama (hardcode `signal:"HOLD"`, buang `response.content`) -- TIDAK diperbaiki, sengaja dibiarkan; jalur baru dibuat terpisah (lihat baris berikut). `analyzer.ts` BUKAN AI (scorer manual berbasis indikator), independen. |
+| `services/intelligence/ai/{prompt.ts,context/marketContext.ts,providers/*.ts}` + `responseParser.ts` (baru) | ✅ AKTIF -- dipakai AI advisory di `engine.ts` (non-blocking) |
+| `services/validation/` | ❌ Orphan total |
+| `services/security/encryption.ts` + `firestore.rules` (root) | ✅ AKTIF -- kredensial Indodax terenkripsi AES-256-GCM, lihat bagian keamanan di bawah untuk detail |
+| `services/paperTrading/` | 🟡 Masih ADA, belum dihapus -- dokumen versi lama di bawah pernah menyimpulkan "final, aman dihapus", **belum diverifikasi ulang sesi ini** apakah kesimpulan itu masih berlaku setelah semua perubahan `engine.ts`/`paper.ts` sesi ini |
 
 ---
 
@@ -397,11 +461,11 @@ Untuk ACCOUNT_ENCRYPTION_KEY, saya generate sekarang biar tinggal pakai:
 
 Ini key-nya (32 byte, format hex):
 
-1f595b4d3257964d2059e53592f36328759fe4df199cb187a354cea0a25a056e
+[REDACTED -- key ini SUDAH BOCOR, WAJIB di-rotate, lihat peringatan keamanan di atas dokumen]
 
 Key final (sudah saya verifikasi persis 64 karakter):
 
-73d080ecd7a04b748311227d7bc9af6eff300d94a08f3a48be294a7b7170857d
+[REDACTED -- key ini SUDAH BOCOR, WAJIB di-rotate, lihat peringatan keamanan di atas dokumen]
 
 Langkah selanjutnya:
 
@@ -940,11 +1004,11 @@ Untuk ACCOUNT_ENCRYPTION_KEY, saya generate sekarang biar tinggal pakai:
 
 Ini key-nya (32 byte, format hex):
 
-1f595b4d3257964d2059e53592f36328759fe4df199cb187a354cea0a25a056e
+[REDACTED -- key ini SUDAH BOCOR, WAJIB di-rotate, lihat peringatan keamanan di atas dokumen]
 
 Key final (sudah saya verifikasi persis 64 karakter):
 
-73d080ecd7a04b748311227d7bc9af6eff300d94a08f3a48be294a7b7170857d
+[REDACTED -- key ini SUDAH BOCOR, WAJIB di-rotate, lihat peringatan keamanan di atas dokumen]
 
 Langkah selanjutnya:
 
@@ -1075,3 +1139,36 @@ Bukti konklusif:
 4. Search menyeluruh: TIDAK ADA file di luar folder `services/paperTrading/` yang mengimpornya (`account.ts`, `engine.ts`, `index.ts`, `orders.ts`, `simulator.ts`, `tracker.ts`, `types.ts` — semua orphan).
 
 **Tindakan:** folder `src/services/paperTrading/` boleh dihapus kapan saja. Bukan lagi item "jangan diasumsikan selesai" — sudah final.
+
+---
+
+# Session Log 4 — Integrasi Strategi Orphan, AI Advisory, Redaksi Keamanan
+
+*(Lanjutan sesi trading engine. Baca "✅ STATUS TERVERIFIKASI" di paling atas dokumen dulu -- itu ringkasan dari sesi ini, sudah diverifikasi ulang ke kode. Bagian ini cuma kronologi/detail tambahan.)*
+
+## Yang dikerjakan sesi ini
+
+1. **Root cause "sinyal statis HOLD" diselesaikan** -- `TradingEngine.run()` sebelumnya pakai `DecisionEngine.evaluate()` (AND-gate kaku: BUY hanya kalau EMA cross DAN RSI<=35 sekaligus, selain itu selalu HOLD). Diganti sumber sinyal utamanya jadi `strategyManager.evaluate()` (strategi AURA_TREND, rule-based berbobot, banyak indikator).
+
+2. **Sempat dibangun pendekatan "gerbang berlapis" (Gerbang 2/3/4)** yang menumpuk `strategyManager.compare()` + `ScoreEngine` (Momentum/Trend/Volatility/Volume rules) + AI sebagai AND-gate wajib berurutan di atas `DecisionEngine`. **Pendekatan ini DIBATALKAN** oleh pemilik project sendiri (lewat file `engine.ts` yang di-paste ulang ke chat) karena membuat BUY makin jarang muncul -- bertentangan dengan tujuan awal.
+
+3. **Arsitektur final yang dipakai sekarang:** `strategyManager` sebagai sumber sinyal utama + 2 sanity-check LONGGAR (bukan AND-gate ketat -- lihat detail di "✅ STATUS TERVERIFIKASI" di atas) + AI advisory non-blocking. Filosofi: cukup jaring pengaman terhadap kontradiksi kuat, jangan mewajibkan semua sistem setuju.
+
+4. **`services/indicator/` (singular) sempat diperluas** (+SMA, +OBV, di `types.ts`/`registry.ts`/`manager.ts`) untuk mendukung `TrendRule`/`VolumeRule` di pendekatan gerbang berlapis yang akhirnya dibatalkan (poin 2). Perluasan ini TIDAK dihapus lagi (tidak mengganggu, aman dibiarkan orphan) tapi TIDAK dipakai arsitektur final.
+
+5. **AI advisory dibangun dari nol** -- `services/intelligence/ai/orchestrator.ts` ternyata py bug lama: memanggil API LLM sungguhan tapi HASIL BALASANNYA DIBUANG (hardcode `signal:"HOLD"`, komentar sendiri bilang "Phase 6 -- sementara HOLD, nanti Analyzer ubah content jadi BUY/HOLD/SELL"). `ai/analyzer.ts` yang disebut di komentar itu ternyata BUKAN AI sama sekali (scorer manual berbasis indikator, tidak pernah baca `response.content`). Kedua potongan itu TIDAK PERNAH benar-benar tersambung. Dibuat modul baru `services/intelligence/ai/responseParser.ts` (parse JSON balasan LLM -> `AIAnalysis` terstruktur, fail-safe return `null` kalau parsing gagal) sebagai jalur terpisah, TANPA mengubah `orchestrator.ts`/`analyzer.ts` lama. Dipanggil sebagai advisory-only (logged, non-blocking) di `engine.ts` lewat `logAIAdvisory()`, auto-detect provider (OpenAI/Gemini/Claude/DeepSeek) dari env var yang tersedia.
+
+6. **`cron.ts` disesuaikan** -- sekarang membangun `IndicatorFeatureVector` lengkap (RSI/EMA/MACD/ATR/ADX/Stochastic/Bollinger) dari `@/services/indicators` (plural) memakai candle asli, sesuai kontrak `TradingEngineInput.features` yang baru.
+
+7. **Ditemukan bug proses sendiri, sudah diperbaiki:** sempat pakai `npx tsc` untuk verifikasi sepanjang sesi, yang diam-diam gagal total di error konfigurasi (`TS5101`, `baseUrl` deprecated) TANPA memeriksa satu file pun -- semua klaim "tsc bersih" sebelum titik ini di sesi ini TIDAK VALID. Diperbaiki dengan `npm install` penuh + pakai `./node_modules/.bin/tsc` (versi proyek yang benar). Setelah itu baru dapat sinyal valid: 1 error nyata (mismatch kontrak `cron.ts` vs `engine.ts` baru), sudah diperbaiki, sekarang 0 error.
+
+8. **Audit `docs/claude.md` ini sendiri** -- ditemukan dua `ACCOUNT_ENCRYPTION_KEY` mentah tertulis di dokumen (kemungkinan ter-commit), sudah di-redact. Ditemukan juga bahwa dokumen ini py dua narasi historis tumpang tindih (bagian awal vs akhir dokumen bicara topik sama dengan kesimpulan BERBEDA, kadang bertentangan) -- diverifikasi ke kode langsung: klaim yang BENAR untuk isu plaintext API key Indodax adalah **sudah diperbaiki** (AES-256-GCM + `firestore.rules` ada & terverifikasi di kode), bukan klaim "belum diperbaiki" di bagian awal dokumen.
+
+## Yang BELUM dikerjakan / perlu diverifikasi sesi berikutnya
+
+- **Duplikasi `bot_control`/`BOT_CONFIG` vs `bot_settings`/`BotSettings`** -- lihat detail lengkap di "✅ STATUS TERVERIFIKASI" di atas. Trade amount dari slider dashboard bisa berbeda dari yang divalidasi risk-gate saat paper trading. Belum diputuskan mana yang jadi sumber tunggal.
+- **`src/services/trading/strategy.ts`** (masih panggil `DecisionEngine.evaluate()`) dan **`src/api/bot/execute.ts` + `execution/executionEngine.ts`** -- dua jalur trading terpisah yang belum diverifikasi apakah aktif dipanggil dari mana pun. Jangan asumsikan orphan ATAU aktif tanpa cek dulu siapa pemanggilnya.
+- **`services/paperTrading/`** -- kesimpulan lama "final, aman dihapus" belum diverifikasi ulang setelah semua perubahan `engine.ts`/`paper.ts` sesi ini.
+- **`npm run build` (Next.js) belum dijalankan** sesi ini, cuma `tsc --noEmit`. Minta build log Vercel terbaru sebelum deploy.
+- **`ACCOUNT_ENCRYPTION_KEY` yang bocor** -- lihat peringatan keamanan di paling atas dokumen, WAJIB di-rotate kalau belum.
+- Threshold sanity-check (kontradiksi kuat 2/2 strategi lain, confidence<30 di ScoreEngine) belum pernah diuji di paper trading nyata -- pantau log `[Sanity Check 1/2 ...]` beberapa siklus sebelum percaya kalibrasinya sudah pas.
