@@ -50,6 +50,15 @@ requireBullishEma?: boolean;
 limit?: number;
 
 
+/**
+ * Batas maksimum spread bid-ask (%) supaya pair dengan order
+ * book tipis/spread lebar (rawan slippage besar) tidak ikut
+ * lolos walau volume & skor RSI/EMA-nya bagus. Default 3%.
+ */
+
+maxSpreadPercent?: number;
+
+
 }
 
 
@@ -189,6 +198,15 @@ aiDirection?: "BULLISH" | "BEARISH" | "NEUTRAL";
  * Confidence dari AI Prediction Engine, range 0..1.
  */
 aiConfidence?: number;
+
+/**
+ * Spread bid-ask saat ini (%), dihitung dari order book
+ * ((bestAsk - bestBid) / bestBid * 100). Pair dengan spread
+ * di atas maxSpreadPercent (ScanCriteria) TIDAK akan lolos ke
+ * qualifiedPairs -- field ini murni untuk visibilitas di
+ * dashboard/log, menjelaskan MENGAPA suatu pair lolos/ditolak.
+ */
+spreadPercent?: number;
 
 }
 
