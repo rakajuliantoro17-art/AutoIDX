@@ -474,18 +474,29 @@ export class TradingEngine {
       const riskState =
         await getRiskState();
 
-      // --- 1. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
+            // --- 1. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
+      // Sekarang pakai level HARGA ABSOLUT (state.stopLossPrice/
+      // takeProfitPrice) yang dihitung dari ATR SEKALI saat BUY --
+      // bukan lagi persentase statis RISK_CONFIG yang dihitung ulang
+      // tiap siklus dan sama untuk semua pair (lihat risk.ts,
+      // calculateAtrStopLevels). Posisi lama yang belum punya level
+      // ATR tersimpan (stopLossPrice=0) otomatis fallback ke
+      // persentase statis di dalam evaluateWithLevels().
       if (state.inPosition) {
 
-        const riskEval = RiskManager.evaluate({
+        const riskEval = RiskManager.evaluateWithLevels(
 
-          buyPrice: state.entryPrice,
+          state.entryPrice,
 
-          currentPrice: input.price,
+          input.price,
 
-          inPosition: true,
+          true,
 
-        });
+          state.stopLossPrice,
+
+          state.takeProfitPrice
+
+        );
 
         if (riskEval.shouldStopLoss || riskEval.shouldTakeProfit) {
 
