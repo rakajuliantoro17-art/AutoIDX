@@ -120,6 +120,16 @@ export default async function handler(
 
     const control = await getBotControl();
 
+    // Sama persis logika isLiveModeActive() di services/trading/engine.ts
+    // -- control.mode="live" saja TIDAK CUKUP, BOT_LIVE_CONFIRM di
+    // Vercel juga harus true. Tanpa ini, halaman Portfolio bisa
+    // mengklaim "(Live Trading)" padahal sistem sebenarnya masih
+    // mengeksekusi paper trade.
+    const liveConfirmed = process.env.BOT_LIVE_CONFIRM === "true";
+
+    const effectiveMode: "paper" | "live" =
+      control.mode === "live" && liveConfirmed ? "live" : "paper";
+
     const [portfolio, openPositions, tradeLogsSnapshot] = await Promise.all([
 
       getPaperPortfolio(BOT_CONFIG.startingBalance),
@@ -261,7 +271,7 @@ export default async function handler(
 
     return res.status(200).json({
 
-      mode: control.mode,
+      mode: effectiveMode,
 
       balance:
         portfolio.availableBalance + investedIdr + unrealizedPnl,
