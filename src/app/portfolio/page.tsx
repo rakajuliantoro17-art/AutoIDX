@@ -1,366 +1,299 @@
 /**
 ==========================================================
 AURA Trade OS
-Portfolio Page
-Version : 0.1.0 Alpha
+Portfolio Summary API (Server-side)
+Version : 0.1.1 Alpha
 
-Perubahan dari 0.0.1: sebelumnya `portfolio` adalah object
-statis hardcode (balance 500000, invested 25000, dst -- TIDAK
-PERNAH berubah apa pun yang terjadi di trading engine). Sekarang
-fetch data ASLI dari /api/portfolio/summary (paper_portfolio +
-paper_positions + paper_trade_logs + bot_state Firestore),
-auto-refresh tiap 5 detik, pola yang sama persis dengan
-src/app/activity/page.tsx.
+Mengagregasi data portfolio ASLI dari Firestore -- sebelumnya
+src/app/portfolio/page.tsx pakai object dummy hardcode (balance
+500000, invested 25000, dst, tidak pernah berubah). Sumber data
+di sini (paper_portfolio, paper_positions, paper_trade_logs,
+bot_state) SEMUANYA sudah ditulis dengan benar oleh
+services/trading/paper.ts setiap kali trade terjadi -- cuma
+belum pernah dibaca dari mana pun sampai file ini dibuat.
+
+Dilindungi Firebase ID Token, sama seperti /api/logs/recent
+dan /api/settings/indodax-accounts -- konsisten dengan pola
+keamanan Admin-SDK-only yang sudah dipakai project.
+
+CATATAN LIVE MODE: metrik di sini fokus ke PAPER trading dulu
+(saldo/posisi/PnL dari paper_portfolio & paper_trade_logs),
+karena itu mode yang aktif sekarang. Untuk LIVE, saldo asli ada
+di akun Indodax (lewat IndodaxClient.getEquityIdr()) -- BELUM
+diintegrasikan ke endpoint ini, openPositionsCount & recentTrades
+tetap akurat untuk live (dari bot_state & koleksi trades), tapi
+balance/available untuk live sengaja TIDAK ditampilkan seolah-
+olah akurat kalau belum benar-benar diambil dari saldo asli.
+
+CATATAN v0.1.1: sebelumnya pakai `new Map<string, {...}>()` yang
+dipecah jadi beberapa baris -- karakter `<` yang berdiri sendiri
+di akhir baris hilang saat paste ke editor browser GitHub (bug
+yang sama seperti operator perbandingan yang suka hilang). Diganti
+ke object biasa dengan index signature supaya tidak butuh syntax
+generic sama sekali.
 ==========================================================
 */
-"use client";
 
-import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
-import { useAuth } from "@/services/auth/AuthContext";
+import type { NextApiRequest, NextApiResponse } from "next";
+import { adminAuth, adminDb } from "@/services/firebase/admin";
+import { BOT_CONFIG } from "@/config/bot";
+import {
+  getPaperPortfolio,
+  getOpenPaperPositions,
+} from "@/services/firebase/paperTradingStore";
+import { getBotControl } from "@/services/firebase/botControl";
+import { getBotState } from "@/services/firebase/botState";
 
-interface TradeRow {
+async function getUidFromRequest(
+  req: NextApiRequest
+): Promise<string | null> {
+
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader?.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const idToken = authHeader.replace("Bearer ", "");
+
+  try {
+
+    const decoded = await adminAuth.verifyIdToken(idToken);
+    return decoded.uid;
+
+  } catch (error) {
+
+    console.error("[Portfolio Summary API] Token invalid:", error);
+    return null;
+
+  }
+
+}
+
+interface PendingBuy {
+  price: number;
+  timestamp: number;
+}
+
+interface PendingBuyLookup {
+  [pair: string]: PendingBuy;
+}
+
+interface ClosedTradeRow {
   pair: string;
-  status: "OPEN" | "CLOSED";
+  status: "CLOSED";
   buyPrice: number;
-  sellPrice: number | null;
+  sellPrice: number;
   pnlIdr: number;
   pnlPercent: number;
+  closedAt: string | null;
 }
 
-interface PortfolioSummary {
-  mode: "paper" | "live";
-  balance: number;
-  available: number;
-  invested: number;
-  openPositionsCount: number;
-  realizedPnl: number;
-  unrealizedPnl: number;
-  winRate: number;
-  totalClosedTrades: number;
-  recentTrades: TradeRow[];
+interface OpenTradeRow {
+  pair: string;
+  status: "OPEN";
+  buyPrice: number;
+  sellPrice: null;
+  pnlIdr: number;
+  pnlPercent: number;
+  closedAt: null;
 }
 
-const REFRESH_INTERVAL_MS = 5000;
+type TradeRow = ClosedTradeRow | OpenTradeRow;
 
-const EMPTY_SUMMARY: PortfolioSummary = {
-  mode: "paper",
-  balance: 0,
-  available: 0,
-  invested: 0,
-  openPositionsCount: 0,
-  realizedPnl: 0,
-  unrealizedPnl: 0,
-  winRate: 0,
-  totalClosedTrades: 0,
-  recentTrades: [],
-};
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
 
-function formatIdr(value: number): string {
-  return Math.round(value).toLocaleString("id-ID");
-}
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-function pnlColor(value: number): string {
-  if (value > 0) return "text-emerald-400";
-  if (value < 0) return "text-red-400";
-  return "text-slate-300";
-}
+  const uid = await getUidFromRequest(req);
 
-export default function PortfolioPage() {
+  if (!uid) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
-  const { user } = useAuth();
+  try {
 
-  const [portfolio, setPortfolio] = useState<PortfolioSummary>(EMPTY_SUMMARY);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastFetchedAt, setLastFetchedAt] = useState<string | null>(null);
+    const control = await getBotControl();
 
-  const fetchPortfolio = useCallback(async () => {
+    const [portfolio, openPositions, tradeLogsSnapshot] = await Promise.all([
 
-    if (!user) return;
+      getPaperPortfolio(BOT_CONFIG.startingBalance),
 
-    try {
+      getOpenPaperPositions(),
 
-      const idToken = await user.getIdToken();
+      adminDb
+        .collection("paper_trade_logs")
+        .orderBy("timestamp", "desc")
+        .limit(100)
+        .get(),
 
-      const response = await fetch("/api/portfolio/summary", {
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-        },
-      });
+    ]);
 
-      const json = await response.json();
+    // --- Unrealized PnL posisi terbuka ---
+    // paper_positions tidak menyimpan harga terkini -- diambil dari
+    // bot_state (yang di-update TradingEngine SETIAP siklus, walau
+    // hasilnya HOLD) untuk pair yang sama.
+    let unrealizedPnl = 0;
+    let investedIdr = 0;
 
-      if (!response.ok) {
-        throw new Error(json.error ?? "Gagal memuat portfolio.");
-      }
+    for (const position of openPositions) {
 
-      setPortfolio(json);
-      setLastFetchedAt(new Date().toLocaleTimeString("id-ID"));
-      setError(null);
+      investedIdr += position.entryValue;
 
-    } catch (err) {
+      const state = await getBotState(position.pair);
 
-      console.error("[PortfolioPage] Failed to fetch summary:", err);
-      setError(
-        err instanceof Error ? err.message : "Gagal memuat portfolio."
-      );
+      const currentPrice =
+        state.currentPrice > 0
+          ? state.currentPrice
+          : position.entryPrice;
 
-    } finally {
-      setLoading(false);
+      unrealizedPnl +=
+        (currentPrice - position.entryPrice) * position.coinAmount;
+
     }
 
-  }, [user]);
+    // --- Pairing BUY -> SELL per pair dari paper_trade_logs ---
+    // (dokumen BUY & SELL tersimpan terpisah -- dipasangkan di sini
+    // supaya "Recent Trades" bisa tampil satu baris per posisi,
+    // bukan satu baris per event BUY/SELL mentah. Pakai object biasa
+    // (bukan Map) supaya tidak butuh syntax generic -- lihat catatan
+    // v0.1.1 di atas.)
+    const logsAscending = tradeLogsSnapshot.docs
+      .map((doc) => doc.data())
+      .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
 
-  useEffect(() => {
+    const pendingBuyByPair: PendingBuyLookup = {};
 
-    fetchPortfolio();
+    const closedTrades: ClosedTradeRow[] = [];
 
-    const interval = setInterval(fetchPortfolio, REFRESH_INTERVAL_MS);
+    let winCount = 0;
+    let closedCount = 0;
 
-    return () => clearInterval(interval);
+    for (const log of logsAscending) {
 
-  }, [fetchPortfolio]);
+      if (log.side === "BUY") {
 
-  return (
-    <section className="space-y-8">
+        pendingBuyByPair[log.pair] = {
+          price: log.price,
+          timestamp: log.timestamp ?? 0,
+        };
 
-      <div className="glass p-8">
+        continue;
 
-        <div className="flex items-center justify-between">
+      }
 
-          <div>
+      if (log.side === "SELL") {
 
-            <h1 className="text-3xl font-bold">
-              Portfolio
-            </h1>
+        const pendingBuy = pendingBuyByPair[log.pair];
 
-            <p className="mt-2 text-slate-400">
-              Ringkasan saldo dan performa trading AutoIDX
-              {" "}
-              ({portfolio.mode === "live" ? "Live Trading" : "Paper Trading"})
-              {" "}
-              — auto-refresh tiap {REFRESH_INTERVAL_MS / 1000} detik.
-            </p>
+        delete pendingBuyByPair[log.pair];
 
-          </div>
+        const buyPrice = pendingBuy ? pendingBuy.price : 0;
 
-          <div className="text-right text-xs text-slate-500">
-            {lastFetchedAt ? `Update terakhir: ${lastFetchedAt}` : loading ? "Memuat..." : ""}
-          </div>
+        const pnlIdr =
+          typeof log.pnlIdr === "number" ? log.pnlIdr : 0;
 
-        </div>
+        const pnlPercent =
+          typeof log.pnlPercent === "number" ? log.pnlPercent : 0;
 
-        {error && (
-          <p className="mt-4 text-sm text-red-400">
-            {error}
-          </p>
-        )}
+        closedTrades.push({
+          pair: log.pair,
+          status: "CLOSED",
+          buyPrice,
+          sellPrice: log.price,
+          pnlIdr,
+          pnlPercent,
+          closedAt:
+            log.timestamp
+              ? new Date(log.timestamp).toISOString()
+              : null,
+        });
 
-        {portfolio.mode === "live" && (
-          <p className="mt-4 text-sm text-yellow-400">
-            Mode LIVE aktif -- saldo di bawah ini berbasis catatan internal
-            (bot_state), BELUM menarik saldo asli langsung dari akun Indodax.
-          </p>
-        )}
+        closedCount += 1;
 
-      </div>
+        if (pnlIdr > 0) {
+          winCount += 1;
+        }
 
-      {/* Summary */}
+      }
 
-      <div className="grid gap-6 md:grid-cols-4">
+    }
 
-        <div className="card">
-          <p className="text-sm text-slate-400">
-            Total Balance
-          </p>
+    // Baris terbaru dulu untuk ditampilkan.
+    closedTrades.reverse();
 
-          <h2 className="mt-2 text-2xl font-bold">
-            Rp {formatIdr(portfolio.balance)}
-          </h2>
-        </div>
+    const openTradeRows: OpenTradeRow[] = openPositions.map((position) => {
 
-        <div className="card">
-          <p className="text-sm text-slate-400">
-            Available
-          </p>
+      const pendingBuy =
+        pendingBuyByPair[position.pair];
 
-          <h2 className="mt-2 text-2xl font-bold text-emerald-400">
-            Rp {formatIdr(portfolio.available)}
-          </h2>
-        </div>
+      return {
+        pair: position.pair,
+        status: "OPEN",
+        buyPrice: pendingBuy ? pendingBuy.price : position.entryPrice,
+        sellPrice: null,
+        pnlIdr: 0,
+        pnlPercent: 0,
+        closedAt: null,
+      };
 
-        <div className="card">
-          <p className="text-sm text-slate-400">
-            Invested
-          </p>
+    });
 
-          <h2 className="mt-2 text-2xl font-bold text-sky-400">
-            Rp {formatIdr(portfolio.invested)}
-          </h2>
-        </div>
+    const recentTrades: TradeRow[] = [
+      ...openTradeRows,
+      ...closedTrades,
+    ].slice(0, 20);
 
-        <div className="card">
-          <p className="text-sm text-slate-400">
-            Open Positions
-          </p>
+    const realizedPnl = closedTrades.reduce(
+      (sum, t) => sum + t.pnlIdr,
+      0
+    );
 
-          <h2 className="mt-2 text-2xl font-bold">
-            {portfolio.openPositionsCount}
-          </h2>
-        </div>
+    const winRate =
+      closedCount > 0
+        ? Number(((winCount / closedCount) * 100).toFixed(1))
+        : 0;
 
-      </div>
+    return res.status(200).json({
 
-      {/* Performance */}
+      mode: control.mode,
 
-      <div className="grid gap-6 md:grid-cols-3">
+      balance:
+        portfolio.availableBalance + investedIdr + unrealizedPnl,
 
-        <div className="card">
-          <p className="text-sm text-slate-400">
-            Realized Profit
-          </p>
+      available: portfolio.availableBalance,
 
-          <h2 className={`mt-2 text-xl font-bold ${pnlColor(portfolio.realizedPnl)}`}>
-            Rp {formatIdr(portfolio.realizedPnl)}
-          </h2>
-        </div>
+      invested: investedIdr,
 
-        <div className="card">
-          <p className="text-sm text-slate-400">
-            Unrealized Profit
-          </p>
+      openPositionsCount: openPositions.length,
 
-          <h2 className={`mt-2 text-xl font-bold ${pnlColor(portfolio.unrealizedPnl)}`}>
-            Rp {formatIdr(portfolio.unrealizedPnl)}
-          </h2>
-        </div>
+      realizedPnl,
 
-        <div className="card">
-          <p className="text-sm text-slate-400">
-            Win Rate
-          </p>
+      unrealizedPnl: Number(unrealizedPnl.toFixed(2)),
 
-          <h2 className="mt-2 text-xl font-bold">
-            {portfolio.winRate}%
-            <span className="ml-2 text-sm font-normal text-slate-500">
-              ({portfolio.totalClosedTrades} trade selesai)
-            </span>
-          </h2>
-        </div>
+      winRate,
 
-      </div>
+      totalClosedTrades: closedCount,
 
-      {/* Trade History */}
+      recentTrades,
 
-      <div className="card">
+      fetchedAt: new Date().toISOString(),
 
-        <div className="flex items-center justify-between">
+    });
 
-          <h2 className="text-xl font-semibold">
-            Recent Trades
-          </h2>
+  } catch (error) {
 
-          <Link
-            href="/activity"
-            className="text-sky-400 hover:underline"
-          >
-            View Activity →
-          </Link>
+    console.error("[Portfolio Summary API]", error);
 
-        </div>
+    return res.status(500).json({
+      error: "Gagal mengambil ringkasan portfolio.",
+    });
 
-        <div className="mt-6 overflow-x-auto">
-
-          <table className="w-full text-left">
-
-            <thead className="border-b border-white/10">
-
-              <tr>
-
-                <th className="py-3">Pair</th>
-
-                <th>Status</th>
-
-                <th>Buy</th>
-
-                <th>Sell</th>
-
-                <th>PnL</th>
-
-              </tr>
-
-            </thead>
-
-            <tbody>
-
-              {portfolio.recentTrades.length === 0 ? (
-
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="py-8 text-center text-slate-500"
-                  >
-                    Belum ada transaksi.
-                  </td>
-                </tr>
-
-              ) : (
-
-                portfolio.recentTrades.map((trade, index) => (
-
-                  <tr
-                    key={`${trade.pair}-${index}`}
-                    className="border-b border-white/5"
-                  >
-
-                    <td className="py-3 uppercase">
-                      {trade.pair}
-                    </td>
-
-                    <td>
-                      <span
-                        className={
-                          trade.status === "OPEN"
-                            ? "rounded bg-sky-500/20 px-2 py-1 text-xs text-sky-400"
-                            : "rounded bg-slate-500/20 px-2 py-1 text-xs text-slate-300"
-                        }
-                      >
-                        {trade.status === "OPEN" ? "TERBUKA" : "SELESAI"}
-                      </span>
-                    </td>
-
-                    <td>
-                      Rp {formatIdr(trade.buyPrice)}
-                    </td>
-
-                    <td>
-                      {trade.sellPrice !== null
-                        ? `Rp ${formatIdr(trade.sellPrice)}`
-                        : "-"}
-                    </td>
-
-                    <td className={pnlColor(trade.pnlIdr)}>
-                      {trade.status === "OPEN"
-                        ? "-"
-                        : `Rp ${formatIdr(trade.pnlIdr)} (${trade.pnlPercent.toFixed(2)}%)`}
-                    </td>
-
-                  </tr>
-
-                ))
-
-              )}
-
-            </tbody>
-
-          </table>
-
-        </div>
-
-      </div>
-
-    </section>
-  );
+  }
 
 }
