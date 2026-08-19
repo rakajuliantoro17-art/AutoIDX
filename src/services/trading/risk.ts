@@ -9,6 +9,10 @@ Perubahan dari 0.0.6:
   BOT_CONFIG.maxTradeAmount (nominal), bukan
   RISK_CONFIG.maxOpenPosition (jumlah posisi) - bug lama.
 - Tambah isEmergencyStopped() dan isCooldownActive().
+- Tambah calculateAtrStopLevels() dan evaluateWithLevels():
+  SL/TP sekarang berbasis ATR per pair (lihat komentar di
+  masing-masing method), bukan lagi persentase statis yang
+  sama untuk semua pair.
 ==========================================================
 */
 import { RISK_CONFIG } from "@/config/risk";
@@ -28,11 +32,159 @@ export interface RiskEvaluationResult {
   reason: string;
 }
 
+export interface AtrStopLevels {
+  stopLossPrice: number;
+  takeProfitPrice: number;
+  stopLossPercent: number;
+  takeProfitPercent: number;
+}
+
+/**
+ * Batas aman (%) supaya level ATR tidak pernah jadi ekstrem --
+ * ATR mendekati nol (pair nyaris tidak bergerak / data candle
+ * kurang) tidak akan bikin SL nyaris nol persen (SL kena oleh
+ * noise sekecil apa pun), dan ATR yang sangat besar (pair super
+ * liar) tidak akan bikin SL puluhan persen.
+ */
+const MIN_STOP_LOSS_PERCENT = 0.5;
+const MAX_STOP_LOSS_PERCENT = 8;
+
+/**
+ * Kelipatan ATR untuk jarak stop-loss. 1.5x ATR adalah nilai
+ * umum dipakai di strategi ATR-based stop (cukup lebar untuk
+ * menghindari noise normal, cukup ketat untuk membatasi rugi).
+ */
+const ATR_STOP_LOSS_MULTIPLIER = 1.5;
+
 class RiskManager {
 
   /**
+   * Hitung level stop-loss/take-profit berbasis ATR (volatilitas
+   * ASLI pair itu), bukan persentase statis yang sama untuk
+   * semua pair. Rasio risk:reward tetap mengikuti RISK_CONFIG
+   * (targetProfitPercent / stopLossPercent, default 3:1 dari
+   * 3% / 1%) -- yang berubah cuma LEBAR band-nya, disesuaikan ke
+   * volatilitas pair saat ini.
+   *
+   * Dipanggil SEKALI saat BUY (services/trading/engine.ts), hasil
+   * price-nya disimpan ke bot_state -- BUKAN dihitung ulang tiap
+   * siklus, supaya level SL/TP tetap konsisten selama posisi
+   * terbuka walau ATR pair berubah setelah entry.
+   */
+  calculateAtrStopLevels(
+    entryPrice: number,
+    atr: number
+  ): AtrStopLevels {
+
+    const fallbackRatio =
+      RISK_CONFIG.stopLossPercent > 0
+        ? RISK_CONFIG.targetProfitPercent / RISK_CONFIG.stopLossPercent
+        : 3;
+
+    if (entryPrice <= 0 || atr <= 0) {
+
+      // Data ATR tidak valid -- fallback ke persentase statis
+      // RISK_CONFIG supaya posisi tetap punya perlindungan.
+      return {
+        stopLossPercent: RISK_CONFIG.stopLossPercent,
+        takeProfitPercent: RISK_CONFIG.targetProfitPercent,
+        stopLossPrice: entryPrice * (1 - RISK_CONFIG.stopLossPercent / 100),
+        takeProfitPrice: entryPrice * (1 + RISK_CONFIG.targetProfitPercent / 100),
+      };
+
+    }
+
+    const atrPercent = (atr / entryPrice) * 100;
+
+    const rawStopLossPercent = atrPercent * ATR_STOP_LOSS_MULTIPLIER;
+
+    const stopLossPercent = Math.min(
+      MAX_STOP_LOSS_PERCENT,
+      Math.max(MIN_STOP_LOSS_PERCENT, rawStopLossPercent)
+    );
+
+    const takeProfitPercent = stopLossPercent * fallbackRatio;
+
+    return {
+      stopLossPercent: Number(stopLossPercent.toFixed(2)),
+      takeProfitPercent: Number(takeProfitPercent.toFixed(2)),
+      stopLossPrice: entryPrice * (1 - stopLossPercent / 100),
+      takeProfitPrice: entryPrice * (1 + takeProfitPercent / 100),
+    };
+
+  }
+
+  /**
+   * Evaluasi posisi terhadap level HARGA ABSOLUT yang sudah
+   * dihitung & disimpan saat entry (lihat calculateAtrStopLevels)
+   * -- ini yang dipakai untuk posisi BARU (setelah ATR SL/TP
+   * dipasang). Kalau stopLossPrice/takeProfitPrice yang tersimpan
+   * masih 0 (posisi lama dari sebelum fitur ini ada), otomatis
+   * fallback ke evaluate() versi persentase statis di bawah --
+   * supaya posisi yang sudah terbuka sebelum deploy ini TETAP
+   * punya perlindungan SL/TP, bukan tiba-tiba tanpa proteksi.
+   */
+  evaluateWithLevels(
+    buyPrice: number,
+    currentPrice: number,
+    inPosition: boolean,
+    stopLossPrice: number,
+    takeProfitPrice: number
+  ): RiskEvaluationResult {
+
+    if (!inPosition || buyPrice <= 0) {
+      return {
+        shouldStopLoss: false,
+        shouldTakeProfit: false,
+        profitLossPercent: 0,
+        action: "HOLD",
+        reason: "Tidak ada posisi yang sedang dibuka.",
+      };
+    }
+
+    if (stopLossPrice <= 0 || takeProfitPrice <= 0) {
+      // Posisi lama belum punya level ATR tersimpan -- fallback.
+      return this.evaluate({ buyPrice, currentPrice, inPosition });
+    }
+
+    const pnl = this.calculatePnLPercent(buyPrice, currentPrice);
+
+    if (currentPrice <= stopLossPrice) {
+      return {
+        shouldStopLoss: true,
+        shouldTakeProfit: false,
+        profitLossPercent: pnl,
+        action: "STOP_LOSS",
+        reason: `Stop Loss (ATR) tercapai di harga ${stopLossPrice.toFixed(2)}.`,
+      };
+    }
+
+    if (currentPrice >= takeProfitPrice) {
+      return {
+        shouldStopLoss: false,
+        shouldTakeProfit: true,
+        profitLossPercent: pnl,
+        action: "TAKE_PROFIT",
+        reason: `Target Profit (ATR) tercapai di harga ${takeProfitPrice.toFixed(2)}.`,
+      };
+    }
+
+    return {
+      shouldStopLoss: false,
+      shouldTakeProfit: false,
+      profitLossPercent: pnl,
+      action: "HOLD",
+      reason: "Posisi masih berada dalam batas risiko (ATR).",
+    };
+
+  }
+
+  /**
    * Evaluasi kondisi posisi terhadap
-   * Stop Loss & Take Profit
+   * Stop Loss & Take Profit -- versi persentase statis
+   * (RISK_CONFIG). Dipertahankan sebagai fallback untuk posisi
+   * lama yang belum punya level ATR tersimpan (lihat
+   * evaluateWithLevels di atas).
    */
   evaluate(input: RiskEvaluationInput): RiskEvaluationResult {
     const { buyPrice, currentPrice, inPosition } = input;
