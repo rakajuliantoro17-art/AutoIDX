@@ -2,7 +2,7 @@
 ==========================================================
 AURA Trade OS
 Trading Engine
-Version : 0.1.0 Alpha
+Version : 0.2.0 Alpha
 (Gabungan perubahan:
 1. Validasi risk sebelum eksekusi - emergency stop, batas rugi
    harian, cooldown, max exposure, max open position, dan
@@ -10,30 +10,32 @@ Version : 0.1.0 Alpha
    strategi.
 2. BOT_MODE sekarang benar-benar jadi switch paper/live. Live
    trading TIDAK akan pernah jalan kecuali DUA syarat terpenuhi:
-   BOT_MODE=live DAN BOT_LIVE_CONFIRM=true. Ini sengaja dibuat
-   dua gerbang terpisah supaya tidak ada yang "kepencet" masuk
-   mode live tanpa sadar - salah satu env var saja tidak cukup.
+   BOT_MODE=live DAN BOT_LIVE_CONFIRM=true.
 3. Emergency Stop HANYA memblokir BUY baru, TIDAK PERNAH
-   memblokir SELL/stop-loss/take-profit paksa - supaya posisi
-   terbuka tidak "nyangkut" kalau emergency stop aktif saat
-   harga turun.
-4. updateBotState dipanggil SETIAP siklus (bukan cuma saat
-   BUY/SELL) supaya currentPrice/lastSignal di dashboard selalu
-   segar walau hasil siklusnya HOLD.
-5. Sinyal BUY/SELL SEKARANG langsung dari services/strategy/*
-   (strategyManager, default mode BALANCED -> AURA_TREND -- rule
-   berbobot EMA+MACD+ADX+RSI+Stochastic) -- BUKAN lagi dari
-   DecisionEngine lama (AND-gate kaku RSI+EMA saja, yang bikin
-   sinyal nyaris selalu HOLD). DecisionEngine sudah tidak dipakai
-   di sini lagi.
-   Sempat ada percobaan pendekatan "filter konfirmasi" (DecisionEngine
-   tetap utama, strategi orphan cuma menolak BUY lewat
-   confirmBuyWithOrphanStrategies + services/indicator/ singular) --
-   pendekatan itu SENGAJA tidak dipakai karena menumpuk dua AND-gate
-   sekaligus dan membuat BUY makin jarang muncul, bertentangan dengan
-   tujuan awal (mengatasi sinyal yang macet di HOLD). services/indicator/
-   (singular, terpisah dari services/indicators/ yang dipakai di sini)
-   sekarang orphan lagi -- aman dihapus/diarsipkan kapan saja.)
+   memblokir SELL/stop-loss/take-profit paksa.
+4. updateBotState dipanggil SETIAP siklus.
+5. Sinyal BUY/SELL dari services/strategy/* (strategyManager,
+   default mode BALANCED -> AURA_TREND) sebagai sumber UTAMA.
+6. SANITY CHECK RINGAN (bukan AND-gate berlapis) sebelum BUY
+   diteruskan ke risk gate:
+   - Tolak HANYA kalau strategi lain (EMA_CROSSOVER, MOMENTUM)
+     KOMPAK bilang SELL (kontradiksi kuat terhadap AURA_TREND).
+   - Tolak HANYA kalau MomentumRule+VolatilityRule (ScoreEngine)
+     menghasilkan SELL, atau HOLD dengan confidence sangat rendah.
+   Keduanya sengaja LONGGAR (bukan mewajibkan semua setuju) --
+   supaya BUY tidak jadi nyaris-selalu-HOLD lagi seperti masalah
+   awal DecisionEngine dulu, tapi tetap ada jaring pengaman kalau
+   sinyal utama jelas-jelas bertentangan dengan pembacaan lain.
+   TrendRule & VolumeRule (butuh SMA/OBV dari candle penuh) TIDAK
+   dipakai di sini karena kontrak input sekarang cuma `features`
+   ringkas, bukan candle OHLCV -- lihat catatan di confirmBuyWithAI.
+7. AI (ai/providers/*, lewat marketContextEngine + prompt.ts +
+   responseParser.ts) dipanggil sebagai ADVISORY ONLY -- hasilnya
+   dicatat ke log untuk dipelajari/dikalibrasi nanti, TAPI TIDAK
+   memblokir eksekusi BUY. Ini supaya latency/biaya panggilan API
+   eksternal tidak jadi titik gagal yang menghentikan trading.
+   Fail-safe kalau AI gagal/tidak ada key: cuma tidak ada log
+   tambahan, tidak mempengaruhi keputusan sama sekali.
 ==========================================================
 */
 
@@ -44,6 +46,20 @@ import type {
 import strategyManager from "@/services/strategy/manager";
 import type { StrategyManagerResult } from "@/services/strategy/manager";
 import type { IndicatorFeatureVector } from "@/services/indicators";
+import type { StrategyContext, RuleResult, StrategyDecision } from "@/services/strategy/types";
+
+import { MomentumRule } from "@/services/strategy/rules/momentumRule";
+import { VolatilityRule } from "@/services/strategy/rules/volatilityRule";
+import { ScoreEngine } from "@/services/strategy/scoring/scoreEngine";
+
+import marketContextEngine from "@/services/intelligence/context/marketContext";
+import aiPrompt from "@/services/intelligence/ai/prompt";
+import { parseAIResponse } from "@/services/intelligence/ai/responseParser";
+import openAIProvider from "@/services/intelligence/ai/providers/openai";
+import geminiProvider from "@/services/intelligence/ai/providers/gemini";
+import claudeProvider from "@/services/intelligence/ai/providers/claude";
+import deepSeekProvider from "@/services/intelligence/ai/providers/deepseek";
+import type { AIAnalysis } from "@/services/intelligence/types";
 
 import PaperTradingService from "./paper";
 import LiveTradingService from "./live";
@@ -106,6 +122,8 @@ export interface TradingEngineResult {
 
 }
 
+const scoreEngine = new ScoreEngine();
+
 function toMillis(value: any): number {
 
   if (!value) return 0;
@@ -122,12 +140,8 @@ function toMillis(value: any): number {
 
 /**
  * Live trading HANYA aktif kalau DUA syarat terpenuhi:
- * bot_control.mode === "live" (bisa diubah real-time dari
- * dashboard, tanpa redeploy) DAN process.env.BOT_LIVE_CONFIRM
- * === "true" (cuma bisa diubah lewat Vercel env var + redeploy).
- * Salah satu saja tidak cukup - ini sengaja jadi dua gerbang
- * terpisah supaya tidak ada yang "kepencet" masuk live tanpa
- * sadar lewat toggle dashboard saja.
+ * bot_control.mode === "live" DAN process.env.BOT_LIVE_CONFIRM
+ * === "true".
  */
 function isLiveModeActive(
 
@@ -143,13 +157,8 @@ function isLiveModeActive(
 }
 
 /**
- * Adaptor: StrategyManagerResult (services/strategy/*) -> DecisionResult
- * (bentuk lama yang dipakai TradingEngine di bawah). Dibuat supaya
- * alur risk-gate/eksekusi TradingEngine TIDAK perlu diubah besar-
- * besaran -- cukup SUMBER sinyalnya saja yang diganti, dari
- * DecisionEngine lama (AND-gate kaku RSI+EMA doang) ke strategyManager
- * (rule-based berbobot, banyak indikator, default mode BALANCED ->
- * strategi AURA_TREND).
+ * Adaptor: StrategyManagerResult -> DecisionResult (bentuk lama
+ * yang dipakai alur risk-gate/eksekusi di bawah).
  */
 function mapStrategyResultToDecision(
   result: StrategyManagerResult
@@ -182,6 +191,202 @@ function mapStrategyResultToDecision(
 
 }
 
+interface SanityCheckResult {
+  passed: boolean;
+  auditLog: string;
+}
+
+/**
+ * Sanity check #1: tolak BUY HANYA kalau strategi lain di luar
+ * strategi utama (AURA_TREND) KOMPAK bilang SELL. Kalau cuma
+ * campur/beda pendapat, tetap lolos -- ini sengaja longgar.
+ */
+function checkStrategyContradiction(
+  features: IndicatorFeatureVector,
+  primaryStrategyName: string
+): SanityCheckResult {
+
+  const others: StrategyDecision[] = strategyManager
+    .compare(features)
+    .filter((d) => d.strategy !== primaryStrategyName);
+
+  const strongContradiction =
+    others.length >= 2 &&
+    others.every((d) => d.action === "SELL");
+
+  return {
+    passed: !strongContradiction,
+    auditLog: strongContradiction
+      ? `Ditolak -- strategi lain kompak SELL: ${others.map((d) => `${d.strategy}=${d.action}`).join(", ")}.`
+      : `Lolos -- tidak ada kontradiksi kuat: ${others.map((d) => `${d.strategy}=${d.action}`).join(", ")}.`,
+  };
+
+}
+
+/**
+ * Sanity check #2: MomentumRule + VolatilityRule (via ScoreEngine).
+ * TrendRule & VolumeRule tidak dipakai di sini (butuh SMA/OBV dari
+ * candle penuh, tidak tersedia di kontrak input `features` yang
+ * ringkas). Tolak HANYA kalau hasilnya SELL, atau HOLD dengan
+ * confidence sangat rendah (<30) -- bukan mewajibkan BUY tegas.
+ */
+function checkRuleScoreContradiction(
+  pair: string,
+  price: number,
+  features: IndicatorFeatureVector,
+  position: "NONE" | "LONG",
+  balance: number
+): SanityCheckResult {
+
+  const context: StrategyContext = {
+
+    pair,
+
+    features,
+
+    indicators: {
+      macd: features.macd,
+      histogram: features.macdHistogram,
+      rsi: features.rsi,
+      ema: features.emaSlow,
+      sma: 0,
+      atr: features.atr,
+      bollingerUpper: features.bollingerUpper,
+      bollingerMiddle: features.bollingerMiddle,
+      bollingerLower: features.bollingerLower,
+      obv: 0,
+    },
+
+    snapshot: { close: price },
+
+    mode: "BALANCED",
+
+    position,
+
+    balance,
+
+    timestamp: Date.now(),
+
+  };
+
+  const ruleResults: RuleResult[] = [
+    new MomentumRule().evaluate(context),
+    new VolatilityRule().evaluate(context),
+  ];
+
+  const score = scoreEngine.evaluate(ruleResults);
+
+  const rejected =
+    score.signal === "SELL" ||
+    (score.signal === "HOLD" && score.confidence < 30);
+
+  return {
+    passed: !rejected,
+    auditLog: rejected
+      ? `Ditolak -- Momentum+Volatility ScoreEngine: signal=${score.signal}, confidence=${score.confidence}. ${score.reasons.join("; ")}`
+      : `Lolos -- Momentum+Volatility ScoreEngine: signal=${score.signal}, confidence=${score.confidence}.`,
+  };
+
+}
+
+const AI_CALL_TIMEOUT_MS = 20_000;
+
+interface AIProviderCandidate {
+  name: string;
+  envKey: string;
+  query: (prompt: string) => Promise<{ success: boolean; content: string | null }>;
+}
+
+const AI_PROVIDER_CANDIDATES: AIProviderCandidate[] = [
+  { name: "openai", envKey: "OPENAI_API_KEY", query: (p) => openAIProvider.query(p) },
+  { name: "gemini", envKey: "GEMINI_API_KEY", query: (p) => geminiProvider.query(p) },
+  { name: "claude", envKey: "CLAUDE_API_KEY", query: (p) => claudeProvider.query(p) },
+  { name: "deepseek", envKey: "DEEPSEEK_API_KEY", query: (p) => deepSeekProvider.query(p) },
+];
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return Promise.race([
+    promise,
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+  ]);
+}
+
+/**
+ * AI ADVISORY (tidak memblokir). Dipanggil setelah kedua sanity
+ * check lolos, tapi hasilnya cuma dicatat ke log -- TIDAK
+ * mempengaruhi apakah BUY jadi dieksekusi atau tidak. Ini supaya
+ * latency (sampai 20 detik) dan biaya panggilan API eksternal
+ * tidak menghentikan alur trading, sambil tetap mengumpulkan data
+ * untuk dievaluasi/dikalibrasi nanti (mis. dijadikan gerbang wajib
+ * kalau setelah beberapa minggu terbukti akurat).
+ */
+async function logAIAdvisory(
+  pair: string,
+  price: number,
+  features: IndicatorFeatureVector
+): Promise<void> {
+
+  const candidate = AI_PROVIDER_CANDIDATES.find(
+    (c) => !!process.env[c.envKey]
+  );
+
+  if (!candidate) {
+    return;
+  }
+
+  try {
+
+    const context = marketContextEngine.build({ pair, features });
+
+    const prompt = aiPrompt.build({ pair, featureVector: features, context });
+
+    const response = await withTimeout(
+      candidate.query(prompt),
+      AI_CALL_TIMEOUT_MS
+    );
+
+    if (!response || !response.success) {
+
+      await recordLog(
+        "BOT",
+        "info",
+        `[AI Advisory ${pair.toUpperCase()}] Panggilan ${candidate.name} gagal/timeout -- tidak mempengaruhi keputusan.`
+      );
+
+      return;
+
+    }
+
+    const analysis: AIAnalysis | null = parseAIResponse(response.content);
+
+    if (!analysis) {
+
+      await recordLog(
+        "BOT",
+        "info",
+        `[AI Advisory ${pair.toUpperCase()}] Balasan ${candidate.name} tidak valid JSON -- tidak mempengaruhi keputusan.`
+      );
+
+      return;
+
+    }
+
+    await recordLog(
+      "BOT",
+      "info",
+      `[AI Advisory ${pair.toUpperCase()}] ${candidate.name}: signal=${analysis.signal}, confidence=${analysis.confidence}. ${analysis.summary}`
+    );
+
+  } catch (error) {
+
+    // Fail-safe: error di jalur advisory TIDAK PERNAH melempar ke
+    // atas / menghentikan siklus trading.
+    console.error("[AI Advisory]", error);
+
+  }
+
+}
+
 export class TradingEngine {
 
   /**
@@ -203,9 +408,6 @@ export class TradingEngine {
     const modeLabel: "paper" | "live" =
       liveActive ? "live" : "paper";
 
-    // Peringatan kalau mode="live" (dashboard maupun env var)
-    // tapi BOT_LIVE_CONFIRM belum - supaya user tahu kenapa
-    // masih paper trading.
     if (
       control.mode === "live" &&
       !liveActive
@@ -221,12 +423,6 @@ export class TradingEngine {
 
     try {
 
-      // CATATAN PENTING: emergencyStop HANYA memblokir BUY baru
-      // (dicek di bawah, di dalam case "BUY"). Emergency stop
-      // TIDAK PERNAH memblokir SELL, stop-loss, maupun take-profit
-      // paksa — supaya posisi terbuka tidak "nyangkut" kalau
-      // emergency stop sedang aktif saat harga turun.
-
       const state =
         await getBotState(input.pair);
 
@@ -237,9 +433,6 @@ export class TradingEngine {
         await getRiskState();
 
       // --- 1. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
-      // Ini dicek TERPISAH dari sinyal strategi, supaya posisi tetap
-      // ditutup walau strategi belum kasih sinyal SELL. TIDAK diblokir
-      // emergency stop (lihat catatan di atas).
       if (state.inPosition) {
 
         const riskEval = RiskManager.evaluate({
@@ -313,10 +506,7 @@ export class TradingEngine {
 
       }
 
-      // --- 2. Evaluasi sinyal strategi (services/strategy/*, multi-
-      //    indikator EMA+MACD+ADX+RSI+Stochastic, weighted rules --
-      //    BUKAN lagi DecisionEngine lama yang AND-gate kaku RSI+EMA
-      //    saja, yang bikin sinyal nyaris selalu HOLD) ---
+      // --- 2. Evaluasi sinyal strategi (sumber UTAMA) ---
       const position: "NONE" | "LONG" =
         state.inPosition ? "LONG" : "NONE";
 
@@ -326,14 +516,70 @@ export class TradingEngine {
           position
         );
 
-      const decision: DecisionResult =
+      let decision: DecisionResult =
         mapStrategyResultToDecision(strategyResult);
 
+      // --- 2b. Sanity check ringan (KHUSUS BUY, longgar -- lihat
+      //     komentar di atas file & checkStrategyContradiction /
+      //     checkRuleScoreContradiction) ---
+      if (decision.signal === "BUY") {
+
+        const check1 = checkStrategyContradiction(
+          input.features,
+          strategyResult.strategy
+        );
+
+        await recordLog(
+          "BOT",
+          check1.passed ? "success" : "warning",
+          `[Sanity Check 1 - Konsensus ${input.pair.toUpperCase()}] ${check1.auditLog}`
+        );
+
+        if (!check1.passed) {
+
+          decision = {
+            signal: "HOLD",
+            confidence: decision.confidence,
+            reason: `BUY (${decision.reason}) ditolak sanity check konsensus: ${check1.auditLog}`,
+          };
+
+        } else {
+
+          const check2 = checkRuleScoreContradiction(
+            input.pair,
+            input.price,
+            input.features,
+            position,
+            portfolio.availableBalance ?? 0
+          );
+
+          await recordLog(
+            "BOT",
+            check2.passed ? "success" : "warning",
+            `[Sanity Check 2 - ScoreEngine ${input.pair.toUpperCase()}] ${check2.auditLog}`
+          );
+
+          if (!check2.passed) {
+
+            decision = {
+              signal: "HOLD",
+              confidence: decision.confidence,
+              reason: `BUY (${decision.reason}) ditolak sanity check ScoreEngine: ${check2.auditLog}`,
+            };
+
+          } else {
+
+            // Lolos kedua sanity check -- AI dipanggil ADVISORY ONLY,
+            // tidak menunggu/menggantungkan keputusan BUY padanya.
+            await logAIAdvisory(input.pair, input.price, input.features);
+
+          }
+
+        }
+
+      }
+
       // --- Persist currentPrice/lastSignal SETIAP siklus ---
-      // (sebelumnya cuma di-update saat BUY/SELL, jadi nilai ini
-      // nyangkut di lama/default kalau hasil siklus HOLD - yang
-      // paling sering terjadi. Dashboard butuh nilai ini selalu
-      // segar untuk tampilkan harga/sinyal terkini.)
       await updateBotState({
 
         pair: input.pair,
@@ -351,9 +597,6 @@ export class TradingEngine {
         case "BUY": {
 
           // --- Emergency Stop: blokir BUY baru saja ---
-          // Dicek dari DUA sumber -- env var (RISK_CONFIG, butuh
-          // redeploy) dan dashboard toggle (bot_control, real-time).
-          // Mana saja yang aktif akan memblokir BUY.
           if (RISK_CONFIG.emergencyStop || control.emergencyStop) {
 
             await recordLog(
@@ -387,7 +630,6 @@ export class TradingEngine {
           const tradeAmountIdr =
             BOT_CONFIG.defaultTradeAmount;
 
-          // --- Batas jumlah posisi terbuka (lintas semua pair) ---
           const openPositionsCount =
             await getOpenPositionsCount();
 
@@ -421,7 +663,6 @@ export class TradingEngine {
 
           }
 
-          // --- Batas rugi harian ---
           const maxDailyLossIdr =
             (RISK_CONFIG.maxDailyLossPercent / 100) *
             portfolio.startingBalance;
@@ -458,7 +699,6 @@ export class TradingEngine {
 
           }
 
-          // --- Cooldown antar trade ---
           const lastUpdatedMs = toMillis(state.updatedAt);
 
           const secondsSinceLastUpdate =
@@ -498,7 +738,6 @@ export class TradingEngine {
 
           }
 
-          // --- Max exposure per trade ---
           const maxExposureIdr =
             (RISK_CONFIG.maxExposurePercent / 100) *
             portfolio.equityIdr;
