@@ -58,7 +58,8 @@ import type { PredictionInput } from "../ai/prediction/predictionInput";
 // dengan spread bid-ask terlalu lebar (order book tipis, rawan slippage
 // besar saat full-pair auto-trading) TIDAK diloloskan ke qualifiedPairs,
 // walau volume & skornya bagus. Lihat catatan lengkap di marketQuality.ts.
-import { evaluateMarketQuality } from "./marketQuality";
+import { evaluateMarketQuality, evaluateVolumeSurge } from "./marketQuality";
+import { getCandles } from "../indodax/candles";
 
 const aiPredictionEngine = new PredictionEngine(new BasicPredictionModel());
 
@@ -258,6 +259,24 @@ export class MarketScanner {
           );
         }
 
+        // --- Volume Surge (informasional, lihat marketQuality.ts) ---
+        let volumeRatio: number | undefined;
+        let priceRangePercent: number | undefined;
+
+        try {
+          const candles = await getCandles({ pair: ticker.pair, limit: 50 });
+          const surge = evaluateVolumeSurge(candles, ticker.pair);
+
+          if (surge) {
+            volumeRatio = surge.volumeRatio;
+            priceRangePercent = surge.priceRangePercent;
+          }
+        } catch (surgeError) {
+          // Informasional saja -- gagal ambil candle TIDAK BOLEH
+          // menggagalkan hasil scan pair ini.
+          console.error("Volume surge check failed", ticker.pair, surgeError);
+        }
+
         // --- AI Score (observasional, lihat catatan di atas import) ---
         let aiScore: number | undefined;
         let aiDirection: "BULLISH" | "BEARISH" | "NEUTRAL" | undefined;
@@ -304,6 +323,8 @@ export class MarketScanner {
           aiDirection,
           aiConfidence,
           spreadPercent,
+          volumeRatio,
+          priceRangePercent,
         });
       } catch (error) {
         console.error("Scanner failed", ticker.pair, error);
