@@ -53,6 +53,13 @@ import { PredictionEngine } from "../ai/prediction/predictionEngine";
 import { BasicPredictionModel } from "../ai/prediction/predictionModel";
 import type { PredictionInput } from "../ai/prediction/predictionInput";
 
+// --- Market Quality Filter (services/market/filters, sebelumnya orphan) ---
+// SpreadFilter jadi gerbang tambahan SETELAH skor RSI/EMA lolos: pair
+// dengan spread bid-ask terlalu lebar (order book tipis, rawan slippage
+// besar saat full-pair auto-trading) TIDAK diloloskan ke qualifiedPairs,
+// walau volume & skornya bagus. Lihat catatan lengkap di marketQuality.ts.
+import { evaluateMarketQuality } from "./marketQuality";
+
 const aiPredictionEngine = new PredictionEngine(new BasicPredictionModel());
 
 /**
@@ -179,6 +186,8 @@ export class MarketScanner {
 
     const minOpportunityScore = criteria.minOpportunityScore ?? 60;
 
+    const maxSpreadPercent = criteria.maxSpreadPercent ?? 3;
+
     const qualified: ScannedPairResult[] = [];
 
     // Skor SEMUA kandidat yang berhasil dianalisa (bukan cuma yang
@@ -212,6 +221,41 @@ export class MarketScanner {
 
         if (score < minOpportunityScore) {
           return;
+        }
+
+        // --- Market Quality Gate: spread bid-ask (lihat marketQuality.ts) ---
+        // Pair dengan spread terlalu lebar TIDAK diloloskan, walau skor
+        // RSI/EMA-nya bagus -- order book tipis = risiko slippage besar
+        // saat order benar-benar dieksekusi.
+        let spreadPercent: number | undefined;
+
+        try {
+          const depth = await indodaxMarketService.getOrderBookDepth(
+            ticker.pair,
+            20
+          );
+
+          const quality = evaluateMarketQuality(
+            ticker.pair,
+            depth,
+            maxSpreadPercent
+          );
+
+          spreadPercent = quality.spreadPercent;
+
+          if (!quality.passed) {
+            return;
+          }
+        } catch (qualityError) {
+          // Gagal ambil order book (mis. network error sesaat) --
+          // fail-safe dengan TETAP meloloskan pair (bukan menolak),
+          // supaya satu error transien tidak menghilangkan pair
+          // yang sebenarnya sehat dari hasil scan.
+          console.error(
+            "Market quality check failed",
+            ticker.pair,
+            qualityError
+          );
         }
 
         // --- AI Score (observasional, lihat catatan di atas import) ---
@@ -259,6 +303,7 @@ export class MarketScanner {
           aiScore,
           aiDirection,
           aiConfidence,
+          spreadPercent,
         });
       } catch (error) {
         console.error("Scanner failed", ticker.pair, error);
