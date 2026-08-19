@@ -20,6 +20,7 @@ const menus: MenuItem[] = [
   { name: "Portfolio", path: "/portfolio" },
   { name: "Activity", path: "/activity" },
   { name: "Backtest", path: "/backtest" },
+  { name: "ML Lab (Eksperimental)", path: "/dashboard/ml-lab" },
   { name: "Settings", path: "/dashboard/settings" },
 ];
 
