@@ -9,16 +9,13 @@ Virtual Trading Account Management
 */
 
 
-import positionManager, {
+import {
 
-    PositionManager,
-
-    Position
+    PositionManager
 
 }
 
 from "./position";
-
 
 
 
@@ -45,10 +42,6 @@ export interface PortfolioSnapshot {
 
 
 
-
-
-
-
 export interface PortfolioConfig {
 
 
@@ -59,10 +52,6 @@ export interface PortfolioConfig {
 
 
 }
-
-
-
-
 
 
 
@@ -96,10 +85,6 @@ export interface PortfolioTrade {
 
 
 
-
-
-
-
 export class VirtualPortfolio {
 
 
@@ -115,13 +100,7 @@ export class VirtualPortfolio {
 
     private positionManager:PositionManager;
 
-
-
     private trades:PortfolioTrade[];
-
-
-
-
 
 
 
@@ -137,11 +116,9 @@ export class VirtualPortfolio {
             config.initialCapital;
 
 
-
         this.cash =
 
             config.initialCapital;
-
 
 
         this.feeRate =
@@ -149,23 +126,20 @@ export class VirtualPortfolio {
             config.feeRate;
 
 
-
+        // PENTING: instance BARU per portfolio, BUKAN singleton
+        // module-level yang di-share semua VirtualPortfolio (bug
+        // lama -- lihat catatan versi di atas file). Tanpa ini,
+        // dua backtest yang jalan di invocation server yang sama
+        // (mis. warm serverless container Vercel) bisa saling
+        // "mewarisi" posisi terbuka satu sama lain.
         this.positionManager =
-
-            positionManager;
-
+            new PositionManager();
 
 
         this.trades=[];
 
 
-
     }
-
-
-
-
-
 
 
 
@@ -184,15 +158,11 @@ export class VirtualPortfolio {
     ){
 
 
-
         const cost =
 
             price *
 
             amount;
-
-
-
 
 
         const fee =
@@ -202,18 +172,11 @@ export class VirtualPortfolio {
             this.feeRate;
 
 
-
-
-
         const totalCost =
 
             cost +
 
             fee;
-
-
-
-
 
 
 
@@ -225,29 +188,19 @@ export class VirtualPortfolio {
 
         ){
 
-
             throw new Error(
 
                 "Insufficient balance"
 
             );
 
-
         }
-
-
-
-
 
 
 
         this.cash -=
 
             totalCost;
-
-
-
-
 
 
 
@@ -263,40 +216,25 @@ export class VirtualPortfolio {
 
 
 
-
-
-
-
         this.trades.push({
 
 
             pair,
 
-
             side:"BUY",
-
 
             price,
 
-
             quantity:amount,
-
 
             value:totalCost,
 
-
             timestamp:Date.now()
-
 
         });
 
 
-
     }
-
-
-
-
 
 
 
@@ -312,7 +250,6 @@ export class VirtualPortfolio {
     ){
 
 
-
         const closed =
 
             this.positionManager.close(
@@ -323,16 +260,9 @@ export class VirtualPortfolio {
 
 
 
-
-
         if(!closed)
 
             return null;
-
-
-
-
-
 
 
 
@@ -344,17 +274,11 @@ export class VirtualPortfolio {
             closed.quantity;
 
 
-
-
-
         const fee =
 
             revenue *
 
             this.feeRate;
-
-
-
 
 
 
@@ -366,10 +290,6 @@ export class VirtualPortfolio {
 
 
 
-
-
-
-
         this.trades.push({
 
 
@@ -378,13 +298,10 @@ export class VirtualPortfolio {
                 closed.pair,
 
 
-
             side:"SELL",
 
 
-
             price,
-
 
 
             quantity:
@@ -392,22 +309,16 @@ export class VirtualPortfolio {
                 closed.quantity,
 
 
-
             value:
 
                 revenue,
-
 
 
             timestamp:
 
                 Date.now()
 
-
         });
-
-
-
 
 
 
@@ -415,10 +326,6 @@ export class VirtualPortfolio {
 
 
     }
-
-
-
-
 
 
 
@@ -434,7 +341,6 @@ export class VirtualPortfolio {
     ){
 
 
-
         this.positionManager.updatePrice(
 
             price
@@ -447,8 +353,31 @@ export class VirtualPortfolio {
 
 
 
+    /**
+     * Apakah sedang punya posisi terbuka?
+     * (dipakai simulator untuk menentukan position:"NONE"|"LONG"
+     * yang dikirim ke strategy engine -- SANGAT PENTING, tanpa
+     * ini exitRules/SELL strategi tidak akan pernah bisa dievaluasi
+     * sama sekali selama backtest berjalan)
+     */
+    hasOpenPosition(){
+
+        return this.positionManager.hasPosition();
+
+    }
 
 
+
+    /**
+     * Posisi terbuka saat ini (entryPrice dkk) -- dipakai simulator
+     * untuk menghitung/evaluasi level stop-loss/take-profit ATR.
+     * null kalau tidak sedang posisi.
+     */
+    getPositionSnapshot(){
+
+        return this.positionManager.get();
+
+    }
 
 
 
@@ -458,26 +387,17 @@ export class VirtualPortfolio {
     getEquity(){
 
 
-
         const position =
 
             this.positionManager.get();
 
 
 
-
-
         if(!position){
-
 
             return this.cash;
 
-
         }
-
-
-
-
 
 
 
@@ -486,9 +406,6 @@ export class VirtualPortfolio {
             position.quantity *
 
             position.currentPrice;
-
-
-
 
 
         return (
@@ -506,10 +423,6 @@ export class VirtualPortfolio {
 
 
 
-
-
-
-
     /**
      * Portfolio snapshot
      */
@@ -517,12 +430,9 @@ export class VirtualPortfolio {
 
 
 
-
         const position =
 
             this.positionManager.get();
-
-
 
 
 
@@ -542,10 +452,6 @@ export class VirtualPortfolio {
 
 
 
-
-
-
-
         return {
 
 
@@ -554,15 +460,12 @@ export class VirtualPortfolio {
                 Date.now(),
 
 
-
             cash:
 
                 this.cash,
 
 
-
             assetValue,
-
 
 
             equity:
@@ -570,7 +473,6 @@ export class VirtualPortfolio {
                 this.cash +
 
                 assetValue,
-
 
 
             unrealizedPnL:
@@ -585,16 +487,10 @@ export class VirtualPortfolio {
 
                 0
 
-
         };
 
 
-
     }
-
-
-
-
 
 
 
@@ -606,27 +502,19 @@ export class VirtualPortfolio {
     getBalance(){
 
 
-
         return {
 
 
             cash:this.cash,
 
-
             equity:this.getEquity(),
 
-
             initial:this.initialCapital
-
 
         };
 
 
     }
-
-
-
-
 
 
 
@@ -645,12 +533,7 @@ export class VirtualPortfolio {
     }
 
 
-
 }
-
-
-
-
 
 
 
