@@ -2,11 +2,28 @@
 ==========================================================
 AutoIDX
 Bot Execution Orchestrator
-Version : 0.0.1 Alpha
+Version : 0.1.0 Alpha
+
+Perubahan dari 0.0.1: SEBELUMNYA fungsi ini scaffolding kosong
+-- semua langkah (scan market, analisis strategi, risk
+validation, eksekusi order) cuma komentar "// TODO", tidak
+pernah benar-benar jalan, tapi TETAP mengembalikan
+{success:true, message:"Bot executed successfully"} dengan
+statistik nol semua. Endpoint /api/bot yang memanggil ini
+SUDAH aktif (App Router, ada dynamic export), jadi kalau ada
+yang memanggilnya, dia akan dapat respons sukses palsu.
+
+Sekarang benar-benar memanggil executeCron() (services/
+scheduler/cron.ts) -- pipeline pemrosesan pair yang SAMA
+persis dipakai jalur terjadwal (Vercel Cron), supaya endpoint
+ini jadi pemicu manual/on-demand yang genuinely menjalankan
+TradingEngine, bukan endpoint kedua dengan logika terpisah
+yang bisa menyimpang dari jalur utama.
 ==========================================================
 */
 
 import { BOT, STATUS } from "./constants";
+import { executeCron } from "@/services/scheduler/cron";
 
 export interface ExecuteResult {
   success: boolean;
@@ -32,113 +49,55 @@ export async function executeBot(): Promise<ExecuteResult> {
   const started = Date.now();
 
   try {
-    /**
-     * ==========================================
-     * STEP 1
-     * Load Configuration
-     * ==========================================
-     */
 
     const mode = process.env.BOT_MODE ?? "paper";
 
-    /**
-     * ==========================================
-     * STEP 2
-     * Load Current State
-     * (Firebase)
-     * ==========================================
-     */
+    // executeCron() sendiri sudah menangani: ambil watchlist +
+    // pair posisi terbuka, bangun IndicatorFeatureVector dari
+    // candle asli, panggil TradingEngine.run() per pair (sumber
+    // sinyal strategyManager + sanity check + AI advisory + risk
+    // gate + eksekusi paper/live) -- lihat services/scheduler/
+    // cron.ts untuk detail lengkap pipeline-nya.
+    const cronResult = await executeCron();
 
-    // TODO:
-    // await loadBotState();
-
-    /**
-     * ==========================================
-     * STEP 3
-     * Scan Market
-     * ==========================================
-     */
-
-    // TODO:
-    // const markets = await scanMarket();
-
-    /**
-     * ==========================================
-     * STEP 4
-     * Analyze Strategy
-     * ==========================================
-     */
-
-    // TODO:
-    // const signals = await strategyEngine(markets);
-
-    /**
-     * ==========================================
-     * STEP 5
-     * Risk Validation
-     * ==========================================
-     */
-
-    // TODO:
-    // const approvedSignals = await riskEngine(signals);
-
-    /**
-     * ==========================================
-     * STEP 6
-     * Execute Orders
-     * ==========================================
-     */
-
-    // TODO:
-    // await executionEngine(approvedSignals);
-
-    /**
-     * ==========================================
-     * STEP 7
-     * Save State
-     * ==========================================
-     */
-
-    // TODO:
-    // await saveBotState();
-
-    /**
-     * ==========================================
-     * STEP 8
-     * Activity Log
-     * ==========================================
-     */
-
-    // TODO:
-    // await writeActivityLog();
+    const buySignals = cronResult.results.filter((r) => r.signal === "BUY").length;
+    const sellSignals = cronResult.results.filter((r) => r.signal === "SELL").length;
+    const holdSignals = cronResult.results.filter((r) => r.signal === "HOLD").length;
+    const executedOrders = cronResult.results.filter((r) => r.actionExecuted).length;
 
     const finished = Date.now();
 
     return {
-      success: true,
+      success: cronResult.success,
 
-      status: STATUS.SUCCESS,
+      status: cronResult.success ? STATUS.SUCCESS : STATUS.FAILED,
 
       version: BOT.VERSION,
 
       mode,
 
-      startedAt: new Date(started).toISOString(),
+      startedAt: cronResult.startedAt,
 
-      finishedAt: new Date(finished).toISOString(),
+      finishedAt: cronResult.finishedAt,
 
       durationMs: finished - started,
 
       statistics: {
-        pairsScanned: 0,
-        buySignals: 0,
-        sellSignals: 0,
-        holdSignals: 0,
-        executedOrders: 0,
+        pairsScanned: cronResult.pairsProcessed.length,
+        buySignals,
+        sellSignals,
+        holdSignals,
+        executedOrders,
       },
 
-      message: "Bot executed successfully.",
+      message: cronResult.success
+        ? `Bot executed successfully. ${cronResult.pairsProcessed.length} pair diproses, ${executedOrders} order dieksekusi.`
+        : `Bot execution selesai dengan sebagian pair gagal: ${cronResult.results
+            .filter((r) => !r.success)
+            .map((r) => `${r.pair} (${r.message})`)
+            .join("; ")}`,
     };
+
   } catch (error) {
     const finished = Date.now();
 
