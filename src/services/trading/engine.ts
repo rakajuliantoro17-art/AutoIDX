@@ -2,7 +2,7 @@
 ==========================================================
 AURA Trade OS
 Trading Engine
-Version : 0.2.0 Alpha
+Version : 0.2.1 Alpha
 (Gabungan perubahan:
 1. Validasi risk sebelum eksekusi - emergency stop, batas rugi
    harian, cooldown, max exposure, max open position, dan
@@ -36,6 +36,18 @@ Version : 0.2.0 Alpha
    eksternal tidak jadi titik gagal yang menghentikan trading.
    Fail-safe kalau AI gagal/tidak ada key: cuma tidak ada log
    tambahan, tidak mempengaruhi keputusan sama sekali.
+
+PERBAIKAN v0.2.1 (2 bug dari penempelan notifikasi Telegram):
+- Blok stop-loss/take-profit paksa sebelumnya TIDAK PERNAH ditutup
+  dengan benar -- recordRealizedPnl, updateBotState(inPosition:
+  false), dan `return` awal HILANG, jadi eksekusi SL/TP akan
+  lanjut mengevaluasi sinyal strategi lagi dengan status posisi
+  yang sudah usang (berisiko double-sell/state korup). Sudah
+  dikembalikan.
+- Notifikasi "BUY Tereksekusi" yang salah nyasar ke dalam
+  `case "SELL"` (referensi `atrLevels` di luar scope -- error
+  compile) sudah dihapus, cuma tersisa notifikasi "SELL
+  Tereksekusi" yang benar.
 ==========================================================
 */
 
@@ -601,7 +613,7 @@ export class TradingEngine {
 
       }
 
-            // --- 1. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
+      // --- 1. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
       // Sekarang pakai level HARGA ABSOLUT (state.stopLossPrice/
       // takeProfitPrice) yang dihitung dari ATR SEKALI saat BUY --
       // bukan lagi persentase statis RISK_CONFIG yang dihitung ulang
@@ -637,7 +649,28 @@ export class TradingEngine {
 
           });
 
-                   await recordLog(
+          const pnlIdr =
+            (input.price - state.entryPrice) * state.coinAmount;
+
+          await recordRealizedPnl(pnlIdr);
+
+          await updateBotState({
+
+            pair: input.pair,
+
+            inPosition: false,
+
+            entryPrice: 0,
+
+            coinAmount: 0,
+
+            currentPrice: input.price,
+
+            lastSignal: "SELL",
+
+          });
+
+          await recordLog(
             "RISK",
             riskEval.shouldStopLoss ? "warning" : "success",
             `[${modeLabel.toUpperCase()}] ${riskEval.reason} ${input.pair.toUpperCase()} @ ${input.price}`
@@ -654,6 +687,28 @@ export class TradingEngine {
             riskEval.shouldStopLoss ? "Stop Loss Tereksekusi" : "Take Profit Tereksekusi",
             `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${input.price.toLocaleString("id-ID")}\nPnL: ${riskEval.profitLossPercent}%\n${riskEval.reason}`
           );
+
+          return {
+
+            success: true,
+
+            signal: "SELL",
+
+            confidence: 1,
+
+            reason: riskEval.reason,
+
+            actionExecuted: result.success,
+
+            mode: modeLabel,
+
+            timestamp: new Date().toISOString(),
+
+          };
+
+        }
+
+      }
 
       // --- 2. Evaluasi sinyal strategi (sumber UTAMA) ---
       const position: "NONE" | "LONG" =
@@ -949,7 +1004,7 @@ export class TradingEngine {
 
           });
 
-                    // Hitung level SL/TP dari ATR pair ini SEKALI di sini
+          // Hitung level SL/TP dari ATR pair ini SEKALI di sini
           // (saat entry) -- disimpan sebagai harga absolut, BUKAN
           // dihitung ulang tiap siklus. input.features.atr sudah
           // tersedia dari featureBuilder.ts (dihitung dari candle
@@ -990,6 +1045,11 @@ export class TradingEngine {
             "BOT",
             "success",
             `[${modeLabel.toUpperCase()}] BUY ${input.pair.toUpperCase()} @ ${result.price}`
+          );
+
+          await automationNotifier.success(
+            "BUY Tereksekusi",
+            `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${result.price.toLocaleString("id-ID")}\nSL: Rp${atrLevels.stopLossPrice.toFixed(0)} | TP: Rp${atrLevels.takeProfitPrice.toFixed(0)}`
           );
 
           actionExecuted = true;
@@ -1034,15 +1094,10 @@ export class TradingEngine {
           );
 
           await automationNotifier.success(
-            "BUY Tereksekusi",
-            `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${result.price.toLocaleString("id-ID")}\nSL: Rp${atrLevels.stopLossPrice.toFixed(0)} | TP: Rp${atrLevels.takeProfitPrice.toFixed(0)}`
-          );
-          
-          await automationNotifier.success(
             "SELL Tereksekusi",
             `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${result.price.toLocaleString("id-ID")}\nPnL: Rp${pnlIdr.toLocaleString("id-ID")}`
           );
-           
+
           actionExecuted = result.success;
 
           break;
