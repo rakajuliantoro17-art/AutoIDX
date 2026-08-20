@@ -41,14 +41,11 @@ import { RISK_CONFIG } from "@/config/risk";
 import type { StrategyMode } from "@/services/strategy/manager";
 
 /**
- * Batas bawah trade amount = minimum order value Indodax
- * (Rp25.000, terverifikasi dari dokumentasi resmi Indodax).
- * SEBELUMNYA cuma Rp1.000 -- jauh di bawah minimum asli, artinya
- * kalau BotSettings.tradeAmountIdr diisi rendah, order live bisa
- * lolos semua gerbang internal tapi tetap ditolak/gagal di sisi
- * Indodax karena di bawah minimum mereka.
+ * Batas bawah trade amount = minimum transaksi Indodax (Rp10.000).
+ * Catatan: Rp10.000-24.999 diproses lewat "Indodax Lite", >=Rp25.000
+ * lewat "Indodax Pro" (help.indodax.com) -- keduanya sama-sama valid.
  */
-const MIN_TRADE_AMOUNT_IDR = 25_000;
+const MIN_TRADE_AMOUNT_IDR = 10_000;
 
 const MIN_STOP_LOSS_PERCENT = 0.1;
 const MAX_STOP_LOSS_PERCENT = 20;
