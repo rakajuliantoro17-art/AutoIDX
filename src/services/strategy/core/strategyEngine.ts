@@ -278,12 +278,24 @@ export class StrategyEngine {
 
 
 
+            /**
+             * BUG FIX (log tidak bisa didiagnosa): SEBELUMNYA
+             * reasons cuma [...evaluation.passed, ...evaluation.
+             * failed] -- nama rule yang GAGAL ikut tergabung tanpa
+             * penanda apa pun. Karena rule.name cuma label kondisi
+             * (mis. "EMA Bullish Trend"), nama itu tetap muncul di
+             * reasons BAIK dia lolos MAUPUN gagal -- operator tidak
+             * bisa tahu dari log kenapa hasilnya HOLD walau
+             * kelihatan banyak kondisi "positif" di daftar. Sekarang
+             * diberi penanda check/silang eksplisit.
+             */
             reasons:[
-
-                ...evaluation.passed,
-
-                ...evaluation.failed
-
+                ...evaluation.passed.map(
+                    (name) => `[OK] ${name}`
+                ),
+                ...evaluation.failed.map(
+                    (name) => `[GAGAL] ${name}`
+                ),
             ],
 
 
