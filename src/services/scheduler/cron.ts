@@ -58,6 +58,18 @@ export interface CronPairResult {
   success: boolean;
   message: string;
   durationMs: number;
+  /**
+   * Sinyal akhir dari TradingEngine (setelah sanity check &
+   * risk-gate) -- dipakai api/bot/execute.ts untuk menghitung
+   * statistik buySignals/sellSignals/holdSignals yang akurat,
+   * bukan cuma angka nol hardcode seperti sebelumnya.
+   */
+  signal: "BUY" | "SELL" | "HOLD";
+  /**
+   * true kalau order BENAR-BENAR dieksekusi (bukan cuma sinyal
+   * BUY/SELL yang lolos tapi diblokir risk-gate).
+   */
+  actionExecuted: boolean;
 }
 
 export interface CronResult {
@@ -139,6 +151,8 @@ async function processPair(pair: string): Promise<CronPairResult> {
       success: engineResult.success,
       message: engineResult.reason,
       durationMs: Date.now() - pairStarted,
+      signal: engineResult.signal,
+      actionExecuted: engineResult.actionExecuted,
     };
 
   }
@@ -159,6 +173,8 @@ async function processPair(pair: string): Promise<CronPairResult> {
       success: false,
       message: error instanceof Error ? error.message : "Unknown scheduler error",
       durationMs: Date.now() - pairStarted,
+      signal: "HOLD",
+      actionExecuted: false,
     };
 
   }
