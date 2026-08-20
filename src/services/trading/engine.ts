@@ -87,9 +87,9 @@ import {
   getBotControl,
 } from "@/services/firebase/botControl";
 
-import {
-  getPaperPortfolio,
-} from "@/services/firebase/paperTradingStore";
+import { getPaperPortfolio } from "@/services/firebase/paperTradingStore";
+import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
+import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
 
 import { BOT_CONFIG } from "@/config/bot";
 import { RISK_CONFIG } from "@/config/risk";
@@ -430,6 +430,107 @@ async function logAIAdvisory(
 
 }
 
+/**
+ * BUG FIX (live BUY selalu diblokir): SEBELUMNYA engine.ts selalu
+ * pakai getPaperPortfolio() (saldo SIMULASI di Firestore
+ * paper_portfolio/default) untuk risk-gate exposure/saldo-cukup,
+ * TERMASUK saat mode live. Kalau saldo simulasi paper itu menipis
+ * (sangat mungkin setelah paper trading jalan beberapa waktu),
+ * BUY di LIVE ikut diblokir -- walau saldo IDR asli di Indodax
+ * cukup, karena risk-gate membandingkan ke angka simulasi yang
+ * sama sekali tidak berhubungan dengan uang asli.
+ *
+ * Sekarang: mode live ambil saldo ASLI dari Indodax (IndodaxClient.
+ * getInfo(), cara yang sama dipakai LiveTradingService.buy() untuk
+ * pengecekan internalnya). Fail-safe: kalau gagal ambil saldo asli
+ * (akun tidak aktif/API error), availableBalance dikembalikan 0 --
+ * ini akan memblokir BUY (aman/fail-closed), BUKAN meloloskannya
+ * begitu saja.
+ *
+ * equityIdr didekati dengan saldo IDR saja (tidak menghitung nilai
+ * pasar posisi koin yang sedang terbuka) -- ini sengaja
+ * KONSERVATIF: maxExposurePercent jadi dihitung dari basis yang
+ * lebih kecil/aman daripada seharusnya, bukan lebih besar.
+ */
+async function getRiskGatePortfolio(
+  liveActive: boolean
+): Promise<{ startingBalance: number; availableBalance: number; equityIdr: number }> {
+
+  if (!liveActive) {
+    return getPaperPortfolio(BOT_CONFIG.startingBalance);
+  }
+
+  try {
+
+    const account = await getActiveIndodaxAccount();
+
+    if (!account) {
+
+      await recordLog(
+        "RISK",
+        "danger",
+        "Mode live: tidak ada akun Indodax aktif -- saldo dianggap 0 (fail-safe, BUY akan diblokir)."
+      );
+
+      return {
+        startingBalance: BOT_CONFIG.startingBalance,
+        availableBalance: 0,
+        equityIdr: 0,
+      };
+
+    }
+
+    const client = new IndodaxClient({
+      apiKey: account.apiKey,
+      secretKey: account.secretKey,
+    });
+
+    const info = await client.getInfo();
+
+    if (!info.success) {
+
+      await recordLog(
+        "RISK",
+        "danger",
+        `Mode live: gagal ambil saldo Indodax asli (${info.message}) -- saldo dianggap 0 (fail-safe, BUY akan diblokir).`
+      );
+
+      return {
+        startingBalance: BOT_CONFIG.startingBalance,
+        availableBalance: 0,
+        equityIdr: 0,
+      };
+
+    }
+
+    const idrBalance = Number(info.data.balance?.idr ?? 0);
+
+    return {
+      startingBalance: BOT_CONFIG.startingBalance,
+      availableBalance: idrBalance,
+      equityIdr: idrBalance,
+    };
+
+  } catch (error) {
+
+    await recordLog(
+      "RISK",
+      "danger",
+      `Mode live: error ambil saldo Indodax asli (${
+        error instanceof Error ? error.message : "unknown"
+      }) -- saldo dianggap 0 (fail-safe, BUY akan diblokir).`
+    );
+
+    return {
+      startingBalance: BOT_CONFIG.startingBalance,
+      availableBalance: 0,
+      equityIdr: 0,
+    };
+
+  }
+
+}
+
 export class TradingEngine {
 
   /**
@@ -470,7 +571,7 @@ export class TradingEngine {
         await getBotState(input.pair);
 
       const portfolio =
-        await getPaperPortfolio(BOT_CONFIG.startingBalance);
+        await getRiskGatePortfolio(liveActive);
 
       const riskState =
         await getRiskState();
