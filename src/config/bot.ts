@@ -51,13 +51,15 @@ export const BOT_CONFIG = {
   /**
    * Capital Management
    *
-   * PENTING: Indodax punya minimum order value Rp25.000
-   * (terverifikasi dari help.indodax.com/hc/en-us/articles/
-   * 4416646599705). Default SEBELUMNYA (Rp10.000) ada DI BAWAH
-   * minimum itu -- kemungkinan besar penyebab order live selalu
-   * gagal/ditolak Indodax walau semua gerbang internal (risk-gate,
-   * saldo, dsb) sudah lolos. Jangan turunkan defaultTradeAmount di
-   * bawah 25000 lewat env var BOT_DEFAULT_TRADE_AMOUNT.
+   * Minimum transaksi Indodax adalah Rp10.000. Catatan dari
+   * help.indodax.com: transaksi Rp10.000-Rp24.999 diproses lewat
+   * "Indodax Lite", sedangkan >=Rp25.000 langsung lewat "Indodax
+   * Pro" -- keduanya SAMA-SAMA valid/diproses, cuma beda jalur
+   * internal. Belum dipastikan apakah beda Lite/Pro ini berlaku
+   * juga untuk TAPI (private REST API yang dipakai bot ini) atau
+   * cuma di web/app UI konsumer -- kalau ada perilaku beda di
+   * rentang Rp10.000-24.999 (mis. fill lebih lambat/partial),
+   * inilah kemungkinan penyebabnya.
    */
 
   defaultTradeAmount:
@@ -66,7 +68,7 @@ export const BOT_CONFIG = {
 
       process.env.BOT_DEFAULT_TRADE_AMOUNT
 
-      ?? 30000
+      ?? 10000
 
     ),
 
