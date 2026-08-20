@@ -25,11 +25,17 @@ import { SchemaValidator } from "@/services/validation/schemaValidator";
 import type { Schema } from "@/services/validation/schema";
 
 /**
- * Minimum order value Indodax -- lihat catatan yang sama di
- * config/bot.ts dan services/trading/effectiveConfig.ts. Kalau
- * berubah, update di ketiga tempat itu.
+ * Minimum transaksi Indodax adalah Rp10.000. Catatan dari
+ * help.indodax.com: transaksi Rp10.000-Rp24.999 diproses lewat
+ * "Indodax Lite", sedangkan >=Rp25.000 langsung lewat "Indodax
+ * Pro" -- keduanya SAMA-SAMA valid/diproses, cuma beda jalur
+ * internal (belum dipastikan apakah beda ini berlaku juga untuk
+ * TAPI/private REST API, atau cuma di web/app UI konsumer).
+ * Lihat catatan yang sama di config/bot.ts dan
+ * services/trading/effectiveConfig.ts -- kalau berubah, update
+ * di ketiga tempat itu.
  */
-export const INDODAX_MIN_ORDER_IDR = 25_000;
+export const INDODAX_MIN_ORDER_IDR = 10_000;
 
 /**
  * Format pair Indodax: huruf kecil, underscore sebelum "idr"
