@@ -61,10 +61,15 @@ class RiskManager {
   /**
    * Hitung level stop-loss/take-profit berbasis ATR (volatilitas
    * ASLI pair itu), bukan persentase statis yang sama untuk
-   * semua pair. Rasio risk:reward tetap mengikuti RISK_CONFIG
-   * (targetProfitPercent / stopLossPercent, default 3:1 dari
-   * 3% / 1%) -- yang berubah cuma LEBAR band-nya, disesuaikan ke
-   * volatilitas pair saat ini.
+   * semua pair. Rasio risk:reward mengikuti
+   * targetProfitPercent/stopLossPercent -- default dari
+   * RISK_CONFIG (3:1 dari 3%/1%), TAPI bisa di-override lewat
+   * baseStopLossPercent/baseTargetProfitPercent (dipakai
+   * trading/engine.ts, dipasok dari getEffectiveTradingConfig()
+   * -- gabungan BotSettings+RISK_CONFIG, lihat
+   * services/trading/effectiveConfig.ts) supaya operator bisa
+   * atur rasio risk:reward dari dashboard tanpa redeploy, TETAP
+   * kena lebar-pita ATR (MIN/MAX_STOP_LOSS_PERCENT) yang sama.
    *
    * Dipanggil SEKALI saat BUY (services/trading/engine.ts), hasil
    * price-nya disimpan ke bot_state -- BUKAN dihitung ulang tiap
@@ -73,23 +78,26 @@ class RiskManager {
    */
   calculateAtrStopLevels(
     entryPrice: number,
-    atr: number
+    atr: number,
+    baseStopLossPercent: number = RISK_CONFIG.stopLossPercent,
+    baseTargetProfitPercent: number = RISK_CONFIG.targetProfitPercent
   ): AtrStopLevels {
 
     const fallbackRatio =
-      RISK_CONFIG.stopLossPercent > 0
-        ? RISK_CONFIG.targetProfitPercent / RISK_CONFIG.stopLossPercent
+      baseStopLossPercent > 0
+        ? baseTargetProfitPercent / baseStopLossPercent
         : 3;
 
     if (entryPrice <= 0 || atr <= 0) {
 
       // Data ATR tidak valid -- fallback ke persentase statis
-      // RISK_CONFIG supaya posisi tetap punya perlindungan.
+      // (baseStopLossPercent/baseTargetProfitPercent) supaya
+      // posisi tetap punya perlindungan.
       return {
-        stopLossPercent: RISK_CONFIG.stopLossPercent,
-        takeProfitPercent: RISK_CONFIG.targetProfitPercent,
-        stopLossPrice: entryPrice * (1 - RISK_CONFIG.stopLossPercent / 100),
-        takeProfitPrice: entryPrice * (1 + RISK_CONFIG.targetProfitPercent / 100),
+        stopLossPercent: baseStopLossPercent,
+        takeProfitPercent: baseTargetProfitPercent,
+        stopLossPrice: entryPrice * (1 - baseStopLossPercent / 100),
+        takeProfitPrice: entryPrice * (1 + baseTargetProfitPercent / 100),
       };
 
     }
