@@ -30,9 +30,15 @@ dari engine.ts, bukan fallback implisit lagi).
 import { useEffect, useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
-const TRADE_AMOUNT_MIN = 10_500;
-const TRADE_AMOUNT_MAX = 25_000;
-const TRADE_AMOUNT_STEP = 500;
+// PENTING: Indodax punya minimum order value Rp25.000 (terverifikasi
+// dari help.indodax.com). Batas bawah slider WAJIB >= itu -- sebelumnya
+// Rp10.500, di bawah minimum asli, order live bisa ditolak Indodax
+// walau lolos semua validasi internal. Selaras dengan MIN_TRADE_AMOUNT_IDR
+// di services/trading/effectiveConfig.ts -- kalau diubah di sana, ubah
+// juga di sini.
+const TRADE_AMOUNT_MIN = 25_000;
+const TRADE_AMOUNT_MAX = 500_000;
+const TRADE_AMOUNT_STEP = 5_000;
 
 // Selaras dengan MIN/MAX di services/trading/effectiveConfig.ts --
 // kalau diubah di sana, ubah juga di sini supaya UI tidak
