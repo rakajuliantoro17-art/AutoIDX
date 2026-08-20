@@ -2,9 +2,48 @@
 ==========================================================
 AURA Trade OS
 Backtest Simulator
-Version : 0.1.0 Alpha
+Version : 0.2.0 Alpha
 ==========================================================
 Strategy Simulation Runtime
+
+PERBAIKAN BESAR dari 0.1.0 -- versi lama punya beberapa bug
+yang membuat hasil backtest TIDAK VALID untuk memvalidasi
+strategi yang sekarang jalan live:
+
+1. Feature vector yang dikirim ke strategy cuma
+   { close, volume, timestamp } -- rsi/emaFast/emaSlow/macd/atr/
+   adx/stochastic/bollinger semuanya undefined. filterRules dan
+   entryRules AURA_TREND/EMA_CROSSOVER/MOMENTUM praktis selalu
+   gagal tanpa data ini. Sekarang pakai buildFeatureVector() yang
+   SAMA PERSIS dipakai cron.ts di jalur live (services/strategy/
+   featureBuilder.ts), dihitung dari rolling window candle asli.
+
+2. Posisi (NONE/LONG) tidak pernah dilacak/dikirim ke strategy --
+   selalu default "NONE", jadi exitRules (SELL) TIDAK PERNAH
+   dievaluasi sepanjang backtest. Posisi yang sudah dibeli tidak
+   akan pernah dijual lewat sinyal strategi. Sekarang posisi
+   dilacak dari VirtualPortfolio.hasOpenPosition().
+
+3. Parameter `strategy` dari request API (mis. "AURA_TREND")
+   tidak pernah benar-benar dipakai -- backtest selalu jalan
+   pakai mode aktif strategyManager saat itu. Sekarang dipilih
+   eksplisit lewat core/strategyEngine.evaluate(strategyName, ...)
+   -- LANGSUNG ke engine tingkat rendah, BUKAN lewat
+   strategyManager.setMode(), supaya TIDAK mengubah mode yang
+   sedang dipakai trading LIVE (strategyManager adalah singleton
+   yang di-share dengan services/trading/engine.ts -- mengubah
+   activeMode-nya dari sini bisa mengacaukan siklus live yang
+   kebetulan berjalan bersamaan di server yang sama).
+
+4. Tidak ada simulasi stop-loss/take-profit sama sekali -- posisi
+   cuma ditutup kalau strategi eksplisit bilang SELL. Sekarang
+   pakai RiskManager.calculateAtrStopLevels/evaluateWithLevels
+   (module yang SAMA dipakai live engine.ts) supaya backtest
+   punya fidelitas perilaku yang sama dengan live.
+
+Lihat juga portfolio/virtualPortfolio.ts (positionManager yang
+sebelumnya singleton di-share lintas semua backtest run --
+diperbaiki terpisah).
 ==========================================================
 */
 
@@ -23,25 +62,29 @@ import type {
 
 from "./types";
 
+import coreStrategyEngine
 
+from "@/services/strategy/core/strategyEngine";
 
-import strategyEngine
+import strategyManager
 
-from "@/services/strategy/engine";
+from "@/services/strategy/manager";
 
+import type { IndicatorFeatureVector } from "@/services/indicators";
 
+import { buildFeatureVector, MIN_CANDLES_FOR_FEATURES } from "@/services/strategy/featureBuilder";
+
+import type { Candle } from "@/services/indodax/candles";
+
+import RiskManager from "@/services/trading/risk";
 
 import orderSimulator
 
 from "./execution/orderSimulator";
 
-
-
 import fillSimulator
 
 from "./execution/fillSimulator";
-
-
 
 import VirtualPortfolio
 
@@ -49,7 +92,33 @@ from "./portfolio/virtualPortfolio";
 
 
 
+const VALID_STRATEGY_NAMES = [
+  "AURA_TREND",
+  "EMA_CROSSOVER",
+  "MOMENTUM",
+];
 
+function resolveStrategyName(requested: string): string {
+  return VALID_STRATEGY_NAMES.includes(requested)
+    ? requested
+    : "AURA_TREND";
+}
+
+/**
+ * Adaptor: BacktestCandle[] -> Candle[] (bentuk yang diharapkan
+ * buildFeatureVector, sama persis dipakai jalur live cron.ts).
+ * Field-nya identik kecuali nama field waktu (timestamp vs time).
+ */
+function toIndicatorCandles(candles: BacktestCandle[]): Candle[] {
+  return candles.map((c) => ({
+    time: c.timestamp,
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+    volume: c.volume,
+  }));
+}
 
 
 
@@ -66,6 +135,17 @@ export class BacktestSimulator {
     private equityCurve:EquityPoint[];
 
 
+    private strategyName:string;
+
+
+    private candleHistory:BacktestCandle[];
+
+
+    private stopLossPrice:number;
+
+
+    private takeProfitPrice:number;
+
 
 
 
@@ -74,8 +154,6 @@ export class BacktestSimulator {
         private config:BacktestConfig
 
     ){
-
-
 
         this.portfolio =
 
@@ -91,20 +169,27 @@ export class BacktestSimulator {
 
             });
 
-
-
         this.trades=[];
-
 
         this.equityCurve=[];
 
+        this.candleHistory=[];
+
+        this.stopLossPrice=0;
+
+        this.takeProfitPrice=0;
+
+        this.strategyName =
+            resolveStrategyName(config.strategy);
+
+        // Memastikan ketiga strategi (AURA_TREND/EMA_CROSSOVER/
+        // MOMENTUM) sudah terdaftar di core/strategyEngine --
+        // idempotent, murni efek samping registrasi, TIDAK
+        // menyentuh activeMode singleton (aman dipanggil dari
+        // backtest tanpa risiko mengganggu live trading).
+        strategyManager.initialize();
 
     }
-
-
-
-
-
 
 
 
@@ -118,107 +203,92 @@ export class BacktestSimulator {
 
     ){
 
+        this.candleHistory.push(candle);
 
+        const hasOpenPosition =
+            this.portfolio.hasOpenPosition();
 
-        const features:any = {
+        // --- 1. Cek stop-loss/take-profit paksa (kalau sedang
+        //    posisi) -- dicek TERPISAH dari sinyal strategi, sama
+        //    persis urutan di live engine.ts, supaya posisi tetap
+        //    ditutup walau strategi belum kasih sinyal SELL. ---
+        if (hasOpenPosition && this.stopLossPrice > 0) {
 
+            const position = this.portfolio.getPositionSnapshot();
 
-
-            close:
-
+            const riskEval = RiskManager.evaluateWithLevels(
+                position ? position.entryPrice : 0,
                 candle.close,
-
-
-            volume:
-
-                candle.volume,
-
-
-            timestamp:
-
-                candle.timestamp
-
-
-        };
-
-
-
-
-
-
-
-
-        const decision =
-
-            strategyEngine.execute(
-
-                features
-
+                true,
+                this.stopLossPrice,
+                this.takeProfitPrice
             );
 
+            if (riskEval.shouldStopLoss || riskEval.shouldTakeProfit) {
 
+                this.executeSell(candle);
 
+                this.stopLossPrice = 0;
+                this.takeProfitPrice = 0;
 
+                this.portfolio.updatePrice(candle.close);
+                this.recordEquity(candle.timestamp);
 
+                return;
 
-
-
-
-        if(
-
-            decision.decision?.action
-
-            ===
-
-            "BUY"
-
-        ){
-
-
-
-            this.executeBuy(
-
-                candle
-
-            );
-
-
+            }
 
         }
 
+        // Belum cukup data historis untuk menghitung indikator
+        // penuh (MACD butuh paling banyak, 35 candle) -- sama
+        // persis ambang MIN_CANDLES_FOR_FEATURES yang dipakai
+        // cron.ts di jalur live. Sebelum itu, HOLD saja.
+        if (this.candleHistory.length >= MIN_CANDLES_FOR_FEATURES) {
 
-
-
-
-
-
-        if(
-
-            decision.decision?.action
-
-            ===
-
-            "SELL"
-
-        ){
-
-
-
-            this.executeSell(
-
-                candle
-
+            const features: IndicatorFeatureVector = buildFeatureVector(
+                candle.pair,
+                toIndicatorCandles(this.candleHistory)
             );
 
+            const position: "NONE" | "LONG" =
+                hasOpenPosition ? "LONG" : "NONE";
 
+            const decision = coreStrategyEngine.evaluate(
+                this.strategyName,
+                features,
+                position
+            );
+
+            if (decision?.action === "BUY" && !hasOpenPosition) {
+
+                const filledPrice = this.executeBuy(candle);
+
+                if (filledPrice !== null) {
+
+                    const atrLevels =
+                        RiskManager.calculateAtrStopLevels(
+                            filledPrice,
+                            features.atr
+                        );
+
+                    this.stopLossPrice = atrLevels.stopLossPrice;
+                    this.takeProfitPrice = atrLevels.takeProfitPrice;
+
+                }
+
+            }
+
+            if (decision?.action === "SELL" && hasOpenPosition) {
+
+                this.executeSell(candle);
+
+                this.stopLossPrice = 0;
+                this.takeProfitPrice = 0;
+
+            }
 
         }
-
-
-
-
-
-
 
 
         this.portfolio.updatePrice(
@@ -226,9 +296,6 @@ export class BacktestSimulator {
             candle.close
 
         );
-
-
-
 
 
         this.recordEquity(
@@ -243,20 +310,15 @@ export class BacktestSimulator {
 
 
 
-
-
-
-
-
     /**
-     * Execute BUY
+     * Execute BUY. Mengembalikan harga eksekusi (null kalau order
+     * tidak terisi) -- dipakai untuk menghitung level ATR SL/TP.
      */
     private executeBuy(
 
         candle:BacktestCandle
 
-    ){
-
+    ): number | null {
 
 
         const amount =
@@ -266,9 +328,6 @@ export class BacktestSimulator {
                 candle.close
 
             );
-
-
-
 
 
         const order =
@@ -300,11 +359,6 @@ export class BacktestSimulator {
 
 
             });
-
-
-
-
-
 
 
 
@@ -343,14 +397,7 @@ export class BacktestSimulator {
 
 
 
-
-
-
-
-
         if(fill.status==="FILLED"){
-
-
 
             this.portfolio.buy(
 
@@ -362,16 +409,13 @@ export class BacktestSimulator {
 
             );
 
+            return fill.executionPrice;
 
         }
 
+        return null;
 
     }
-
-
-
-
-
 
 
 
@@ -386,7 +430,6 @@ export class BacktestSimulator {
     ){
 
 
-
         const closed =
 
             this.portfolio.sell(
@@ -396,20 +439,13 @@ export class BacktestSimulator {
             );
 
 
-
-
-
         if(!closed)
 
             return;
 
 
 
-
-
-
         this.trades.push({
-
 
 
             id:
@@ -417,11 +453,9 @@ export class BacktestSimulator {
                 "TRD-"+Date.now(),
 
 
-
             pair:
 
                 closed.pair,
-
 
 
             entryPrice:
@@ -429,11 +463,9 @@ export class BacktestSimulator {
                 closed.entryPrice,
 
 
-
             exitPrice:
 
                 closed.exitPrice,
-
 
 
             quantity:
@@ -441,17 +473,14 @@ export class BacktestSimulator {
                 closed.quantity,
 
 
-
             profitLoss:
 
                 closed.profitLoss,
 
 
-
             returnPercent:
 
                 closed.returnPercent,
-
 
 
             duration:
@@ -461,11 +490,9 @@ export class BacktestSimulator {
                 closed.openedAt,
 
 
-
             openedAt:
 
                 closed.openedAt,
-
 
 
             closedAt:
@@ -473,16 +500,9 @@ export class BacktestSimulator {
                 closed.closedAt
 
 
-
         });
 
-
     }
-
-
-
-
-
 
 
 
@@ -492,8 +512,6 @@ export class BacktestSimulator {
         price:number
 
     ){
-
-
 
         return (
 
@@ -507,14 +525,7 @@ export class BacktestSimulator {
 
         price;
 
-
-
     }
-
-
-
-
-
 
 
 
@@ -525,48 +536,32 @@ export class BacktestSimulator {
 
     ){
 
-
-
         const snapshot =
 
             this.portfolio.snapshot();
 
 
-
-
-
         this.equityCurve.push({
 
 
-
             timestamp,
-
 
             equity:
 
                 snapshot.equity,
 
-
             cash:
 
                 snapshot.cash,
-
 
             assetValue:
 
                 snapshot.assetValue
 
 
-
         });
 
-
     }
-
-
-
-
-
 
 
 
@@ -575,8 +570,6 @@ export class BacktestSimulator {
      * Final simulation result
      */
     result(){
-
-
 
         return {
 
@@ -596,19 +589,12 @@ export class BacktestSimulator {
                 this.portfolio.getBalance()
 
 
-
         };
-
 
     }
 
 
-
 }
-
-
-
-
 
 
 
