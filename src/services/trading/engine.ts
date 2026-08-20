@@ -68,6 +68,8 @@ import LiveTradingService from "./live";
 
 import RiskManager from "./risk";
 
+import automationNotifier from "@/services/automation/notifier";
+
 import {
   getBotState,
   updateBotState,
@@ -657,7 +659,19 @@ export class TradingEngine {
           });
 
           await recordLog(
-            "RISK",
+            
+          // Notifikasi best-effort tapi TETAP di-await -- di
+          // lingkungan serverless (Vercel), promise yang tidak
+          // di-await bisa hilang begitu saja kalau function
+          // selesai duluan sebelum promise-nya resolve. notify()
+          // sudah menangani error-nya sendiri secara internal
+          // (tidak pernah throw), jadi aman di-await tanpa risiko
+          // mengganggu alur trading.
+          await automationNotifier[riskEval.shouldStopLoss ? "warning" : "success"](
+            riskEval.shouldStopLoss ? "Stop Loss Tereksekusi" : "Take Profit Tereksekusi",
+            `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${input.price.toLocaleString("id-ID")}\nPnL: ${riskEval.profitLossPercent}%\n${riskEval.reason}`
+          );
+             "RISK",
             riskEval.shouldStopLoss ? "warning" : "success",
             `[${modeLabel.toUpperCase()}] ${riskEval.reason} ${input.pair.toUpperCase()} @ ${input.price}`
           );
@@ -1062,6 +1076,16 @@ export class TradingEngine {
             `[${modeLabel.toUpperCase()}] SELL ${input.pair.toUpperCase()} @ ${result.price}`
           );
 
+          await automationNotifier.success(
+            "BUY Tereksekusi",
+            `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${result.price.toLocaleString("id-ID")}\nSL: Rp${atrLevels.stopLossPrice.toFixed(0)} | TP: Rp${atrLevels.takeProfitPrice.toFixed(0)}`
+          );
+          
+          await automationNotifier.success(
+            "SELL Tereksekusi",
+            `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${result.price.toLocaleString("id-ID")}\nPnL: Rp${pnlIdr.toLocaleString("id-ID")}`
+          );
+           
           actionExecuted = result.success;
 
           break;
