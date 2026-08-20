@@ -26,6 +26,8 @@ export const DEFAULT_SETTINGS: BotSettings = {
 
         "solidr"
 
-    ]
+    ],
+
+    strategyMode: "BALANCED"
 
 };
