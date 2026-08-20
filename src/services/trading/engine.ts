@@ -93,6 +93,7 @@ import {
 
 import { BOT_CONFIG } from "@/config/bot";
 import { RISK_CONFIG } from "@/config/risk";
+import { getEffectiveTradingConfig } from "./effectiveConfig";
 
 export interface TradingEngineInput {
 
@@ -474,6 +475,29 @@ export class TradingEngine {
       const riskState =
         await getRiskState();
 
+      // --- Config gabungan BotSettings (Firestore, operator-
+      // adjustable) + BOT_CONFIG/RISK_CONFIG (env, batas aman) --
+      // SATU sumber ini dipakai baik untuk validasi risk-gate
+      // MAUPUN untuk eksekusi (tradingService.buy), supaya
+      // keduanya tidak pernah melihat angka yang berbeda. Lihat
+      // services/trading/effectiveConfig.ts.
+      const effectiveConfig = await getEffectiveTradingConfig();
+
+      if (
+        effectiveConfig.clamped.tradeAmountIdr ||
+        effectiveConfig.clamped.maxOpenPositions ||
+        effectiveConfig.clamped.stopLossPercent ||
+        effectiveConfig.clamped.targetProfitPercent
+      ) {
+
+        await recordLog(
+          "BOT",
+          "info",
+          `[Effective Config ${input.pair.toUpperCase()}] Nilai dari dashboard Settings di-clamp ke batas aman BOT_CONFIG/RISK_CONFIG: ${JSON.stringify(effectiveConfig.clamped)}`
+        );
+
+      }
+
             // --- 1. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
       // Sekarang pakai level HARGA ABSOLUT (state.stopLossPrice/
       // takeProfitPrice) yang dihitung dari ATR SEKALI saat BUY --
@@ -562,6 +586,14 @@ export class TradingEngine {
       // --- 2. Evaluasi sinyal strategi (sumber UTAMA) ---
       const position: "NONE" | "LONG" =
         state.inPosition ? "LONG" : "NONE";
+
+      // Mode strategi (CONSERVATIVE/BALANCED/AGGRESSIVE) sekarang
+      // bisa diatur dari dashboard Settings -> Strategy (BotSettings.
+      // strategyMode via effectiveConfig), bukan hardcode BALANCED
+      // lagi. strategyManager singleton -- aman dipanggil di sini
+      // walau banyak pair diproses berurutan/paralel karena semua
+      // pair memang pakai mode global yang sama.
+      strategyManager.setMode(effectiveConfig.strategyMode);
 
       const strategyResult: StrategyManagerResult =
         strategyManager.evaluate(
@@ -681,17 +713,17 @@ export class TradingEngine {
           }
 
           const tradeAmountIdr =
-            BOT_CONFIG.defaultTradeAmount;
+            effectiveConfig.tradeAmountIdr;
 
           const openPositionsCount =
             await getOpenPositionsCount();
 
-          if (openPositionsCount >= RISK_CONFIG.maxOpenPosition) {
+          if (openPositionsCount >= effectiveConfig.maxOpenPositions) {
 
             await recordLog(
               "RISK",
               "warning",
-              `Batas posisi terbuka tercapai (${openPositionsCount}/${RISK_CONFIG.maxOpenPosition}) — BUY ${input.pair.toUpperCase()} diblokir.`
+              `Batas posisi terbuka tercapai (${openPositionsCount}/${effectiveConfig.maxOpenPositions}) — BUY ${input.pair.toUpperCase()} diblokir.`
             );
 
             return {
@@ -835,6 +867,14 @@ export class TradingEngine {
 
             price: input.price,
 
+            // Eksplisit -- ini yang memperbaiki bug divergensi lama:
+            // sebelumnya di sini TIDAK dikirim, jadi trading/paper.ts
+            // diam-diam fallback ke getBotSettings().tradeAmountIdr
+            // (Firestore, bisa beda dari yang divalidasi risk-gate di
+            // atas). Sekarang keduanya SELALU pakai effectiveConfig
+            // yang sama persis.
+            tradeAmountIdr: effectiveConfig.tradeAmountIdr,
+
           });
 
                     // Hitung level SL/TP dari ATR pair ini SEKALI di sini
@@ -842,9 +882,14 @@ export class TradingEngine {
           // dihitung ulang tiap siklus. input.features.atr sudah
           // tersedia dari featureBuilder.ts (dihitung dari candle
           // OHLC asli), jadi tidak perlu request tambahan.
+          // baseStopLossPercent/baseTargetProfitPercent dari
+          // effectiveConfig (BotSettings, di-clamp) -- operator bisa
+          // atur rasio risk:reward dari dashboard tanpa redeploy.
           const atrLevels = RiskManager.calculateAtrStopLevels(
             result.price,
-            input.features.atr
+            input.features.atr,
+            effectiveConfig.stopLossPercent,
+            effectiveConfig.targetProfitPercent
           );
 
           await updateBotState({
