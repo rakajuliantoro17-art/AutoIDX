@@ -637,29 +637,12 @@ export class TradingEngine {
 
           });
 
-          const pnlIdr =
-            (input.price - state.entryPrice) * state.coinAmount;
+                   await recordLog(
+            "RISK",
+            riskEval.shouldStopLoss ? "warning" : "success",
+            `[${modeLabel.toUpperCase()}] ${riskEval.reason} ${input.pair.toUpperCase()} @ ${input.price}`
+          );
 
-          await recordRealizedPnl(pnlIdr);
-
-          await updateBotState({
-
-            pair: input.pair,
-
-            inPosition: false,
-
-            entryPrice: 0,
-
-            coinAmount: 0,
-
-            currentPrice: input.price,
-
-            lastSignal: "SELL",
-
-          });
-
-          await recordLog(
-            
           // Notifikasi best-effort tapi TETAP di-await -- di
           // lingkungan serverless (Vercel), promise yang tidak
           // di-await bisa hilang begitu saja kalau function
@@ -671,32 +654,6 @@ export class TradingEngine {
             riskEval.shouldStopLoss ? "Stop Loss Tereksekusi" : "Take Profit Tereksekusi",
             `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${input.price.toLocaleString("id-ID")}\nPnL: ${riskEval.profitLossPercent}%\n${riskEval.reason}`
           );
-             "RISK",
-            riskEval.shouldStopLoss ? "warning" : "success",
-            `[${modeLabel.toUpperCase()}] ${riskEval.reason} ${input.pair.toUpperCase()} @ ${input.price}`
-          );
-
-          return {
-
-            success: true,
-
-            signal: "SELL",
-
-            confidence: 1,
-
-            reason: riskEval.reason,
-
-            actionExecuted: result.success,
-
-            mode: modeLabel,
-
-            timestamp: new Date().toISOString(),
-
-          };
-
-        }
-
-      }
 
       // --- 2. Evaluasi sinyal strategi (sumber UTAMA) ---
       const position: "NONE" | "LONG" =
