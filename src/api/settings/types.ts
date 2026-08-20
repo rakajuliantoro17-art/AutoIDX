@@ -18,4 +18,13 @@ export interface BotSettings {
 
     pairs: string[];
 
+    /**
+     * Mode strategi (services/strategy/manager.ts, StrategyMode).
+     * CONSERVATIVE -> EMA_CROSSOVER, BALANCED -> AURA_TREND (default),
+     * AGGRESSIVE -> MOMENTUM. Opsional untuk backward-compat dengan
+     * dokumen Firestore lama yang belum punya field ini -- lihat
+     * fallback di getEffectiveTradingConfig().
+     */
+    strategyMode?: "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE";
+
 }
