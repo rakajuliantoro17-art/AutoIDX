@@ -17,6 +17,7 @@ import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
 import { recordTrade, recordLog } from "@/services/firebase/logService";
 import { BOT_CONFIG } from "@/config/bot";
+import { validateLiveOrder } from "./liveOrderValidator";
 
 export interface LiveTradeRequest {
   pair: string;
@@ -76,6 +77,29 @@ class LiveTradingService {
 
     const tradeAmountIdr =
       request.tradeAmountIdr ?? BOT_CONFIG.defaultTradeAmount;
+
+    // --- Pre-flight validation (pair format + minimum order
+    // Indodax) SEBELUM panggilan API apa pun -- gagal cepat
+    // dengan pesan jelas, bukan baru ketahuan setelah request
+    // ke Indodax gagal dengan pesan mentah dari API mereka. ---
+    const validation = validateLiveOrder({
+      pair: request.pair,
+      tradeAmountIdr,
+    });
+
+    if (!validation.valid) {
+
+      await recordLog(
+        "RISK",
+        "danger",
+        `LIVE BUY ditolak validasi pre-flight ${request.pair.toUpperCase()}: ${validation.message}`
+      );
+
+      throw new Error(
+        `Order tidak valid: ${validation.message}`
+      );
+
+    }
 
     const client = await this.getClient();
 
