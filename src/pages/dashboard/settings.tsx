@@ -19,6 +19,7 @@ sudah nyambung ke data asli dari sebelumnya.
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import IndodaxAccountManager from "@/components/IndodaxAccountManager";
 import BotControlPanel from "@/components/BotControlPanel";
@@ -133,6 +134,37 @@ export default function SettingsPage() {
           {error && (
             <p className="mt-2 text-sm text-red-400">{error}</p>
           )}
+        </div>
+
+        {/* Link ke editor detail -- IndodaxAccountManager & BotControlPanel
+            di bawah ini sudah live (embed langsung), tapi Risk & Strategy
+            di bawah masih READ-ONLY (baca BOT_CONFIG/RISK_CONFIG statis).
+            Untuk EDIT nilai yang benar-benar dipakai bot (BotSettings via
+            effectiveConfig), pakai halaman detail berikut. */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Link
+            href="/settings/risk"
+            className="card block hover:border-sky-500/40 transition"
+          >
+            <p className="font-semibold text-slate-100">
+              Edit Risk Management →
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Trade amount, stop loss, take profit, max position -- bisa
+              diubah tanpa redeploy.
+            </p>
+          </Link>
+          <Link
+            href="/settings/strategy"
+            className="card block hover:border-sky-500/40 transition"
+          >
+            <p className="font-semibold text-slate-100">
+              Edit Strategy Mode →
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              Conservative / Balanced / Aggressive -- sumber sinyal utama.
+            </p>
+          </Link>
         </div>
 
         {/* Section: Trade API Account -- sudah nyambung data asli sebelumnya */}
