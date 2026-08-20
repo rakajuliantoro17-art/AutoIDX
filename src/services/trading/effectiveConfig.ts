@@ -41,12 +41,14 @@ import { RISK_CONFIG } from "@/config/risk";
 import type { StrategyMode } from "@/services/strategy/manager";
 
 /**
- * Batas bawah trade amount -- di luar batas atas (BOT_CONFIG.
- * maxTradeAmount) yang sudah eksplisit, ini jaring pengaman
- * supaya operator tidak bisa set ke 0/negatif dari dashboard
- * dan diam-diam membuat bot "membeli" dengan nominal kosong.
+ * Batas bawah trade amount = minimum order value Indodax
+ * (Rp25.000, terverifikasi dari dokumentasi resmi Indodax).
+ * SEBELUMNYA cuma Rp1.000 -- jauh di bawah minimum asli, artinya
+ * kalau BotSettings.tradeAmountIdr diisi rendah, order live bisa
+ * lolos semua gerbang internal tapi tetap ditolak/gagal di sisi
+ * Indodax karena di bawah minimum mereka.
  */
-const MIN_TRADE_AMOUNT_IDR = 1000;
+const MIN_TRADE_AMOUNT_IDR = 25_000;
 
 const MIN_STOP_LOSS_PERCENT = 0.1;
 const MAX_STOP_LOSS_PERCENT = 20;
