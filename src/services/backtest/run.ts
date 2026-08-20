@@ -2,7 +2,13 @@
 ==========================================================
 AURA Trade OS
 Backtest Run Endpoint
-Version : 0.1.0 Alpha
+Version : 0.1.1 Alpha
+
+Perubahan dari 0.1.0: parameter `strategy` sekarang divalidasi
+terhadap daftar strategi yang benar-benar terdaftar
+(AURA_TREND/EMA_CROSSOVER/MOMENTUM) -- sebelumnya string apa pun
+diterima tanpa validasi, lalu diam-diam diabaikan di dalam
+simulator (lihat catatan versi di services/backtest/simulator.ts).
 ==========================================================
 Fetches historical candles from Indodax and runs them
 through the BacktestRunner engine, returning a full
@@ -36,6 +42,8 @@ const CANDLES_PER_DAY: Record<string, number> = {
 
 const MAX_CANDLES = 1000;
 
+const VALID_STRATEGIES = ["AURA_TREND", "EMA_CROSSOVER", "MOMENTUM"];
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -54,6 +62,12 @@ export default async function handler(
       feeRate = 0.003,
       slippage = 0.001,
     } = req.body ?? {};
+
+    if (!VALID_STRATEGIES.includes(strategy)) {
+      return res.status(400).json({
+        error: `Strategi tidak dikenal: "${strategy}". Pilihan yang valid: ${VALID_STRATEGIES.join(", ")}.`,
+      });
+    }
 
     const resolution = RESOLUTION_BY_TIMEFRAME[timeframe];
 
