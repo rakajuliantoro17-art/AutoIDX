@@ -18,6 +18,8 @@ import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmi
 import { recordTrade, recordLog } from "@/services/firebase/logService";
 import { BOT_CONFIG } from "@/config/bot";
 import { validateLiveOrder } from "./liveOrderValidator";
+import { getCanarySnapshot, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
+import { CanaryOrderMetric } from "@/services/liveTrading/monitoring/canaryMetrics";
 
 export interface LiveTradeRequest {
   pair: string;
@@ -69,9 +71,91 @@ class LiveTradingService {
   }
 
   /**
-   * BUY asli - market order
+   * Helper best-effort - kegagalan mencatat metrik canary TIDAK
+   * PERNAH boleh menggagalkan/membatalkan trade asli yang sudah
+   * terjadi (order sudah dikirim ke Indodax, uang sudah bergerak).
+   */
+  private async recordCanarySafe(metric: CanaryOrderMetric): Promise<void> {
+    try {
+      await recordCanaryOrder(metric);
+    } catch (error) {
+      console.error("[LiveTrading] Gagal mencatat canary metric (non-fatal):", error);
+    }
+  }
+
+  /**
+   * BUY asli - market order.
+   *
+   * SEKARANG dibungkus pemeriksaan Canary Metrics (lihat
+   * services/liveTrading/monitoring/canaryMetrics.ts +
+   * canaryStore.ts, sebelumnya orphan total/tidak pernah
+   * dipakai) - kalau canary sedang berstatus CRITICAL (win rate
+   * jelek/error rate tinggi/drawdown lewat batas dalam periode
+   * live trading skala kecil ini), BUY baru diblokir otomatis
+   * SEBELUM order dikirim ke Indodax. Ini fail-safe khusus fase
+   * testing live trading dengan nominal kecil - review/ubah
+   * ambang batasnya (lihat CanaryMetricsConfig) begitu sudah
+   * yakin strategi terbukti aman untuk discale up.
    */
   async buy(
+    request: LiveTradeRequest
+  ): Promise<LiveTradeResult> {
+
+    const canarySnapshot = await getCanarySnapshot();
+
+    if (canarySnapshot.status === "CRITICAL") {
+
+      const reason = `Canary CRITICAL - BUY live diblokir otomatis (${canarySnapshot.reasons.join("; ") || "lihat snapshot"}).`;
+
+      await recordLog("RISK", "danger", `LIVE BUY ditolak: ${reason}`);
+
+      throw new Error(reason);
+
+    }
+
+    const startedAt = Date.now();
+
+    try {
+
+      const result = await this.buyInternal(request);
+
+      await this.recordCanarySafe({
+        orderId: result.orderId,
+        symbol: result.pair,
+        side: "BUY",
+        amount: result.amount,
+        price: result.price,
+        status: "FILLED",
+        latencyMs: Date.now() - startedAt,
+        timestamp: Date.now(),
+      });
+
+      return result;
+
+    } catch (error) {
+
+      await this.recordCanarySafe({
+        orderId: `failed_${startedAt}`,
+        symbol: request.pair,
+        side: "BUY",
+        // CanaryMetrics.recordOrder() menolak amount<=0 - pakai
+        // tradeAmountIdr sbg proxy jumlah order yang DICOBA (bukan
+        // jumlah koin, karena order gagal sebelum sempat tahu itu),
+        // dengan fallback kecil kalau nilainya somehow 0/negatif.
+        amount: (request.tradeAmountIdr ?? BOT_CONFIG.defaultTradeAmount) || 1,
+        status: "FAILED",
+        latencyMs: Date.now() - startedAt,
+        timestamp: Date.now(),
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      throw error;
+
+    }
+
+  }
+
+  private async buyInternal(
     request: LiveTradeRequest
   ): Promise<LiveTradeResult> {
 
@@ -231,9 +315,60 @@ class LiveTradingService {
   }
 
   /**
-   * SELL asli - market order
+   * SELL asli - market order.
+   *
+   * TIDAK ADA pemeriksaan Canary CRITICAL di sini secara sengaja -
+   * konsisten dengan prinsip Emergency Stop yang sudah ada di
+   * TradingEngine ("Emergency Stop HANYA memblokir BUY baru,
+   * TIDAK PERNAH memblokir SELL/stop-loss/take-profit paksa").
+   * Kalau canary lagi CRITICAL, yang perlu diblokir adalah posisi
+   * BARU (BUY), bukan keluar dari posisi yang sudah ada.
    */
   async sell(
+    request: LiveTradeRequest
+  ): Promise<LiveTradeResult> {
+
+    const startedAt = Date.now();
+
+    try {
+
+      const result = await this.sellInternal(request);
+
+      await this.recordCanarySafe({
+        orderId: result.orderId,
+        symbol: result.pair,
+        side: "SELL",
+        amount: result.amount,
+        price: result.price,
+        status: "FILLED",
+        latencyMs: Date.now() - startedAt,
+        timestamp: Date.now(),
+      });
+
+      return result;
+
+    } catch (error) {
+
+      await this.recordCanarySafe({
+        orderId: `failed_${startedAt}`,
+        symbol: request.pair,
+        side: "SELL",
+        // Sama seperti di atas - amount<=0 ditolak CanaryMetrics,
+        // pakai fallback kecil kalau amount asli tidak diketahui.
+        amount: request.amount || 1e-8,
+        status: "FAILED",
+        latencyMs: Date.now() - startedAt,
+        timestamp: Date.now(),
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      throw error;
+
+    }
+
+  }
+
+  private async sellInternal(
     request: LiveTradeRequest
   ): Promise<LiveTradeResult> {
 
