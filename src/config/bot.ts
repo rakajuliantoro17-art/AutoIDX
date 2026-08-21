@@ -51,15 +51,18 @@ export const BOT_CONFIG = {
   /**
    * Capital Management
    *
+   * FASE UJI COBA AWAL: defaultTradeAmount DAN maxTradeAmount
+   * sengaja dikunci SAMA (Rp10.000) -- supaya nominal trade tetap
+   * konsisten selagi memvalidasi BUY live benar-benar tereksekusi
+   * beberapa siklus. Setelah terbukti jalan, lebarkan
+   * maxTradeAmount ke Rp500.000 (dan sesuaikan slider di
+   * pages/settings/risk.tsx, TRADE_AMOUNT_MAX).
+   *
    * Minimum transaksi Indodax adalah Rp10.000. Catatan dari
    * help.indodax.com: transaksi Rp10.000-Rp24.999 diproses lewat
    * "Indodax Lite", sedangkan >=Rp25.000 langsung lewat "Indodax
    * Pro" -- keduanya SAMA-SAMA valid/diproses, cuma beda jalur
-   * internal. Belum dipastikan apakah beda Lite/Pro ini berlaku
-   * juga untuk TAPI (private REST API yang dipakai bot ini) atau
-   * cuma di web/app UI konsumer -- kalau ada perilaku beda di
-   * rentang Rp10.000-24.999 (mis. fill lebih lambat/partial),
-   * inilah kemungkinan penyebabnya.
+   * internal.
    */
 
   defaultTradeAmount:
@@ -80,7 +83,7 @@ export const BOT_CONFIG = {
 
       process.env.BOT_MAX_TRADE_AMOUNT
 
-      ?? 50000
+      ?? 10000
 
     ),
 
