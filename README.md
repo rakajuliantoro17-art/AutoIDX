@@ -205,7 +205,46 @@ utils/
 - Indodax API
 
 ---
-
+Integrasi AI Explainability (Observability Only) — AutoIDX
+File di paket ini
+BARU: `src/services/intelligence/ai/decisionExplainer.ts`
+Adapter tipis yang menggabungkan `ai/confidence.ts` + `ai/explanation.ts`
+(yang sebelumnya orphan) menjadi satu baris log siap pakai.
+DIUBAH: `src/services/trading/engine.ts`
+Hanya 3 perubahan kecil di fungsi `logAIAdvisory()`:
+1 baris import baru (`explainDecision`)
+1 blok `try/catch` tambahan di dalam loop per-provider (setelah log "AI Advisory", sebelum `consensusInputs.push`)
+1 blok `try/catch` tambahan setelah `aiConsensus.evaluate()`
+Cara upload ke GitHub (browser UI, tanpa terminal)
+Buka repo → masuk ke folder `src/services/intelligence/ai/`
+Klik "Add file" → "Upload files" → drag `decisionExplainer.ts` dari paket ini
+Buka `src/services/trading/engine.ts` di GitHub → klik ikon pensil (edit)
+Replace SELURUH isi file dengan isi `engine.ts` dari paket ini (sudah lengkap, bukan cuma potongan)
+Commit langsung ke `main`, atau lewat PR kalau mau di-review dulu
+PENTING — kenapa cuma 2 file ini, bukan semua orphan
+Cluster `services/intelligence/ai/*` lain (`sentiment.ts`, `client.ts`,
+`orchestrator.ts`, `router.ts`, `analyzer.ts`) dan `fusion/voting.ts`
++`fusion/decision.ts`+`fusion/confidence.ts` SENGAJA TIDAK diintegrasikan.
+Semua itu duplikat/pengganti dari logika yang sudah aktif di `engine.ts`
+(AI consensus, sanity check strategi) — menyambungkannya akan
+menciptakan sinyal ganda yang bisa saling kontradiksi dalam satu
+keputusan buy/sell. Detail lengkap sudah dijelaskan di chat.
+Verifikasi tipe
+Sandbox saya tidak punya akses internet jadi `npm install` + `tsc`
+tidak bisa dijalankan di sini. Saya sudah verifikasi manual:
+`IndicatorFeatureVector` (dipakai `engine.ts`) dan `FeatureVector`
+(dibutuhkan `confidence.ts`/`explanation.ts`) — identik strukturnya
+`AISignal` (consensus.ts) dan `TradingSignal` (types.ts) — identik
+`parseAIResponse()` mengembalikan `AIAnalysis` dari sumber tipe yang
+sama persis dengan yang dipakai `decisionExplainer.ts`
+Tolong tetap jalankan `npm run build` (lokal atau lihat build log
+Vercel) sebelum merge ke `main`, sesuai aturan wajib di `docs/claude.md`
+— jangan percaya klaim "sudah aman" dari sesi manapun (termasuk ini)
+tanpa verifikasi build sungguhan.
+Efek ke trading
+NOL. Ini murni menambah baris log baru bertag `[AI Explainability ...]`
+di collection `logs` Firestore (dashboard Activity). Tidak ada nilai
+yang dipakai risk-gate, sizing, atau keputusan BUY/SELL/HOLD yang berubah.
 # 📄 License
 
 MIT License
