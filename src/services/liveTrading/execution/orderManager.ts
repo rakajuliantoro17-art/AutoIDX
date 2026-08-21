@@ -126,6 +126,15 @@ export class OrderManager {
 
         this.validate(request);
 
+        // FIX: orderExecutor (exchange/orderExecutor.ts) di-refactor
+        // dari singleton instance jadi factory function
+        // createOrderExecutor() -- WAJIB di-await sebelum dipakai,
+        // supaya kredensial akun aktif diambil per-panggilan (bukan
+        // singleton yang cuma baca 1 env var global). Dipanggil
+        // SEKALI di sini, dipakai untuk cabang BUY maupun SELL di
+        // bawah supaya tidak fetch akun aktif dua kali per order.
+        const executor = await orderExecutor();
+
 
 
 
@@ -249,7 +258,7 @@ export class OrderManager {
 
             execution =
 
-                await orderExecutor.buy(
+                await executor.buy(
 
                     request
 
@@ -264,7 +273,7 @@ export class OrderManager {
 
             execution =
 
-                await orderExecutor.sell(
+                await executor.sell(
 
                     request
 
