@@ -74,6 +74,7 @@ import deepSeekProvider from "@/services/intelligence/ai/providers/deepseek";
 import type { AIAnalysis } from "@/services/intelligence/types";
 import aiConsensus from "@/services/intelligence/ai/consensus";
 import type { AIConsensusInput } from "@/services/intelligence/ai/consensus";
+import { explainDecision } from "@/services/intelligence/ai/decisionExplainer";
 
 import PaperTradingService from "./paper";
 import LiveTradingService from "./live";
@@ -409,6 +410,26 @@ async function logAIAdvisory(
         `[AI Advisory ${pair.toUpperCase()}] ${candidate.name}: signal=${analysis.signal}, confidence=${analysis.confidence}. ${analysis.summary}`
       );
 
+      // Observability only -- lihat catatan di decisionExplainer.ts.
+      // Tidak mempengaruhi consensusInputs / keputusan apapun di bawah ini.
+      try {
+        const explain = explainDecision(features, context, {
+          signal: analysis.signal,
+          confidence: analysis.confidence,
+          summary: analysis.summary,
+        });
+
+        await recordLog(
+          "BOT",
+          "info",
+          `[AI Explainability ${pair.toUpperCase()}] ${candidate.name}: ${explain.logLine}`
+        );
+      } catch (explainError) {
+        // Fail-safe: kegagalan di lapisan explainability TIDAK PERNAH
+        // mengganggu jalur advisory/consensus di atas maupun di bawah.
+        console.error("[AI Explainability]", explainError);
+      }
+
       consensusInputs.push({
         provider: candidate.name as AIConsensusInput["provider"],
         signal: analysis.signal,
@@ -433,6 +454,24 @@ async function logAIAdvisory(
       "info",
       `[AI Consensus ${pair.toUpperCase()}] signal=${consensus.signal}, agreement=${consensus.agreement}%, providers=${consensus.providers.join(", ")}. ${consensus.explanation}`
     );
+
+    // Observability only -- lihat catatan di decisionExplainer.ts.
+    // Tidak mempengaruhi keputusan BUY/SELL/HOLD manapun.
+    try {
+      const explain = explainDecision(features, context, {
+        signal: consensus.signal,
+        confidence: consensus.confidence,
+        summary: consensus.explanation,
+      });
+
+      await recordLog(
+        "BOT",
+        "info",
+        `[AI Explainability ${pair.toUpperCase()}] Consensus: ${explain.logLine}`
+      );
+    } catch (explainError) {
+      console.error("[AI Explainability]", explainError);
+    }
 
   } catch (error) {
 
