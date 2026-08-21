@@ -118,13 +118,23 @@ export class OrderExecutor {
     // parameter order_type Indodax butuh huruf KECIL (dikonfirmasi
     // dari contoh resmi: "order_type": "market") -- tanpa ini,
     // Indodax kemungkinan menolak/salah interpretasi order_type.
+    //
+    // `price` bersifat opsional di LiveOrderRequest (order MARKET
+    // memang tidak wajib harga, sesuai dokumentasi resmi Indodax:
+    // "Not required for market orders") -- jadi hanya disertakan
+    // ke params kalau memang ada nilainya, bukan dikirim sebagai
+    // undefined (yang gagal type-check DAN tidak masuk akal
+    // dikirim ke API).
     const params: Record<string, string | number> = {
       pair: request.symbol,
       type: request.side === "BUY" ? "buy" : "sell",
-      price: request.price,
       order_type: request.type.toLowerCase(),
       [coinSymbol]: request.quantity,
     };
+
+    if (request.price !== undefined) {
+      params.price = request.price;
+    }
 
     const response = await this.client.privateRequest("trade", params);
 
