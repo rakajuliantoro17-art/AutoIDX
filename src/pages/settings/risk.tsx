@@ -36,8 +36,13 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 // Selaras dengan MIN_TRADE_AMOUNT_IDR di
 // services/trading/effectiveConfig.ts -- kalau diubah di sana, ubah
 // juga di sini.
-const TRADE_AMOUNT_MIN = 10_000;
-const TRADE_AMOUNT_MAX = 500_000;
+// FASE UJI COBA AWAL: dikunci ke Rp10.000 tetap (bukan rentang) --
+// selaras dengan BOT_CONFIG.defaultTradeAmount/maxTradeAmount di
+// config/bot.ts yang sengaja dikunci sama. Setelah BUY live terbukti
+// jalan beberapa siklus, lebarkan TRADE_AMOUNT_MAX ke 500_000 di sini
+// DAN BOT_MAX_TRADE_AMOUNT di config/bot.ts (env var atau default).
+const TRADE_AMOUNT_MIN: number = 10_000;
+const TRADE_AMOUNT_MAX: number = 10_000;
 const TRADE_AMOUNT_STEP = 5_000;
 
 // Selaras dengan MIN/MAX di services/trading/effectiveConfig.ts --
@@ -147,7 +152,8 @@ export default function RiskSettings() {
           </div>
         )}
 
-        {/* Trade Amount - slider interaktif */}
+        {/* Trade Amount - slider interaktif (nonaktif otomatis kalau
+            TRADE_AMOUNT_MIN===TRADE_AMOUNT_MAX, fase uji coba awal) */}
         <div>
           <div className="flex justify-between items-center mb-2">
             <p className="text-slate-400 text-sm">Trade Amount</p>
@@ -156,27 +162,38 @@ export default function RiskSettings() {
             </p>
           </div>
 
-          <input
-            type="range"
-            min={TRADE_AMOUNT_MIN}
-            max={TRADE_AMOUNT_MAX}
-            step={TRADE_AMOUNT_STEP}
-            value={tradeAmount}
-            disabled={loading || savingField === "tradeAmountIdr"}
-            onChange={(e) => setTradeAmount(Number(e.target.value))}
-            onMouseUp={(e) =>
-              handleSave("tradeAmountIdr", Number((e.target as HTMLInputElement).value))
-            }
-            onTouchEnd={(e) =>
-              handleSave("tradeAmountIdr", Number((e.target as HTMLInputElement).value))
-            }
-            className="w-full accent-sky-500"
-          />
+          {TRADE_AMOUNT_MIN === TRADE_AMOUNT_MAX ? (
+            <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
+              Dikunci Rp {TRADE_AMOUNT_MIN.toLocaleString("id-ID")} sementara
+              selama fase uji coba live trading. Akan dilebarkan ke rentang
+              Rp10.000-Rp500.000 setelah BUY live terbukti jalan beberapa
+              siklus.
+            </p>
+          ) : (
+            <>
+              <input
+                type="range"
+                min={TRADE_AMOUNT_MIN}
+                max={TRADE_AMOUNT_MAX}
+                step={TRADE_AMOUNT_STEP}
+                value={tradeAmount}
+                disabled={loading || savingField === "tradeAmountIdr"}
+                onChange={(e) => setTradeAmount(Number(e.target.value))}
+                onMouseUp={(e) =>
+                  handleSave("tradeAmountIdr", Number((e.target as HTMLInputElement).value))
+                }
+                onTouchEnd={(e) =>
+                  handleSave("tradeAmountIdr", Number((e.target as HTMLInputElement).value))
+                }
+                className="w-full accent-sky-500"
+              />
 
-          <div className="flex justify-between text-xs text-slate-500 mt-1">
-            <span>Rp {TRADE_AMOUNT_MIN.toLocaleString("id-ID")}</span>
-            <span>Rp {TRADE_AMOUNT_MAX.toLocaleString("id-ID")}</span>
-          </div>
+              <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <span>Rp {TRADE_AMOUNT_MIN.toLocaleString("id-ID")}</span>
+                <span>Rp {TRADE_AMOUNT_MAX.toLocaleString("id-ID")}</span>
+              </div>
+            </>
+          )}
 
           <SaveStatus field="tradeAmountIdr" savingField={savingField} savedField={savedField} />
         </div>
