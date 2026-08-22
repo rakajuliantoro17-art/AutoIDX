@@ -17,6 +17,10 @@ dari nol (mis. setelah ganti strategi/parameter).
 import type { NextApiRequest, NextApiResponse } from "next";
 import { adminAuth } from "@/services/firebase/admin";
 import { getCanarySnapshot, resetCanary } from "@/services/liveTrading/monitoring/canaryStore";
+import { checkRateLimit } from "@/services/security/rateLimitStore";
+
+const RESET_RATE_LIMIT = 3;
+const RESET_RATE_WINDOW_MS = 60 * 60 * 1000;
 
 async function getUidFromRequest(req: NextApiRequest): Promise<string | null> {
   const authHeader = req.headers.authorization;
@@ -58,6 +62,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const body = req.body ?? {};
 
       if (body.reset === true) {
+
+        const rateLimit = await checkRateLimit(`canary_reset:${uid}`, RESET_RATE_LIMIT, RESET_RATE_WINDOW_MS);
+
+        if (!rateLimit.allowed) {
+          res.setHeader("Retry-After", Math.ceil((rateLimit.resetAt - Date.now()) / 1000));
+          return res.status(429).json({
+            error: `Terlalu sering reset (maks ${RESET_RATE_LIMIT}x per jam).`,
+          });
+        }
+
         await resetCanary();
         return res.status(200).json({ success: true, message: "Canary metrics direset." });
       }
