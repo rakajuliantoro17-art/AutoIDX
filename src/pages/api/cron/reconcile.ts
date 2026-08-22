@@ -67,6 +67,7 @@ import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmi
 import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
 import { recordLog } from "@/services/firebase/logService";
 import { recordReconciliationStatus } from "@/services/firebase/reconciliationStatus";
+import { getCronHeartbeatStatus } from "@/services/scheduler/cronHeartbeat";
 import automationNotifier from "@/services/automation/notifier";
 
 /**
@@ -176,6 +177,41 @@ export default async function handler(
   }
 
   try {
+
+    // --- Cross-monitor cron scan.ts -------------------------------
+    // reconcile.ts biasanya dijadwalkan terpisah (interval lebih
+    // jarang) dari cron/scan.ts -- dipakai di sini untuk "saling
+    // mengawasi": kalau trigger eksternal scan.ts berhenti menembak
+    // (STALE/DEAD), reconcile.ts yang masih jalan akan membunyikan
+    // notifikasi. Best-effort, TIDAK menghentikan reconciliation
+    // di bawahnya walau notifikasi gagal terkirim.
+    const scanHeartbeat = await getCronHeartbeatStatus();
+
+    if (scanHeartbeat.status !== "ALIVE") {
+
+      const ageMinutes =
+        scanHeartbeat.ageMs !== null
+          ? Math.round(scanHeartbeat.ageMs / 60_000)
+          : null;
+
+      const heartbeatMessage =
+        scanHeartbeat.status === "DEAD" && scanHeartbeat.lastRunAt === null
+          ? "cron/scan.ts belum pernah tercatat jalan sama sekali sejak fitur heartbeat aktif."
+          : `cron/scan.ts terakhir sukses ${ageMinutes} menit lalu (status: ${scanHeartbeat.status}). ` +
+            `Market scan, stop-loss/take-profit otomatis, dan trading engine TIDAK BERJALAN selama ini.`;
+
+      await recordLog(
+        "SYSTEM",
+        scanHeartbeat.status === "DEAD" ? "danger" : "warning",
+        `[Cron Heartbeat] ${heartbeatMessage}`
+      );
+
+      await automationNotifier.warning(
+        "Cron Scan Tidak Responsif",
+        heartbeatMessage
+      );
+
+    }
 
     const control = await getBotControl();
 
