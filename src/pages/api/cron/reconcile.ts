@@ -29,10 +29,13 @@ CATATAN CAKUPAN (jujur soal keterbatasan):
   punya "buku besar IDR lokal" terpisah (langsung percaya saldo
   Indodax asli di setiap risk-check), jadi tidak ada angka
   "local" yang bermakna untuk dibandingkan.
-- unknownOrderIds SELALU kosong -- IndodaxClient belum punya
-  method untuk mengambil daftar open order asli (butuh endpoint
-  privat terpisah yang belum diimplementasikan). Di luar cakupan
-  perbaikan ini.
+- unknownOrderIds sekarang diisi lewat IndodaxClient.openOrders()
+  (sebelumnya SELALU kosong) -- TAPI cakupannya cuma pair yang
+  sedang ada di openPositionPairs (bot_state). Order nyasar di
+  pair yang bot SUDAH TIDAK punya posisi tercatat (mis. exit
+  sebelumnya gagal update bot_state) TIDAK akan terdeteksi --
+  butuh scan semua pair Indodax yang di luar cakupan perbaikan
+  ini (mahal secara rate-limit kalau dilakukan tiap siklus).
 - HANYA berjalan kalau mode LIVE benar-benar aktif (dua syarat:
   bot_control.mode==="live" DAN BOT_LIVE_CONFIRM==="true", sama
   seperti isLiveModeActive() di engine.ts). Di paper mode,
@@ -100,6 +103,7 @@ async function buildLiveReconciliationContext(): Promise<ReconciliationContext> 
   }
 
   const positions: PositionSnapshot[] = [];
+  const unknownOrderIds: string[] = [];
 
   for (const pair of openPairs) {
 
@@ -115,13 +119,41 @@ async function buildLiveReconciliationContext(): Promise<ReconciliationContext> 
       exchangeQuantity,
     });
 
+    // --- Open order asli di Indodax (sebelumnya SELALU kosong --
+    // IndodaxClient belum punya method untuk ini). Bot ini SELALU
+    // market order (fill instan), jadi order yang masih OPEN di
+    // sini pada dasarnya "tidak dikenal" bot -- lihat catatan
+    // lengkap di IndodaxClient.openOrders(). Kegagalan cek open
+    // order untuk satu pair TIDAK menggagalkan reconciliation
+    // pair lain -- dicatat sebagai warning, bukan error fatal. ---
+    try {
+
+      const openOrders = await client.openOrders(pair);
+
+      if (openOrders.success) {
+
+        for (const order of openOrders.data) {
+          unknownOrderIds.push(`${pair}:${order.order_id}`);
+        }
+
+      }
+
+    } catch (error) {
+
+      console.warn(
+        `[Reconciliation] Gagal cek open order ${pair} (dilewati):`,
+        error
+      );
+
+    }
+
   }
 
   return {
     timestamp: Date.now(),
     balances: [],
     positions,
-    unknownOrderIds: [],
+    unknownOrderIds,
   };
 
 }
