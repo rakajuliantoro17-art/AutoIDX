@@ -10,6 +10,8 @@ Database Health Monitoring
 
 import logger from "@/services/logger";
 
+import { adminDb } from "@/services/firebase/admin";
+
 
 
 
@@ -74,17 +76,19 @@ export class DatabaseHealth {
 
             /*
             ==============================================
-
-            TODO
-
-            Firebase / Firestore Ping
-
-            Example:
-
-            await getDoc(...)
-
+            Ping Firestore beneran -- baca 1 dokumen kecil
+            (bot_control, sudah dibaca tiap siklus trading
+            juga) supaya latency yang diukur mencerminkan
+            koneksi Firestore yang sesungguhnya, bukan cuma
+            waktu try-block kosong (0ms, selalu "HEALTHY"
+            walau Firestore sebenarnya down).
             ==============================================
             */
+
+            await adminDb
+                .collection("bot_control")
+                .doc("default")
+                .get();
 
             const latency =
 
