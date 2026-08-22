@@ -28,6 +28,11 @@ Cara membaca hasilnya:
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { adminAuth, adminDb } from "@/services/firebase/admin";
+import {
+  HTTP_OK,
+  HTTP_UNAUTHORIZED,
+  HTTP_INTERNAL_SERVER_ERROR,
+} from "@/config/constants";
 
 const MAX_READ = 500;
 
@@ -77,7 +82,7 @@ export default async function handler(
   const uid = await getUidFromRequest(req);
 
   if (!uid) {
-    return res.status(401).json({ error: "Unauthorized - login diperlukan" });
+    return res.status(HTTP_UNAUTHORIZED).json({ error: "Unauthorized - login diperlukan" });
   }
 
   try {
@@ -129,7 +134,7 @@ export default async function handler(
     const readyForPromotion =
       totalEvaluated >= 100 && hitRatePercent >= RANDOM_BASELINE_PERCENT + 15;
 
-    return res.status(200).json({
+    return res.status(HTTP_OK).json({
       totalEvaluated,
       totalCorrect,
       hitRatePercent,
@@ -146,7 +151,7 @@ export default async function handler(
     });
   } catch (error) {
     console.error("[AI Calibration API]", error);
-    return res.status(500).json({
+    return res.status(HTTP_INTERNAL_SERVER_ERROR).json({
       error:
         error instanceof Error
           ? error.message
