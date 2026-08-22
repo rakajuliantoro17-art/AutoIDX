@@ -37,6 +37,11 @@ import backtestRunner from "@/services/backtest/runner";
 import metricsEngine from "@/services/backtest/metrics";
 import type { BacktestCandle, BacktestConfig } from "@/services/backtest/types";
 import marketScanner from "@/services/scanner";
+import {
+  HTTP_OK,
+  HTTP_BAD_REQUEST,
+  HTTP_INTERNAL_SERVER_ERROR,
+} from "@/config/constants";
 
 const RESOLUTION_BY_TIMEFRAME: Record<string, string> = {
   "1h": "60",
@@ -124,7 +129,7 @@ export default async function handler(
     const resolution = RESOLUTION_BY_TIMEFRAME[timeframe];
 
     if (!resolution) {
-      return res.status(400).json({
+      return res.status(HTTP_BAD_REQUEST).json({
         error: `Timeframe tidak didukung: ${timeframe}`,
       });
     }
@@ -145,7 +150,7 @@ export default async function handler(
     }
 
     if (targetPairs.length === 0) {
-      return res.status(200).json({
+      return res.status(HTTP_OK).json({
         strategy,
         timeframe,
         days,
@@ -276,7 +281,7 @@ export default async function handler(
           }
         : null;
 
-    return res.status(200).json({
+    return res.status(HTTP_OK).json({
       strategy,
       timeframe,
       days,
@@ -287,7 +292,7 @@ export default async function handler(
     });
   } catch (error) {
     console.error("[BACKTEST BATCH ERROR]", error);
-    return res.status(500).json({
+    return res.status(HTTP_INTERNAL_SERVER_ERROR).json({
       error:
         error instanceof Error
           ? error.message
