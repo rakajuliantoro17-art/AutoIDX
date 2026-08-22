@@ -45,6 +45,8 @@ import { getBotControl } from "@/services/firebase/botControl";
 import { getBotState, getOpenPositionPairs } from "@/services/firebase/botState";
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
 import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
+import performanceMetrics from "@/services/portfolio/performance/metrics";
+import drawdownCalculator from "@/services/portfolio/performance/drawdown";
 
 async function getUidFromRequest(
   req: NextApiRequest
@@ -103,6 +105,14 @@ interface OpenTradeRow {
 
 type TradeRow = ClosedTradeRow | OpenTradeRow;
 
+interface AdvancedMetrics {
+  profitFactor: number;
+  expectancy: number;
+  averageWin: number;
+  averageLoss: number;
+  maximumDrawdownPercent: number;
+}
+
 interface PortfolioSummaryResponse {
   mode: "paper" | "live";
   balance: number;
@@ -116,6 +126,59 @@ interface PortfolioSummaryResponse {
   recentTrades: TradeRow[];
   fetchedAt: string;
   liveBalanceError?: string;
+  advanced: AdvancedMetrics;
+}
+
+/**
+ * Metrik lanjutan (profit factor, expectancy, drawdown maksimum)
+ * -- mengaktifkan services/portfolio/performance/* yang sebelumnya
+ * orphan (kalkulator murni/stateless, sudah jadi, cuma tidak
+ * pernah dipanggil dari mana pun). closedTradesAscending HARUS
+ * urut dari yang PALING LAMA -> PALING BARU (equity curve/drawdown
+ * tidak bermakna kalau urutannya salah).
+ */
+function buildAdvancedMetrics(
+  closedTradesAscending: ClosedTradeRow[],
+  startingBalance: number
+): AdvancedMetrics {
+
+  const tradeResults = closedTradesAscending.map((t, index) => ({
+    id: `${t.pair}-${index}`,
+    symbol: t.pair,
+    profit: t.pnlIdr,
+    timestamp: t.closedAt ? new Date(t.closedAt).getTime() : 0,
+  }));
+
+  const totalRealized = tradeResults.reduce((sum, t) => sum + t.profit, 0);
+
+  const metrics = performanceMetrics.calculate(
+    tradeResults,
+    startingBalance,
+    startingBalance + totalRealized
+  );
+
+  // Equity curve DIDEKATI dari saldo awal + akumulasi PnL tiap
+  // trade yang selesai (bukan snapshot equity real-time historis
+  // -- itu belum pernah dipersist di mana pun) -- cukup untuk
+  // menghitung drawdown antar-trade yang bermakna, meski tidak
+  // menangkap fluktuasi intra-trade (unrealized).
+  let running = startingBalance;
+
+  const equityPoints = tradeResults.map((t) => {
+    running += t.profit;
+    return { timestamp: t.timestamp, equity: running };
+  });
+
+  const drawdown = drawdownCalculator.calculate(equityPoints);
+
+  return {
+    profitFactor: metrics.profitFactor,
+    expectancy: metrics.expectancy,
+    averageWin: metrics.averageWin,
+    averageLoss: metrics.averageLoss,
+    maximumDrawdownPercent: drawdown.maximumDrawdown,
+  };
+
 }
 
 /**
@@ -219,6 +282,11 @@ async function buildPaperSummary(): Promise<PortfolioSummaryResponse> {
 
   }
 
+  const advanced = buildAdvancedMetrics(
+    closedTrades,
+    portfolio.startingBalance
+  );
+
   closedTrades.reverse();
 
   const openTradeRows: OpenTradeRow[] = openPositions.map((position) => {
@@ -277,6 +345,8 @@ async function buildPaperSummary(): Promise<PortfolioSummaryResponse> {
     recentTrades,
 
     fetchedAt: new Date().toISOString(),
+
+    advanced,
 
   };
 
@@ -406,6 +476,16 @@ async function buildLiveSummary(): Promise<PortfolioSummaryResponse> {
 
   }
 
+  // Live tidak punya "starting capital" yang dilacak terpisah
+  // (beda dengan paper -- BOT_CONFIG.startingBalance dipakai di
+  // sini cuma sebagai referensi nominal untuk profitFactor/
+  // expectancy, BUKAN saldo asli). Drawdown tetap akurat karena
+  // dihitung dari PERUBAHAN RELATIF equity, bukan nilai absolutnya.
+  const advanced = buildAdvancedMetrics(
+    closedTrades,
+    BOT_CONFIG.startingBalance
+  );
+
   closedTrades.reverse();
 
   const recentTrades: TradeRow[] = [
@@ -487,6 +567,8 @@ async function buildLiveSummary(): Promise<PortfolioSummaryResponse> {
     fetchedAt: new Date().toISOString(),
 
     liveBalanceError,
+
+    advanced,
 
   };
 
