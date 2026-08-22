@@ -18,7 +18,17 @@ import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmi
 import { recordTrade, recordLog } from "@/services/firebase/logService";
 import { BOT_CONFIG } from "@/config/bot";
 import { validateLiveOrder } from "./liveOrderValidator";
-import { acquireLiveOrderLock, releaseLiveOrderLock } from "@/services/firebase/liveOrderLock";
+import { acquireLiveOrderLock, releaseLiveOrderLock, markLiveOrderUncertain } from "@/services/firebase/liveOrderLock";
+
+/**
+ * Penanda internal: dilempar SETELAH markLiveOrderUncertain()
+ * berhasil dipanggil, supaya catch block di buy()/sell() TAHU
+ * lock ini SUDAH ditangani (status UNCERTAIN tersimpan) dan
+ * TIDAK boleh dioverwrite lagi jadi "FAILED" lewat
+ * releaseLiveOrderLock() -- itu akan membuat pair ini dianggap
+ * aman di-retry padahal order-nya justru berstatus tidak pasti.
+ */
+class UncertainOrderError extends Error {}
 import { getCanarySnapshot, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
 import { CanaryOrderMetric } from "@/services/liveTrading/monitoring/canaryMetrics";
 
@@ -240,6 +250,33 @@ class LiveTradingService {
 
       if (!result.success) {
 
+        // "certainty" tidak ada di IndodaxTradeResponse gagal
+        // hasil validasi param lokal (limit/idr/coinAmount missing,
+        // dicek sebelum privateRequest() dipanggil) -- itu jelas
+        // tidak pernah menyentuh Indodax sama sekali, aman
+        // dianggap CERTAIN (default kalau undefined).
+        if (result.certainty === "UNCERTAIN") {
+
+          await markLiveOrderUncertain(
+            request.pair,
+            "BUY",
+            result.message
+          );
+
+          await recordLog(
+            "RISK",
+            "danger",
+            `LIVE BUY TIDAK PASTI ${request.pair.toUpperCase()}: ${result.message} -- ` +
+            `order BISA JADI tereksekusi di Indodax walau kita tidak dapat konfirmasi. ` +
+            `Pair ini DIBLOKIR sampai diverifikasi manual (cek riwayat order Indodax) & di-resolve.`
+          );
+
+          throw new UncertainOrderError(
+            `Status order tidak pasti (kemungkinan tereksekusi): ${result.message}`
+          );
+
+        }
+
         await recordLog(
           "BOT",
           "danger",
@@ -330,7 +367,15 @@ class LiveTradingService {
 
     } catch (error) {
 
-      await releaseLiveOrderLock(request.pair, "BUY", false);
+      // UncertainOrderError berarti markLiveOrderUncertain() SUDAH
+      // dipanggil di titik kegagalan -- JANGAN overwrite lagi jadi
+      // "FAILED" (itu akan membuat pair ini dianggap aman di-retry
+      // padahal statusnya justru tidak pasti).
+      if (!(error instanceof UncertainOrderError)) {
+
+        await releaseLiveOrderLock(request.pair, "BUY", false);
+
+      }
 
       throw error;
 
@@ -420,6 +465,28 @@ class LiveTradingService {
       });
 
       if (!result.success) {
+
+        if (result.certainty === "UNCERTAIN") {
+
+          await markLiveOrderUncertain(
+            request.pair,
+            "SELL",
+            result.message
+          );
+
+          await recordLog(
+            "RISK",
+            "danger",
+            `LIVE SELL TIDAK PASTI ${request.pair.toUpperCase()}: ${result.message} -- ` +
+            `order BISA JADI tereksekusi di Indodax walau kita tidak dapat konfirmasi. ` +
+            `Pair ini DIBLOKIR sampai diverifikasi manual & di-resolve.`
+          );
+
+          throw new UncertainOrderError(
+            `Status order tidak pasti (kemungkinan tereksekusi): ${result.message}`
+          );
+
+        }
 
         await recordLog(
           "BOT",
@@ -512,7 +579,11 @@ class LiveTradingService {
 
     } catch (error) {
 
-      await releaseLiveOrderLock(request.pair, "SELL", false);
+      if (!(error instanceof UncertainOrderError)) {
+
+        await releaseLiveOrderLock(request.pair, "SELL", false);
+
+      }
 
       throw error;
 
