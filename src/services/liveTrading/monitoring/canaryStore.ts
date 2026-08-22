@@ -116,6 +116,23 @@ export async function getCanarySnapshot(
 }
 
 /**
+ * Ambil order mentah terbaru (untuk deteksi kegagalan
+ * berturut-turut - CanaryMetricsSnapshot sengaja tidak menyimpan
+ * daftar order mentah, cuma agregat).
+ */
+export async function getRecentCanaryOrders(limit = 20): Promise<CanaryOrderMetric[]> {
+  const snapshot = await docRef().get();
+
+  if (!snapshot.exists) {
+    return [];
+  }
+
+  const data = snapshot.data() as CanaryDoc;
+
+  return data.orders.slice(-limit);
+}
+
+/**
  * Reset canary (dipakai kalau mau mulai ulang periode uji coba
  * live trading skala kecil dari nol - mis. setelah ganti
  * strategi/parameter).
@@ -131,4 +148,4 @@ export async function resetCanary(): Promise<void> {
   });
 }
 
-export default { recordCanaryOrder, getCanarySnapshot, resetCanary };
+export default { recordCanaryOrder, getCanarySnapshot, getRecentCanaryOrders, resetCanary };
