@@ -8,6 +8,7 @@ Version : 0.0.3 Alpha
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatIDR, formatPercent, formatFullDateTime } from "@/utils";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import StatusCard from "@/components/StatusCard";
 
@@ -92,20 +93,20 @@ export default function PaperTradingPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <StatusCard
             title="Saldo Virtual"
-            value={loading || !portfolio ? "..." : `Rp ${portfolio.availableBalance.toLocaleString("id-ID")}`}
+            value={loading || !portfolio ? "..." : formatIDR(portfolio.availableBalance)}
             subtext="Available balance"
             loading={loading}
           />
           <StatusCard
             title="Total Equity"
-            value={loading || !portfolio ? "..." : `Rp ${portfolio.equityIdr.toLocaleString("id-ID")}`}
+            value={loading || !portfolio ? "..." : formatIDR(portfolio.equityIdr)}
             subtext="Saldo + posisi terbuka"
             loading={loading}
           />
           <StatusCard
             title="P&L Keseluruhan"
-            value={loading || !portfolio ? "..." : `${pnlPercent >= 0 ? "+" : ""}${pnlPercent.toFixed(2)}%`}
-            subtext={`vs modal awal Rp ${portfolio?.startingBalance.toLocaleString("id-ID") ?? "-"}`}
+            value={loading || !portfolio ? "..." : formatPercent(pnlPercent)}
+            subtext={`vs modal awal ${portfolio ? formatIDR(portfolio.startingBalance) : "-"}`}
             loading={loading}
           />
           <StatusCard
@@ -139,10 +140,10 @@ export default function PaperTradingPage() {
                   {status.openPositions.map((pos) => (
                     <tr key={pos.pair} className="border-b border-white/5">
                       <td className="py-2 font-medium">{pos.pair.toUpperCase()}</td>
-                      <td className="py-2">Rp {pos.entryPrice.toLocaleString("id-ID")}</td>
-                      <td className="py-2">Rp {pos.entryValue.toLocaleString("id-ID")}</td>
-                      <td className="py-2 text-red-400">Rp {pos.stopLossPrice.toLocaleString("id-ID")}</td>
-                      <td className="py-2 text-emerald-400">Rp {pos.takeProfitPrice.toLocaleString("id-ID")}</td>
+                      <td className="py-2">{formatIDR(pos.entryPrice)}</td>
+                      <td className="py-2">{formatIDR(pos.entryValue)}</td>
+                      <td className="py-2 text-red-400">{formatIDR(pos.stopLossPrice)}</td>
+                      <td className="py-2 text-emerald-400">{formatIDR(pos.takeProfitPrice)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -173,19 +174,18 @@ export default function PaperTradingPage() {
                       {trade.pair.toUpperCase()}
                     </p>
                     <p className="text-slate-500 text-xs mt-1">
-                      {new Date(trade.executedAt).toLocaleString("id-ID")} · Rp{" "}
-                      {trade.price.toLocaleString("id-ID")}
+                      {formatFullDateTime(new Date(trade.executedAt).toISOString())} ·{" "}
+                      {formatIDR(trade.price)}
                       {trade.reason && ` · ${trade.reason}`}
                     </p>
                   </div>
                   {trade.pnlIdr !== undefined && (
                     <div className={`text-right font-medium ${trade.pnlIdr >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                       <p>
-                        {trade.pnlIdr >= 0 ? "+" : ""}Rp {trade.pnlIdr.toFixed(0)}
+                        {trade.pnlIdr >= 0 ? "+" : ""}{formatIDR(trade.pnlIdr)}
                       </p>
                       <p className="text-xs">
-                        {trade.pnlPercent! >= 0 ? "+" : ""}
-                        {trade.pnlPercent?.toFixed(2)}%
+                        {trade.pnlPercent !== undefined ? formatPercent(trade.pnlPercent) : "-"}
                       </p>
                     </div>
                   )}
