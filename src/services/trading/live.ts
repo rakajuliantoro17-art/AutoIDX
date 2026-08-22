@@ -22,6 +22,7 @@ import { validateLiveOrder } from "./liveOrderValidator";
 import { getCanarySnapshot, getRecentCanaryOrders, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
 import { CanaryOrderMetric } from "@/services/liveTrading/monitoring/canaryMetrics";
 import { getLiveTradingConfig } from "@/services/liveTrading/risk/liveTradingConfig";
+import { getReconciliationStatus } from "@/services/firebase/reconciliationStatus";
 import {
   acquireLiveOrderLock,
   releaseLiveOrderLock,
@@ -51,6 +52,72 @@ export interface LiveTradeResult {
 }
 
 class LiveTradingService {
+
+  /**
+   * Umur maksimum reconciliation yang masih dianggap "segar" --
+   * kalau cron/reconcile.ts belum jalan lagi dalam rentang ini,
+   * statusnya dianggap BASI dan BUY diblokir (fail-closed), bukan
+   * dianggap "aman karena belum pernah ketahuan bermasalah".
+   * Default 15 menit -- longgar dibanding interval scan (30
+   * detik) supaya tidak mem-block gara-gara reconcile.ts sendiri
+   * dipanggil di cron terpisah dengan interval lebih jarang,
+   * tapi tetap cukup ketat untuk menangkap kalau cron itu
+   * berhenti jalan sama sekali.
+   */
+  private readonly RECONCILIATION_MAX_AGE_MS =
+    (Number(process.env.BOT_CANARY_RECONCILIATION_MAX_AGE_MINUTES) || 15) * 60_000;
+
+  /**
+   * Menegakkan `requireReconciliation` dari liveTradingConfig.ts
+   * -- SEBELUMNYA field ini "disimpan untuk kelengkapan config
+   * tapi tidak pernah ditegakkan oleh kode manapun". Dipanggil
+   * HANYA dari buy() (bukan sell()) -- exit posisi yang sudah ada
+   * tidak boleh terhambat oleh gerbang keamanan tambahan ini,
+   * konsisten dengan prinsip Emergency Stop di seluruh sistem.
+   */
+  private async assertReconciliationFresh(): Promise<void> {
+
+    const status = await getReconciliationStatus();
+
+    if (!status) {
+
+      const reason =
+        "Belum ada hasil reconciliation posisi vs Indodax sama sekali " +
+        "(cron/reconcile.ts belum pernah jalan sukses). Pastikan cron " +
+        "itu sudah dikonfigurasi & sempat jalan minimal sekali sebelum live BUY.";
+
+      await recordLog("RISK", "warning", `LIVE BUY ditolak: ${reason}`);
+      throw new Error(reason);
+
+    }
+
+    const ageMs = Date.now() - status.checkedAt;
+
+    if (ageMs > this.RECONCILIATION_MAX_AGE_MS) {
+
+      const reason =
+        `Hasil reconciliation terakhir sudah basi (${Math.round(ageMs / 60_000)} menit lalu, ` +
+        `batas ${Math.round(this.RECONCILIATION_MAX_AGE_MS / 60_000)} menit). ` +
+        `Cek apakah cron/reconcile.ts masih berjalan terjadwal.`;
+
+      await recordLog("RISK", "warning", `LIVE BUY ditolak: ${reason}`);
+      throw new Error(reason);
+
+    }
+
+    if (!status.consistent) {
+
+      const reason =
+        `Reconciliation terakhir menemukan ${status.mismatchCount} mismatch antara posisi ` +
+        `tercatat dan saldo/order asli di Indodax -- kemungkinan emergency stop sudah aktif, ` +
+        `tapi gerbang ini tetap memblokir BUY secara eksplisit sampai diverifikasi manual.`;
+
+      await recordLog("RISK", "danger", `LIVE BUY ditolak: ${reason}`);
+      throw new Error(reason);
+
+    }
+
+  }
 
   /**
    * Ambil client Indodax dengan kredensial akun yang sedang
@@ -129,6 +196,10 @@ class LiveTradingService {
 
       throw new Error(reason);
 
+    }
+
+    if (canaryConfig.requireReconciliation) {
+      await this.assertReconciliationFresh();
     }
 
     const effectiveTradeAmountIdr =
