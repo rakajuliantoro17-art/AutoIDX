@@ -17,6 +17,10 @@ import marketScanner from "@/services/scanner";
 import { adminDb } from "@/services/firebase/admin";
 import { executeCron } from "@/services/scheduler/cron";
 import { acquireCronLock } from "@/services/scheduler/cronLock";
+import {
+  recordCalibrationSnapshots,
+  evaluateDueCalibrations,
+} from "@/services/analytics/aiCalibration";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
@@ -65,6 +69,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `avg ${summary.scoreStats.avgScore}, threshold ${summary.scoreStats.thresholdUsed})`
     );
 
+    // --- AI Score Calibration Tracker ---------------------------
+    // Menjawab "apakah AI Score siap dipromosikan jadi filter
+    // BUY/SELL?" dengan DATA, bukan tebakan. Fail-safe sepenuhnya
+    // di dalam aiCalibration.ts -- kalau gagal, tidak pernah
+    // mengganggu scan/trading di atas (sudah selesai duluan).
+    const calibrationEvaluation = await evaluateDueCalibrations();
+    const calibrationRecording = await recordCalibrationSnapshots(
+      summary.topOpportunities
+    );
+
+    if (calibrationEvaluation.evaluated > 0) {
+      console.log(
+        `[CRON] Kalibrasi AI Score: ${calibrationEvaluation.evaluated} snapshot dievaluasi, ${calibrationEvaluation.correct} benar.`
+      );
+    }
+
     // SEMUA pair yang lolos filter opportunityScore (bukan cuma top 10
     // topOpportunities yang dipakai dashboard) -- inilah yang
     // menyambungkan scanner ke eksekusi live trading. executeCron()
@@ -84,6 +104,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       executedAt: new Date().toISOString(),
       summary,
       trading: tradingResult,
+      aiCalibration: {
+        evaluated: calibrationEvaluation.evaluated,
+        correctThisCycle: calibrationEvaluation.correct,
+        newSnapshots: calibrationRecording.written,
+      },
     });
 
   } catch (error) {
