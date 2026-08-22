@@ -197,6 +197,14 @@ export class MarketScanner {
       .sort((a, b) => b.volIdr - a.volIdr)
       .slice(0, DEEP_SCAN_LIMIT);
 
+    // Diagnostik: volIdr tertinggi yang benar-benar terlihat di
+    // consideredPairs, SEBELUM difilter minVolume. Lihat catatan di
+    // types.ts (MarketScanSummary.maxVolIdrSeen).
+    const maxVolIdrSeen =
+      consideredPairs.length > 0
+        ? Math.max(...consideredPairs.map((t) => t.volIdr))
+        : 0;
+
     const minOpportunityScore = criteria.minOpportunityScore ?? 60;
 
     const maxSpreadPercent = criteria.maxSpreadPercent ?? 3;
@@ -379,6 +387,8 @@ export class MarketScanner {
 
     return {
       scannedCount: consideredPairs.length,
+      candidatesCount: candidates.length,
+      maxVolIdrSeen,
       qualifiedCount: qualified.length,
       topOpportunities: qualified.slice(0, 10),
       qualifiedPairs: qualified.map((q) => q.pair),
