@@ -10,6 +10,8 @@ Firebase Service Health Monitoring
 
 import logger from "@/services/logger";
 
+import { adminAuth } from "@/services/firebase/admin";
+
 
 
 
@@ -84,17 +86,18 @@ export class FirebaseHealth {
 
             /*
             ==============================================
-
-            TODO
-
-            Firebase connectivity check.
-
-            Example:
-
-            await firebaseService.health();
-
+            Beda dari databaseHealth.ts (yang cek Firestore
+            spesifik) -- ini cek Firebase Auth Admin SDK,
+            dipakai memverifikasi ID token di HAMPIR SEMUA
+            API route (mis. /api/portfolio/summary,
+            /api/settings/config). listUsers(1) adalah
+            operasi paling murah untuk memverifikasi kredensial
+            Admin SDK & konektivitas Auth benar-benar berfungsi,
+            tanpa efek samping apa pun.
             ==============================================
             */
+
+            await adminAuth.listUsers(1);
 
             const latency =
 
