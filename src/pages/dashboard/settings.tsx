@@ -19,6 +19,7 @@ sudah nyambung ke data asli dari sebelumnya.
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { formatIDR } from "@/utils";
 import Link from "next/link";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import IndodaxAccountManager from "@/components/IndodaxAccountManager";
@@ -179,7 +180,7 @@ export default function SettingsPage() {
             <div>
               <p className="text-xs text-slate-500">Trade Amount</p>
               <p className="font-bold mt-2">
-                Rp {config.tradeAmount.toLocaleString("id-ID")}
+                {formatIDR(config.tradeAmount)}
               </p>
             </div>
             <div>
@@ -237,8 +238,7 @@ export default function SettingsPage() {
               <p className="text-slate-400">
                 Mode <span className="text-sky-400">Full Pair</span> aktif --
                 scanner memindai SEMUA pair IDR di Indodax dengan volume 24
-                jam minimal Rp{" "}
-                {config.minVolumeIdr.toLocaleString("id-ID")}, bukan daftar
+                jam minimal {formatIDR(config.minVolumeIdr)}, bukan daftar
                 tetap.
               </p>
             </div>
