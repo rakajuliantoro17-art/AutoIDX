@@ -9,6 +9,7 @@ Version : 0.0.9 Alpha
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatIDR } from "@/utils";
 
 interface ScannedPairResult {
   pair: string;
@@ -164,7 +165,7 @@ export default function ScannerPage() {
                 .map((item) => (
                   <tr key={item.pair} className="border-b border-white/5">
                     <td className="py-4 font-semibold">{formatPair(item.pair)}</td>
-                    <td>Rp {item.lastPrice.toLocaleString("id-ID")}</td>
+                    <td>{formatIDR(item.lastPrice)}</td>
                     <td>{item.rsi14.toFixed(1)}</td>
                     <td className={trendColor(item.trend)}>{item.trend}</td>
                     <td>
