@@ -323,6 +323,57 @@ export class IndodaxClient {
   }
 
   /**
+   * Riwayat trade akun (private endpoint "trades") -- dipakai
+   * uncertainOrderReconciler.ts untuk memverifikasi apakah order
+   * yang responsnya UNCERTAIN (exception network sebelum dapat
+   * jawaban jelas) SEBENARNYA tereksekusi atau tidak di sisi
+   * Indodax, dengan cara mencari trade pair+side yang cocok
+   * SETELAH timestamp order tersebut dikirim.
+   *
+   * `since` dalam UNIX SECONDS (bukan milliseconds) sesuai
+   * dokumentasi TAPI Indodax.
+   */
+  async tradeHistory(
+    params: { pair: string; since?: number; count?: number }
+  ): Promise<
+    | { success: true; data: unknown[] }
+    | { success: false; message: string }
+  > {
+
+    const body: Record<string, unknown> = {
+      pair: params.pair,
+      order: "desc",
+      count: params.count ?? 50,
+    };
+
+    if (params.since !== undefined) {
+      body.since = Math.floor(params.since);
+    }
+
+    const result = await this.privateRequest("trades", body);
+
+    if (!result.success) {
+
+      return {
+        success: false,
+        message: result.message ?? "Unknown error",
+      };
+
+    }
+
+    return {
+      success: true,
+      // Beberapa versi API membungkus array langsung di data,
+      // beberapa di data[pair] -- normalisasi keduanya di sini
+      // supaya caller tidak perlu tahu bedanya.
+      data: Array.isArray(result.data)
+        ? result.data
+        : ((result.data as Record<string, unknown>)?.[params.pair] as unknown[]) ?? [],
+    };
+
+  }
+
+  /**
    * Check API connection
    */
   async ping() {
