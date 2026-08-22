@@ -19,6 +19,7 @@ const menus: MenuItem[] = [
   { name: "Paper Trading", path: "/dashboard/paper-trading" },
   { name: "Portfolio", path: "/portfolio" },
   { name: "Activity", path: "/activity" },
+  { name: "Transaction History", path: "/dashboard/history" },
   { name: "Backtest", path: "/backtest" },
   { name: "Risk Analytics", path: "/dashboard/analytics" },
   { name: "Canary Monitor", path: "/dashboard/canary-monitor" },
