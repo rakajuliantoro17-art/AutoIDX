@@ -22,6 +22,7 @@ import {
   evaluateDueCalibrations,
 } from "@/services/analytics/aiCalibration";
 import { reconcileUncertainOrders } from "@/services/liveTrading/reconciliation/uncertainOrderReconciler";
+import { recordHeartbeat } from "@/services/scheduler/cronHeartbeat";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
@@ -117,6 +118,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const tradingResult = await executeCron(candidatePairs);
 
     console.log("[CRON] Trading engine:", tradingResult);
+
+    // --- Cron Heartbeat -------------------------------------------
+    // Menandai "scan.ts berhasil selesai jam segini" ke Firestore
+    // supaya cron/reconcile.ts (dan dashboard) bisa tahu kalau
+    // trigger eksternal (cron-job.org) berhenti menembak. Best-
+    // effort, tidak pernah menggagalkan response di bawah ini.
+    await recordHeartbeat({
+      durationMs: Date.now() - startedAt,
+      qualifiedCount: summary.qualifiedCount,
+    });
 
     return res.status(200).json({
       success: true,
