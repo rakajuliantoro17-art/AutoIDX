@@ -18,6 +18,7 @@ ML Nyata", untuk detail & alasan.
 import { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/services/auth/AuthContext";
+import { formatIDR } from "@/utils";
 
 const DEFAULT_PAIRS = ["btc_idr", "eth_idr", "sol_idr", "xrp_idr", "ada_idr"];
 
@@ -327,7 +328,7 @@ export default function MlLabPage() {
                 (confidence {pct(predictResult.prediction.confidence)})
               </p>
               <p className="text-slate-400 text-xs">
-                Harga saat ini: Rp{predictResult.price?.toLocaleString("id-ID")} • Candle:{" "}
+                Harga saat ini: {formatIDR(predictResult.price ?? 0)} • Candle:{" "}
                 {predictResult.candleTime}
               </p>
               <p className="text-slate-400 text-xs">
