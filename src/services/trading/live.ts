@@ -16,21 +16,12 @@ kredensial dari akun aktif Firestore) TIDAK berubah.
 import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
 import { recordTrade, recordLog } from "@/services/firebase/logService";
+import { getOpenPositionsCount } from "@/services/firebase/botState";
 import { BOT_CONFIG } from "@/config/bot";
 import { validateLiveOrder } from "./liveOrderValidator";
-import { acquireLiveOrderLock, releaseLiveOrderLock, markLiveOrderUncertain } from "@/services/firebase/liveOrderLock";
-
-/**
- * Penanda internal: dilempar SETELAH markLiveOrderUncertain()
- * berhasil dipanggil, supaya catch block di buy()/sell() TAHU
- * lock ini SUDAH ditangani (status UNCERTAIN tersimpan) dan
- * TIDAK boleh dioverwrite lagi jadi "FAILED" lewat
- * releaseLiveOrderLock() -- itu akan membuat pair ini dianggap
- * aman di-retry padahal order-nya justru berstatus tidak pasti.
- */
-class UncertainOrderError extends Error {}
-import { getCanarySnapshot, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
+import { getCanarySnapshot, getRecentCanaryOrders, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
 import { CanaryOrderMetric } from "@/services/liveTrading/monitoring/canaryMetrics";
+import { getLiveTradingConfig } from "@/services/liveTrading/risk/liveTradingConfig";
 
 export interface LiveTradeRequest {
   pair: string;
@@ -97,20 +88,68 @@ class LiveTradingService {
   /**
    * BUY asli - market order.
    *
-   * SEKARANG dibungkus pemeriksaan Canary Metrics (lihat
-   * services/liveTrading/monitoring/canaryMetrics.ts +
-   * canaryStore.ts, sebelumnya orphan total/tidak pernah
-   * dipakai) - kalau canary sedang berstatus CRITICAL (win rate
-   * jelek/error rate tinggi/drawdown lewat batas dalam periode
-   * live trading skala kecil ini), BUY baru diblokir otomatis
-   * SEBELUM order dikirim ke Indodax. Ini fail-safe khusus fase
-   * testing live trading dengan nominal kecil - review/ubah
-   * ambang batasnya (lihat CanaryMetricsConfig) begitu sudah
-   * yakin strategi terbukti aman untuk discale up.
+   * SEKARANG dibungkus DUA lapis pemeriksaan tambahan
+   * (sebelumnya orphan total/tidak pernah dipakai):
+   *
+   * 1. Canary Metrics (canaryMetrics.ts/canaryStore.ts) - blokir
+   *    kalau statistik eksekusi (win rate/error rate/drawdown)
+   *    sedang CRITICAL.
+   * 2. Live Trading Config (liveTradingConfig.ts) - gerbang
+   *    TAMBAHAN khusus fase canary/testing skala kecil:
+   *    - `BOT_CANARY_ENABLED` harus eksplisit "true" (default
+   *      FALSE - fail-closed, terpisah dari BOT_MODE/BOT_LIVE_CONFIRM
+   *      yang sudah ada).
+   *    - Kalau `canaryOnly` aktif (default true), nominal per
+   *      trade DIBATASI ke `maxTradeAmount` (default Rp25.000).
+   *    - `maxOpenOrders` (default 1) dan `maxConsecutiveFailures`
+   *      (default 3, dihitung dari histori canary) ditegakkan di
+   *      sini juga.
+   *
+   * CATATAN: `requireReconciliation` di config BELUM ditegakkan -
+   * butuh logika bandingkan posisi tercatat vs saldo/posisi asli
+   * di Indodax yang belum ada.
    */
   async buy(
     request: LiveTradeRequest
   ): Promise<LiveTradeResult> {
+
+    const canaryConfig = getLiveTradingConfig();
+
+    if (!canaryConfig.enabled) {
+
+      const reason =
+        "Gerbang canary (BOT_CANARY_ENABLED) belum diaktifkan - set env var ini ke \"true\" di Vercel kalau memang sudah siap live trading skala kecil.";
+
+      await recordLog("RISK", "warning", `LIVE BUY ditolak: ${reason}`);
+
+      throw new Error(reason);
+
+    }
+
+    const effectiveTradeAmountIdr =
+      request.tradeAmountIdr ?? BOT_CONFIG.defaultTradeAmount;
+
+    if (canaryConfig.canaryOnly && effectiveTradeAmountIdr > canaryConfig.maxTradeAmount) {
+
+      const reason = `Fase canary aktif - nominal trade (Rp${effectiveTradeAmountIdr.toLocaleString("id-ID")}) melebihi batas Rp${canaryConfig.maxTradeAmount.toLocaleString("id-ID")}. Set BOT_CANARY_MAX_TRADE_AMOUNT lebih besar atau BOT_CANARY_ONLY=false kalau sudah siap keluar fase canary.`;
+
+      await recordLog("RISK", "warning", `LIVE BUY ditolak: ${reason}`);
+
+      throw new Error(reason);
+
+    }
+
+    const openPositions = await getOpenPositionsCount();
+
+    if (openPositions >= canaryConfig.maxOpenOrders) {
+
+      const reason = `Fase canary aktif - posisi terbuka (${openPositions}) sudah mencapai batas ${canaryConfig.maxOpenOrders}.`;
+
+      await recordLog("RISK", "warning", `LIVE BUY ditolak: ${reason}`);
+
+      throw new Error(reason);
+
+    }
 
     const canarySnapshot = await getCanarySnapshot();
 
@@ -121,6 +160,37 @@ class LiveTradingService {
       await recordLog("RISK", "danger", `LIVE BUY ditolak: ${reason}`);
 
       throw new Error(reason);
+
+    }
+
+    // Consecutive failures TERBARU (bukan dari seluruh histori) -
+    // ambil order terakhir dari canaryStore, hitung mundur selama
+    // masih FAILED/REJECTED berturut-turut.
+    const recentOrders = await getRecentCanaryOrders(canaryConfig.maxConsecutiveFailures + 5);
+
+    if (recentOrders.length > 0) {
+
+      let consecutiveFailures = 0;
+
+      for (let i = recentOrders.length - 1; i >= 0; i--) {
+
+        if (recentOrders[i].status === "FAILED" || recentOrders[i].status === "REJECTED") {
+          consecutiveFailures++;
+        } else {
+          break;
+        }
+
+      }
+
+      if (consecutiveFailures >= canaryConfig.maxConsecutiveFailures) {
+
+        const reason = `${consecutiveFailures} kegagalan berturut-turut - melebihi batas ${canaryConfig.maxConsecutiveFailures}. Periksa dulu penyebabnya sebelum lanjut.`;
+
+        await recordLog("RISK", "danger", `LIVE BUY ditolak: ${reason}`);
+
+        throw new Error(reason);
+
+      }
 
     }
 
@@ -196,190 +266,132 @@ class LiveTradingService {
 
     }
 
-    // --- Idempotency guard (services/firebase/liveOrderLock.ts) ---
-    // Terinspirasi dari OrderManager.hasDuplicate() (services/
-    // liveTrading/execution/orderManager.ts) yang orphan & pakai
-    // array in-memory (tidak reliable di Vercel serverless) --
-    // diimplementasi ulang berbasis Firestore supaya lock
-    // persisten lintas invocation. Throw di sini kalau ada BUY
-    // lain untuk pair yang sama masih diproses (window 60 detik).
-    await acquireLiveOrderLock(request.pair, "BUY");
+    const client = await this.getClient();
 
-    try {
+    // --- Cek saldo IDR cukup sebelum order ---
+    const info = await client.getInfo();
 
-      const client = await this.getClient();
-
-      // --- Cek saldo IDR cukup sebelum order ---
-      const info = await client.getInfo();
-
-      if (!info.success) {
-
-        await recordLog(
-          "BOT",
-          "danger",
-          `LIVE BUY GAGAL ${request.pair.toUpperCase()} - tidak bisa ambil saldo: ${info.message}`
-        );
-
-        throw new Error(`Gagal ambil saldo Indodax: ${info.message}`);
-
-      }
-
-      const idrBalance = Number(info.data.balance?.idr ?? 0);
-
-      if (idrBalance < tradeAmountIdr) {
-
-        await recordLog(
-          "RISK",
-          "warning",
-          `LIVE BUY dibatalkan - saldo IDR tidak cukup (${idrBalance} < ${tradeAmountIdr})`
-        );
-
-        throw new Error(
-          `Saldo IDR tidak cukup (tersedia ${idrBalance}, butuh ${tradeAmountIdr})`
-        );
-
-      }
-
-      // --- Tempatkan order asli ---
-      const result = await client.trade({
-        pair: request.pair,
-        type: "buy",
-        orderType: "market",
-        idr: tradeAmountIdr,
-      });
-
-      if (!result.success) {
-
-        // "certainty" tidak ada di IndodaxTradeResponse gagal
-        // hasil validasi param lokal (limit/idr/coinAmount missing,
-        // dicek sebelum privateRequest() dipanggil) -- itu jelas
-        // tidak pernah menyentuh Indodax sama sekali, aman
-        // dianggap CERTAIN (default kalau undefined).
-        if (result.certainty === "UNCERTAIN") {
-
-          await markLiveOrderUncertain(
-            request.pair,
-            "BUY",
-            result.message
-          );
-
-          await recordLog(
-            "RISK",
-            "danger",
-            `LIVE BUY TIDAK PASTI ${request.pair.toUpperCase()}: ${result.message} -- ` +
-            `order BISA JADI tereksekusi di Indodax walau kita tidak dapat konfirmasi. ` +
-            `Pair ini DIBLOKIR sampai diverifikasi manual (cek riwayat order Indodax) & di-resolve.`
-          );
-
-          throw new UncertainOrderError(
-            `Status order tidak pasti (kemungkinan tereksekusi): ${result.message}`
-          );
-
-        }
-
-        await recordLog(
-          "BOT",
-          "danger",
-          `LIVE BUY GAGAL ${request.pair.toUpperCase()}: ${result.message}`
-        );
-
-        throw new Error(result.message);
-
-      }
-
-      // --- Catat RAW response penuh, untuk verifikasi manual ---
-      await recordLog(
-        "SYSTEM",
-        "info",
-        `LIVE BUY raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
-          result.data
-        )}`
-      );
-
-      const coin = request.pair.replace(/_idr$/i, "");
-
-      const receivedCoin = Number(
-        (result.data as any)[`receive_${coin}`] ?? 0
-      );
-
-      const spentIdr = Number(
-        (result.data as any).spend_rp ?? tradeAmountIdr
-      );
-
-      const actualPrice =
-        receivedCoin > 0
-          ? spentIdr / receivedCoin
-          : request.price;
-
-      await recordTrade({
-
-        pair: request.pair,
-
-        type: "BUY",
-
-        price: actualPrice,
-
-        amount: receivedCoin,
-
-        totalIdr: spentIdr,
-
-        fee: Number((result.data as any).fee ?? 0),
-
-        orderId: String(result.data.order_id),
-
-        reason: "Live Trading BUY",
-
-        mode: "live",
-
-      });
+    if (!info.success) {
 
       await recordLog(
         "BOT",
-        "success",
-        `LIVE BUY ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
-          0
-        )} (order_id: ${result.data.order_id})`
+        "danger",
+        `LIVE BUY GAGAL ${request.pair.toUpperCase()} - tidak bisa ambil saldo: ${info.message}`
       );
 
-      const buyResult: LiveTradeResult = {
-
-        success: true,
-
-        orderId: String(result.data.order_id),
-
-        pair: request.pair,
-
-        side: "BUY",
-
-        price: actualPrice,
-
-        amount: receivedCoin,
-
-        total: spentIdr,
-
-        timestamp: new Date().toISOString(),
-
-      };
-
-      await releaseLiveOrderLock(request.pair, "BUY", true);
-
-      return buyResult;
-
-    } catch (error) {
-
-      // UncertainOrderError berarti markLiveOrderUncertain() SUDAH
-      // dipanggil di titik kegagalan -- JANGAN overwrite lagi jadi
-      // "FAILED" (itu akan membuat pair ini dianggap aman di-retry
-      // padahal statusnya justru tidak pasti).
-      if (!(error instanceof UncertainOrderError)) {
-
-        await releaseLiveOrderLock(request.pair, "BUY", false);
-
-      }
-
-      throw error;
+      throw new Error(`Gagal ambil saldo Indodax: ${info.message}`);
 
     }
+
+    const idrBalance = Number(info.data.balance?.idr ?? 0);
+
+    if (idrBalance < tradeAmountIdr) {
+
+      await recordLog(
+        "RISK",
+        "warning",
+        `LIVE BUY dibatalkan - saldo IDR tidak cukup (${idrBalance} < ${tradeAmountIdr})`
+      );
+
+      throw new Error(
+        `Saldo IDR tidak cukup (tersedia ${idrBalance}, butuh ${tradeAmountIdr})`
+      );
+
+    }
+
+    // --- Tempatkan order asli ---
+    const result = await client.trade({
+      pair: request.pair,
+      type: "buy",
+      orderType: "market",
+      idr: tradeAmountIdr,
+    });
+
+    if (!result.success) {
+
+      await recordLog(
+        "BOT",
+        "danger",
+        `LIVE BUY GAGAL ${request.pair.toUpperCase()}: ${result.message}`
+      );
+
+      throw new Error(result.message);
+
+    }
+
+    // --- Catat RAW response penuh, untuk verifikasi manual ---
+    await recordLog(
+      "SYSTEM",
+      "info",
+      `LIVE BUY raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
+        result.data
+      )}`
+    );
+
+    const coin = request.pair.replace(/_idr$/i, "");
+
+    const receivedCoin = Number(
+      (result.data as any)[`receive_${coin}`] ?? 0
+    );
+
+    const spentIdr = Number(
+      (result.data as any).spend_rp ?? tradeAmountIdr
+    );
+
+    const actualPrice =
+      receivedCoin > 0
+        ? spentIdr / receivedCoin
+        : request.price;
+
+    await recordTrade({
+
+      pair: request.pair,
+
+      type: "BUY",
+
+      price: actualPrice,
+
+      amount: receivedCoin,
+
+      totalIdr: spentIdr,
+
+      fee: Number((result.data as any).fee ?? 0),
+
+      orderId: String(result.data.order_id),
+
+      reason: "Live Trading BUY",
+
+      mode: "live",
+
+    });
+
+    await recordLog(
+      "BOT",
+      "success",
+      `LIVE BUY ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
+        0
+      )} (order_id: ${result.data.order_id})`
+    );
+
+    return {
+
+      success: true,
+
+      orderId: String(result.data.order_id),
+
+      pair: request.pair,
+
+      side: "BUY",
+
+      price: actualPrice,
+
+      amount: receivedCoin,
+
+      total: spentIdr,
+
+      timestamp: new Date().toISOString(),
+
+    };
 
   }
 
@@ -449,145 +461,101 @@ class LiveTradingService {
 
     }
 
-    // --- Idempotency guard, sama seperti buyInternal() -- lihat
-    // komentar lengkap di sana. ---
-    await acquireLiveOrderLock(request.pair, "SELL");
+    const client = await this.getClient();
 
-    try {
+    const result = await client.trade({
+      pair: request.pair,
+      type: "sell",
+      orderType: "market",
+      coinAmount: request.amount,
+    });
 
-      const client = await this.getClient();
-
-      const result = await client.trade({
-        pair: request.pair,
-        type: "sell",
-        orderType: "market",
-        coinAmount: request.amount,
-      });
-
-      if (!result.success) {
-
-        if (result.certainty === "UNCERTAIN") {
-
-          await markLiveOrderUncertain(
-            request.pair,
-            "SELL",
-            result.message
-          );
-
-          await recordLog(
-            "RISK",
-            "danger",
-            `LIVE SELL TIDAK PASTI ${request.pair.toUpperCase()}: ${result.message} -- ` +
-            `order BISA JADI tereksekusi di Indodax walau kita tidak dapat konfirmasi. ` +
-            `Pair ini DIBLOKIR sampai diverifikasi manual & di-resolve.`
-          );
-
-          throw new UncertainOrderError(
-            `Status order tidak pasti (kemungkinan tereksekusi): ${result.message}`
-          );
-
-        }
-
-        await recordLog(
-          "BOT",
-          "danger",
-          `LIVE SELL GAGAL ${request.pair.toUpperCase()}: ${result.message}`
-        );
-
-        throw new Error(result.message);
-
-      }
-
-      // --- Catat RAW response penuh, untuk verifikasi manual ---
-      await recordLog(
-        "SYSTEM",
-        "info",
-        `LIVE SELL raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
-          result.data
-        )}`
-      );
-
-      const data = result.data as any;
-
-      const receivedIdr = Number(
-        data.receive_idr ?? data.receive_rp ?? 0
-      );
-
-      const total =
-        receivedIdr > 0
-          ? receivedIdr
-          : request.amount * request.price;
-
-      const actualPrice =
-        receivedIdr > 0
-          ? receivedIdr / request.amount
-          : request.price;
-
-      await recordTrade({
-
-        pair: request.pair,
-
-        type: "SELL",
-
-        price: actualPrice,
-
-        amount: request.amount,
-
-        totalIdr: total,
-
-        fee: Number(data.fee ?? 0),
-
-        orderId: String(data.order_id),
-
-        reason: "Live Trading SELL",
-
-        mode: "live",
-
-      });
+    if (!result.success) {
 
       await recordLog(
         "BOT",
-        "success",
-        `LIVE SELL ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
-          0
-        )} (order_id: ${data.order_id})`
+        "danger",
+        `LIVE SELL GAGAL ${request.pair.toUpperCase()}: ${result.message}`
       );
 
-      const sellResult: LiveTradeResult = {
-
-        success: true,
-
-        orderId: String(data.order_id),
-
-        pair: request.pair,
-
-        side: "SELL",
-
-        price: actualPrice,
-
-        amount: request.amount,
-
-        total,
-
-        timestamp: new Date().toISOString(),
-
-      };
-
-      await releaseLiveOrderLock(request.pair, "SELL", true);
-
-      return sellResult;
-
-    } catch (error) {
-
-      if (!(error instanceof UncertainOrderError)) {
-
-        await releaseLiveOrderLock(request.pair, "SELL", false);
-
-      }
-
-      throw error;
+      throw new Error(result.message);
 
     }
+
+    // --- Catat RAW response penuh, untuk verifikasi manual ---
+    await recordLog(
+      "SYSTEM",
+      "info",
+      `LIVE SELL raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
+        result.data
+      )}`
+    );
+
+    const data = result.data as any;
+
+    const receivedIdr = Number(
+      data.receive_idr ?? data.receive_rp ?? 0
+    );
+
+    const total =
+      receivedIdr > 0
+        ? receivedIdr
+        : request.amount * request.price;
+
+    const actualPrice =
+      receivedIdr > 0
+        ? receivedIdr / request.amount
+        : request.price;
+
+    await recordTrade({
+
+      pair: request.pair,
+
+      type: "SELL",
+
+      price: actualPrice,
+
+      amount: request.amount,
+
+      totalIdr: total,
+
+      fee: Number(data.fee ?? 0),
+
+      orderId: String(data.order_id),
+
+      reason: "Live Trading SELL",
+
+      mode: "live",
+
+    });
+
+    await recordLog(
+      "BOT",
+      "success",
+      `LIVE SELL ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
+        0
+      )} (order_id: ${data.order_id})`
+    );
+
+    return {
+
+      success: true,
+
+      orderId: String(data.order_id),
+
+      pair: request.pair,
+
+      side: "SELL",
+
+      price: actualPrice,
+
+      amount: request.amount,
+
+      total,
+
+      timestamp: new Date().toISOString(),
+
+    };
 
   }
 
