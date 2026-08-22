@@ -31,6 +31,17 @@ Kalau Firestore gagal diakses, getBotSettings() sendiri sudah
 fallback ke DEFAULT_SETTINGS (lihat api/settings/service.ts) --
 jadi modul ini tetap dapat nilai yang valid untuk di-clamp,
 bot tidak pernah berhenti berfungsi cuma karena Firestore down.
+
+UPDATE (integrasi config/limits.ts): sebelumnya modul ini cuma
+clamp ke BOT_CONFIG.maxTradeAmount / RISK_CONFIG.maxOpenPosition
+(env var Vercel, BISA salah ketik/salah nilai). Sekarang DITAMBAH
+lapisan kedua: MAX_ORDER_VALUE & MAX_OPEN_POSITIONS dari
+config/limits.ts -- batas keamanan mutlak yang cuma bisa berubah
+lewat edit kode + redeploy, bukan cuma env var. TIDAK mengubah
+perilaku saat ini sama sekali (BOT_CONFIG.maxTradeAmount sekarang
+cuma Rp10.000, jauh di bawah MAX_ORDER_VALUE Rp100 juta) -- murni
+jaring pengaman tambahan kalau suatu saat env var di Vercel
+ke-set ke angka yang salah.
 ==========================================================
 */
 
@@ -38,14 +49,22 @@ import { getSettings } from "@/api/settings/service";
 import type { BotSettings } from "@/api/settings/types";
 import { BOT_CONFIG } from "@/config/bot";
 import { RISK_CONFIG } from "@/config/risk";
+import {
+  MIN_ORDER_VALUE,
+  MAX_ORDER_VALUE,
+  MAX_OPEN_POSITIONS,
+} from "@/config/limits";
 import type { StrategyMode } from "@/services/strategy/manager";
 
 /**
  * Batas bawah trade amount = minimum transaksi Indodax (Rp10.000).
- * Catatan: Rp10.000-24.999 diproses lewat "Indodax Lite", >=Rp25.000
- * lewat "Indodax Pro" (help.indodax.com) -- keduanya sama-sama valid.
+ * Diambil dari config/limits.ts (satu-satunya sumber angka ini
+ * sekarang -- sebelumnya nilai yang sama di-hardcode ulang di
+ * sini). Catatan: Rp10.000-24.999 diproses lewat "Indodax Lite",
+ * >=Rp25.000 lewat "Indodax Pro" (help.indodax.com) -- keduanya
+ * sama-sama valid.
  */
-const MIN_TRADE_AMOUNT_IDR = 10_000;
+const MIN_TRADE_AMOUNT_IDR = MIN_ORDER_VALUE;
 
 const MIN_STOP_LOSS_PERCENT = 0.1;
 const MAX_STOP_LOSS_PERCENT = 20;
@@ -102,7 +121,13 @@ export async function getEffectiveTradingConfig(): Promise<EffectiveTradingConfi
   const tradeAmountIdr = clamp(
     rawTradeAmount,
     MIN_TRADE_AMOUNT_IDR,
-    BOT_CONFIG.maxTradeAmount
+    // Dua batas atas sekaligus: BOT_CONFIG.maxTradeAmount (bisa
+    // diubah operator lewat env var Vercel) DAN MAX_ORDER_VALUE
+    // dari config/limits.ts (batas keamanan mutlak, TIDAK bisa
+    // diubah tanpa redeploy+edit kode). Kalau env var Vercel
+    // ke-set salah/kelewat besar, MAX_ORDER_VALUE tetap jadi
+    // jaring pengaman terakhir. Dipilih yang PALING KETAT.
+    Math.min(BOT_CONFIG.maxTradeAmount, MAX_ORDER_VALUE)
   );
 
   const rawStopLoss = settings.stopLossPercent;
@@ -123,7 +148,10 @@ export async function getEffectiveTradingConfig(): Promise<EffectiveTradingConfi
   const maxOpenPositions = clamp(
     rawMaxOpenPositions,
     1,
-    RISK_CONFIG.maxOpenPosition
+    // Sama polanya dengan tradeAmountIdr di atas: RISK_CONFIG.
+    // maxOpenPosition (env var) DAN MAX_OPEN_POSITIONS dari
+    // config/limits.ts (batas mutlak) -- dipilih yang paling ketat.
+    Math.min(RISK_CONFIG.maxOpenPosition, MAX_OPEN_POSITIONS)
   );
 
   return {
