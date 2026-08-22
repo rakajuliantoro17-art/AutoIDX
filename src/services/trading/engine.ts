@@ -75,6 +75,7 @@ import type { AIAnalysis } from "@/services/intelligence/types";
 import aiConsensus from "@/services/intelligence/ai/consensus";
 import type { AIConsensusInput } from "@/services/intelligence/ai/consensus";
 import { explainDecision } from "@/services/intelligence/ai/decisionExplainer";
+import mlAdvisor from "@/services/intelligence/ml/mlAdvisor";
 
 import PaperTradingService from "./paper";
 import LiveTradingService from "./live";
@@ -352,6 +353,23 @@ async function logAIAdvisory(
   price: number,
   features: IndicatorFeatureVector
 ): Promise<void> {
+
+  // ML Advisory (observability only) -- lihat catatan lengkap di
+  // services/intelligence/ml/mlAdvisor.ts. Sengaja diletakkan
+  // TERPISAH dari blok AI provider di bawah (tidak butuh env key
+  // LLM apapun, sumbernya model ML sendiri) dan dibungkus try/catch
+  // sendiri supaya kegagalan di sini (paling umum: belum ada model
+  // terlatih) TIDAK PERNAH mempengaruhi AI Advisory/Consensus di
+  // bawahnya maupun keputusan BUY/SELL/HOLD manapun.
+  try {
+    const mlResult = await mlAdvisor.getMLAdvisory(pair, features);
+
+    if (mlResult) {
+      await recordLog("BOT", "info", mlResult.logLine);
+    }
+  } catch (mlError) {
+    console.error("[ML Advisory]", mlError);
+  }
 
   const availableCandidates = AI_PROVIDER_CANDIDATES.filter(
     (c) => !!process.env[c.envKey]
