@@ -71,6 +71,15 @@ import { getCronHeartbeatStatus } from "@/services/scheduler/cronHeartbeat";
 import automationNotifier from "@/services/automation/notifier";
 
 /**
+ * Sama seperti cron/scan.ts -- default timeout Vercel Hobby (10
+ * detik) berisiko mepet kalau posisi terbuka banyak (tiap pair
+ * butuh panggilan getInfo()+openOrders() terpisah ke Indodax).
+ */
+export const config = {
+  maxDuration: 60,
+};
+
+/**
  * Live trading HANYA aktif kalau DUA syarat terpenuhi -- sama
  * persis isLiveModeActive() di services/trading/engine.ts.
  * Sengaja diduplikasi (bukan diimpor) supaya file ini tidak
