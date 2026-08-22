@@ -24,6 +24,24 @@ import {
 import { reconcileUncertainOrders } from "@/services/liveTrading/reconciliation/uncertainOrderReconciler";
 import { recordHeartbeat } from "@/services/scheduler/cronHeartbeat";
 
+/**
+ * Naikkan batas waktu eksekusi function di Vercel (default Hobby
+ * cuma 10 detik -- terukti mepet, siklus scan 493 pair Indodax
+ * pernah butuh ~12 detik). 60 detik dipilih supaya ada ruang aman
+ * kalau network Indodax sedang lambat, tapi TIDAK sampai bikin
+ * cron-job.org (interval 1 menit) menembak siklus baru sebelum
+ * yang lama selesai -- acquireCronLock() di bawah tetap jadi
+ * pengaman utama kalau itu terjadi.
+ *
+ * CATATAN: di paket Vercel Hobby, maxDuration di atas 60 mungkin
+ * ditolak/di-clamp saat deploy -- kalau butuh lebih dari 60 detik
+ * (mis. kalau nanti scan lebih dari 493 pair), perlu upgrade ke
+ * paket Pro.
+ */
+export const config = {
+  maxDuration: 60,
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const authHeader = req.headers.authorization;
