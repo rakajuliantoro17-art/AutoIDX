@@ -27,6 +27,31 @@ export const RISK_CONFIG = {
     ),
 
 
+  /**
+   * Position sizing mode.
+   * FIXED       = pakai tradeAmountIdr tetap (perilaku default/lama).
+   * RISK_BASED  = ukuran posisi dihitung dari riskPercentPerTrade
+   *               dan jarak stopLossPercent (execution/risk/positionSizing.ts,
+   *               sebelumnya orphan). OFF secara default -- tidak
+   *               mengubah perilaku live yang sudah berjalan tanpa
+   *               persetujuan eksplisit lewat env var.
+   */
+  sizingMode:
+    (process.env.BOT_SIZING_MODE === "RISK_BASED"
+      ? "RISK_BASED"
+      : "FIXED") as "FIXED" | "RISK_BASED",
+
+  /**
+   * Persentase saldo yang boleh dipertaruhkan per trade, HANYA
+   * dipakai kalau sizingMode === "RISK_BASED".
+   */
+  riskPercentPerTrade:
+    Number(
+      process.env.BOT_RISK_PERCENT_PER_TRADE
+      ?? 1
+    ),
+
+
 
 
 
