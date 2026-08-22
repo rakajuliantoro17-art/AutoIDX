@@ -38,7 +38,7 @@ Variabel	Wajib	Keterangan
 `DEEPSEEK_API_KEY`	Kalau pakai fitur AI DeepSeek	
 Cron / Scheduled Jobs
 Variabel	Wajib	Keterangan
-`CRON_SECRET`	Ya	Dicocokkan di `/api/cron/scan` untuk memvalidasi request dari cron-job.org bukan dari publik
+`CRON_SECRET`	Ya	Dicocokkan di `/api/cron/scan` DAN `/api/bot` (sejak audit keamanan sesi ML Advisory) untuk memvalidasi request dari cron-job.org / trigger manual, bukan dari publik. `/api/bot` sebelumnya TIDAK memvalidasi ini sama sekali -- lihat Session Log 11 di `docs/claude.md`.
 Bot Mode & Safety
 Variabel	Wajib	Keterangan
 `BOT_MODE`	Ya	`paper` (aman, tidak kirim order asli) atau `live` (order asli, uang sungguhan). Default harus `paper`.
