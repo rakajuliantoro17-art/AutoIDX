@@ -15,6 +15,7 @@ Indodax, dan menampilkan hasil simulasi sesungguhnya.
 "use client";
 
 import { useState } from "react";
+import { formatIDR } from "@/utils";
 
 interface BacktestReport {
   title: string;
@@ -81,7 +82,7 @@ const STRATEGY_OPTIONS = [
 ];
 
 function formatIdr(value: number): string {
-  return `Rp ${Math.round(value).toLocaleString("id-ID")}`;
+  return formatIDR(value);
 }
 
 function formatDate(ts: number): string {
