@@ -22,4 +22,11 @@ export interface HealthResponse {
 
   };
 
+  /**
+   * Detail per-komponen dari systemHealth.check() (latency,
+   * pesan, dll) -- opsional, untuk siapa pun yang butuh lebih
+   * dari sekadar boolean ringkas di atas.
+   */
+  details?: unknown;
+
 }
