@@ -79,7 +79,6 @@ Barrel Export
 Setiap module utama wajib punya `index.ts` sejak folder dibuat, bukan belakangan. Folder tanpa `index.ts` yang di-`export *` dari barrel atas akan gagal build ("Cannot find module").
 Configuration
 Jangan hardcode API Key/Secret/Trading Pair/Confidence/Fee/Position Size. Selalu lewat config atau Environment Variables.
----
 Environment Variables
 Seluruh secret HANYA di Vercel Project Settings. Jangan buat file `.env`/`.env.local`/`.env.example` — pernah dua kali menyebabkan kebocoran kredensial live (Indodax API key/secret, Firebase Admin private key) karena ter-commit ke repo publik.
 Referensi nama variabel (dokumentasi murni, tanpa nilai asli): `docs/environment-variables.md`
@@ -412,7 +411,6 @@ Barrel Export
 Setiap module utama wajib punya `index.ts` sejak folder dibuat, bukan belakangan. Folder tanpa `index.ts` yang di-`export *` dari barrel atas akan gagal build ("Cannot find module").
 Configuration
 Jangan hardcode API Key/Secret/Trading Pair/Confidence/Fee/Position Size. Selalu lewat config atau Environment Variables.
----
 Environment Variables
 Seluruh secret HANYA di Vercel Project Settings. Jangan buat file `.env`/`.env.local`/`.env.example` — pernah dua kali menyebabkan kebocoran kredensial live (Indodax API key/secret, Firebase Admin private key) karena ter-commit ke repo publik.
 Referensi nama variabel (dokumentasi murni, tanpa nilai asli): `docs/environment-variables.md`
@@ -747,7 +745,6 @@ PnL/equity real-time TIDAK mengalir ke canary. `live.ts` tidak tahu entry price 
 Ambang batas default `CanaryMetricsConfig` (maxErrorRate 5%, maxDrawdown 3%, maxLoss 0 - artinya rugi bersih SEDIKIT SAJA langsung CRITICAL) dipakai apa adanya dari kode yang sudah ada, TIDAK diubah/ditebak sesi ini. `maxLoss:0` sangat ketat (cocok untuk fase awal testing tapi user perlu tahu ini akan halt di kerugian pertama begitu PnL tersambung - lihat poin di atas). Belum didiskusikan dengan user apakah ini nilai yang diinginkan.
 Belum pernah dicoba dengan live trading sungguhan (belum ada order live yang tereksekusi untuk diuji) - baru lolos `tsc --noEmit` + `npm run build` penuh terhadap kode asli via clone.
 Audit repo ini juga menemukan dokumen `docs/claude.md` ini sendiri sudah 1174 baris dengan beberapa duplikasi historis (bagian sama muncul >1x karena pola append changelog) - belum dirapikan, di luar scope sesi ini.
----
 Session Log 6 — Live Trading Config (Fase Canary) Diaktifkan
 Lanjutan langsung Session Log 5 (Canary Metrics). Ditemukan `services/liveTrading/risk/liveTradingConfig.ts` - orphan, didesain khusus untuk "live trading skala kecil untuk testing" (persis tujuan user): `canaryOnly`, `maxTradeAmount` (default Rp25.000), `maxOpenOrders` (default 1), `maxConsecutiveFailures` (default 3).
 Bug ditemukan SEBELUM disambungkan (untung belum sempat dipakai): file aslinya baca env var `BOT_MAX_TRADE_AMOUNT` dan `BOT_MAX_DAILY_LOSS` - DUA nama ini SUDAH dipakai untuk hal lain dengan arti/satuan berbeda (`config/bot.ts` BOT_CONFIG.maxTradeAmount default 50rb; BOT_CONFIG.maxDailyLoss & RISK_CONFIG.maxDailyLossPercent keduanya PERSENTASE, sedangkan file ini bacanya sebagai RUPIAH ABSOLUT). Kalau disambung apa adanya, orang yang set `BOT_MAX_DAILY_LOSS=5` (maksud "5%") akan diam-diam ditafsirkan jadi "batas rugi Rp5" oleh config canary ini. Semua env var yang berpotensi bentrok sudah diganti prefix `BOT_CANARY_*` (lihat `docs/environment-variables.md`, bagian baru "Live Trading Fase Canary").
@@ -764,3 +761,14 @@ Belum ditegakkan / catatan jujur
 `requireReconciliation` disimpan di config tapi TIDAK ditegakkan kode manapun - butuh bandingkan posisi tercatat vs saldo/posisi asli Indodax, belum ada.
 `maxDailyLossIdr` (canary) juga belum ditegakkan di `live.ts` - RISK_CONFIG.maxDailyLossPercent (existing, di engine.ts) sudah menutupi kasus serupa dengan basis persentase, jadi belum genting, tapi kalau mau presisi sesuai desain asli file ini, perlu ditambahkan.
 Diverifikasi via clone langsung (`git clone https://github.com/rakajuliantoro17-art/AutoIDX.git`) - `tsc --noEmit` + `npm run build` PENUH sukses terhadap kode asli, semua route (termasuk `/dashboard/canary-monitor`, `/api/canary/status`, `/api/ml/*`) ter-generate benar.
+---
+Session Log 8 — Rate Limiter Diaktifkan (Firestore-backed)
+`services/security/rateLimiter.ts` (class `RateLimiter`) sebelumnya orphan total, in-memory (Map biasa) - percuma di serverless Vercel karena tiap invocation baru = memory kosong lagi.
+Yang dikerjakan
+`services/security/rateLimitStore.ts` (baru) - versi Firestore-backed (transaction untuk atomicity), fixed-window counter per key. Fail-open dengan sengaja kalau Firestore error (rate limit cuma defense-in-depth, bukan kontrol keamanan utama - itu tugas `verifyApiAuth`). Tidak mengubah/menghapus `rateLimiter.ts` yang lama (masih ada, masih orphan, biarkan seandainya ada yang mau pola in-memory untuk kasus lain).
+`pages/api/ml/train.ts` - dibatasi 5x/10 menit per user (`ml_train:${uid}`). Training = beberapa request Indodax + tulis Firestore + gradient descent asli, bukan operasi ringan.
+`pages/api/canary/status.ts` - reset (aksi destruktif, hapus riwayat canary) dibatasi 3x/jam per user (`canary_reset:${uid}`).
+`firestore.rules` TIDAK perlu diubah - koleksi baru `rate_limits` sudah otomatis tertutup dari client lewat rule `{document=**}: deny` yang sudah ada.
+Catatan jujur
+Belum disambungkan ke endpoint lain yang berpotensi disalahgunakan (`indodax-accounts` POST, `bot/control`) - baru 2 endpoint paling jelas butuh (training mahal, reset destruktif). Bisa diperluas kalau ada indikasi penyalahgunaan nyata.
+Diverifikasi via clone langsung, `tsc --noEmit` + `npm run build` PENUH sukses, 0 error.
