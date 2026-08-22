@@ -2,18 +2,15 @@ Claude Development Guide
 Project: AURA Trade OS
 Version: 0.2.0 Alpha
 Terakhir diaudit: sesi integrasi strategi orphan + AI advisory + audit keamanan (lihat "Session Log 4" di paling bawah dokumen)
----
 ⚠️ CATATAN STRUKTUR DOKUMEN INI (penting, baca sebelum scroll)
 Dokumen ini punya dua narasi sesi lama yang tumpang tindih (bekas beberapa akun Claude/ChatGPT paralel menulis ke file yang sama tanpa koordinasi) -- bagian yang lebih AWAL di dokumen ini kadang berisi klaim yang sudah DIKOREKSI oleh bagian yang lebih AKHIR pada topik yang sama (contoh nyata: soal penyimpanan API key Indodax -- bagian awal bilang "belum diperbaiki (plaintext)", bagian lebih akhir mengoreksi jadi "sudah diperbaiki (AES-256-GCM + firestore.rules)" -- sudah diverifikasi ulang ke kode sesi ini, klaim yang BENAR adalah yang sudah diperbaiki).
 Aturan baca: kalau ada dua klaim yang bertentangan soal topik yang sama, percaya yang posisinya lebih akhir di dokumen, DAN tetap verifikasi ke kode -- jangan berhenti di salah satu klaim tanpa cek. Bagian "✅ STATUS TERVERIFIKASI" tepat di bawah ini adalah yang paling baru dan sudah diverifikasi ulang paling menyeluruh (npm install penuh + tsc bersih + baca kode langsung), tapi tetap bisa basi kalau ada sesi lain setelah ini yang belum tercatat.
----
 🔴 PERINGATAN KEAMANAN — SEMPAT ADA KEY MENTAH DI DOKUMEN INI
 `ACCOUNT_ENCRYPTION_KEY` sempat tertulis dalam bentuk mentah (plaintext hex) di dokumen ini, kemungkinan ter-commit ke repo. Key ini dipakai untuk mendekripsi API key/secret Indodax ASLI milik semua user yang tersimpan di Firestore (`users/{uid}/indodaxAccounts`, lihat `services/security/encryption.ts`). Sudah di-redact di versi ini, TAPI:
 Kalau key itu belum pernah diganti sejak ditulis di dokumen ini -- anggap sudah bocor. Generate `ACCOUNT_ENCRYPTION_KEY` baru sekarang, update di Vercel env var.
 Semua user yang sudah pernah input API key/secret Indodax lewat dashboard perlu input ulang setelah key diganti -- data lama terenkripsi key lama, tidak bisa didekripsi key baru.
 Kalau key lama itu pernah dipakai untuk kredensial Indodax asli (bukan cuma testing) -- revoke & regenerate API key-nya juga langsung di Indodax, jangan cuma ganti encryption key.
 Jangan pernah tulis nilai secret/key asli di dokumen ini lagi, sekalipun untuk memudahkan sesi berikutnya -- tulis instruksi "generate baru, simpan di Vercel", bukan nilainya.
----
 ✅ STATUS TERVERIFIKASI (per audit sesi ini -- dicek langsung ke kode + tsc bersih + npm install penuh, bukan klaim tanpa verifikasi)
 Build/tipe: `npm install` penuh + `./node_modules/.bin/tsc --noEmit` (versi proyek 5.5.3 -- BUKAN `npx tsc`, yang di sesi ini sempat resolve ke versi lain dan gagal diam-diam di level config tanpa memeriksa satu file pun) -> 0 error TypeScript di seluruh proyek. `npm run build` (Next.js) BELUM dijalankan sesi ini -- minta build log Vercel terbaru sebelum klaim "siap deploy".
 Jalur trading UTAMA yang aktif (cron -> engine), diverifikasi baris demi baris sesi ini:
@@ -49,7 +46,6 @@ Modul	Status
 `services/validation/`	❌ Orphan total
 `services/security/encryption.ts` + `firestore.rules` (root)	✅ AKTIF -- kredensial Indodax terenkripsi AES-256-GCM, lihat bagian keamanan di bawah untuk detail
 `services/paperTrading/`	🟡 Masih ADA, belum dihapus -- dokumen versi lama di bawah pernah menyimpulkan "final, aman dihapus", belum diverifikasi ulang sesi ini apakah kesimpulan itu masih berlaku setelah semua perubahan `engine.ts`/`paper.ts` sesi ini
----
 Cara Pakai Dokumen Ini (untuk Claude sesi/akun lain)
 Project ini dikerjakan lintas beberapa akun Claude berbeda + ChatGPT, secara paralel, oleh satu orang (Raka) yang bekerja hanya lewat GitHub browser UI + Vercel dashboard (tidak ada terminal/git lokal).
 Aturan wajib sebelum menyentuh kode apapun di sini:
@@ -57,35 +53,31 @@ Jangan percaya dokumen manapun (termasuk file ini) tanpa verifikasi langsung ke 
 Selalu minta build log Vercel terbaru di awal sesi, atau clone repo dan jalankan `npm run build` sendiri untuk tahu persis di mana build berhenti.
 Cek dulu apakah sebuah engine/service/type sudah ada sebelum membuat yang baru — project ini sudah berkali-kali punya implementasi paralel untuk konsep yang sama (lihat tabel "Known Duplication").
 Ikuti seluruh "Development Principles" di bawah — ini bukan saran, ini sudah terbukti mencegah kelas bug yang sama berulang.
----
 Project Overview
 AURA Trade OS adalah platform trading cryptocurrency berbasis TypeScript untuk exchange Indodax.
 Tujuan utama: Realtime Market Engine, Technical Indicator Engine, Strategy Engine, Backtesting, Paper Trading, Live Trading, AI Assisted Trading, Dashboard Monitoring.
 Target deployment: GitHub → Vercel, database Firebase.
----
 Technology Stack
 Frontend: Next.js (App Router, kanonik), React, TypeScript, Tailwind CSS
 Backend: Vercel Functions
 Database: Firebase Firestore
 Realtime: Indodax WebSocket
 AI: OpenAI, Claude/Anthropic, Gemini (REST fetch langsung), DeepSeek
----
 Project Architecture (alur data yang seharusnya)
----
 Development Principles
-1. TypeScript First
+TypeScript First
 Jangan JavaScript. Typing jelas. Hindari `any` kecuali benar-benar perlu.
-2. Modular Architecture
+Modular Architecture
 Satu folder satu tanggung jawab. Jangan campur logika antar modul.
-3. Single Responsibility
+Single Responsibility
 Satu file satu tanggung jawab (`orderExecutor.ts` hanya kirim order, bukan juga hitung indikator).
-4. Shared Types — PALING SERING DILANGGAR
+Shared Types — PALING SERING DILANGGAR
 Interface bersama WAJIB di `types.ts` folder tersebut. Kalau tipe (mis. `OrderSide`, `StrategyDecision`, `TradeAction`) sudah ada di `types.ts`, file lain WAJIB `import type` dari sana, bukan menulis ulang union type/interface yang sama.
 Ini sudah menyebabkan build gagal berkali-kali karena TypeScript menganggap dua definisi bernama sama sebagai tipe berbeda saat barrel-export bersamaan. Contoh nyata yang baru saja diperbaiki: `StrategyDecision` didefinisikan ulang di `strategy/core/strategyEngine.ts` (tanpa field `riskLevel`) terpisah dari versi kanonik di `strategy/types.ts` — 5 file harus diperbaiki untuk menyatukannya kembali.
 Sebelum redefine type/interface: cek dulu `types.ts`, `models/`, `core/` folder terkait — apakah sudah ada versi lain dengan nama sama.
-5. Barrel Export
+Barrel Export
 Setiap module utama wajib punya `index.ts` sejak folder dibuat, bukan belakangan. Folder tanpa `index.ts` yang di-`export *` dari barrel atas akan gagal build ("Cannot find module").
-6. Configuration
+Configuration
 Jangan hardcode API Key/Secret/Trading Pair/Confidence/Fee/Position Size. Selalu lewat config atau Environment Variables.
 ---
 Environment Variables
@@ -93,23 +85,18 @@ Seluruh secret HANYA di Vercel Project Settings. Jangan buat file `.env`/`.env.l
 Referensi nama variabel (dokumentasi murni, tanpa nilai asli): `docs/environment-variables.md`
 Catatan penting: nama variabel secret Indodax yang BENAR adalah `INDODAX_SECRET_KEY` — bukan `INDODAX_SECRET`. Sempat ada mismatch antara `src/lib/validators/env.ts` (baca `INDODAX_SECRET`) dan `src/services/liveTrading/exchange/indodaxClient.ts` (baca `INDODAX_SECRET_KEY`, yang benar-benar dipakai). Sudah diperbaiki — kalau Vercel kamu masih pakai nama lama, ganti.
 GitHub Actions (`ci.yml`, `deploy.yml`) TIDAK otomatis mewarisi Environment Variables dari Vercel. Kalau ada workflow yang jalankan `npm run build`/`type-check` sendiri, env vars yang dibutuhkan (terutama `NEXT_PUBLIC_FIREBASE_*`) harus di-set terpisah sebagai GitHub Secrets.
----
 Logging & Error Handling
 Jangan `console.log()` untuk production — pakai Logger Service proyek. Semua async function pakai try/catch atau Result Object, jangan biarkan Promise gagal tanpa penanganan.
----
 Import Rules
 `import type { X } from "../types"` untuk tipe.
 `export { default as X } from "./y"` HANYA re-export, TIDAK membuat binding lokal — kalau nama itu juga dipakai di file yang sama, harus di-`import` biasa terpisah.
 Type assertion (`as X`) tidak boleh memulai baris baru setelah chained method call, karena Automatic Semicolon Insertion memutus expression jadi syntax error. Taruh `as X` di baris yang sama.
----
 Naming Convention
 Class `PascalCase` · Function `camelCase` · Constant `UPPER_CASE` · File `camelCase.ts`
 Nama file harus persis, tanpa spasi nyempil. File seperti `" index.ts"` (ada spasi tak kasat mata) gagal di-resolve module bundler meski terlihat identik di GitHub UI. (Kasus nyata: `services/exchange/adapters/ index.ts` — sudah diperbaiki jadi `index.ts`.)
----
 Trading Principles
 Jangan pernah melewati Risk Layer.
 Order tidak boleh dieksekusi apabila: confidence di bawah minimum · exposure melebihi batas · position limit terlampaui · saldo tidak cukup · health monitor critical.
----
 Live Trading Safety — WAJIB DIBACA SEBELUM SENTUH KODE EKSEKUSI
 Ada tiga jalur eksekusi order paralel di codebase ini (hasil kerja beberapa tool AI berbeda tanpa koordinasi):
 `services/exchange/adapters/indodax.ts` — `placeOrder()` sudah dikunci: menolak eksekusi kecuali `TRADING_CONFIG.mode === "live"`.
@@ -118,12 +105,10 @@ services/liveTrading/exchange/orderExecutor.ts — client HTTP terpisah sendiri 
 ⚠️ KOREKSI (audit terbaru): klaim sebelumnya bahwa services/exchange/adapters/indodax.ts → placeOrder() "sudah dikunci" adalah salah. Verifikasi langsung ke kode menunjukkan IndodaxAdapter di services/exchange/adapters/indodax.ts hanya berisi initialize(), start(), stop(), health() — semuanya cuma pakai publicClient (market data publik). Tidak ada implementasi placeOrder, getBalance, atau method private lainnya sama sekali — jadi bukan "dikunci aman", tapi memang belum ditulis. RequestSigner (HMAC-SHA512) yang disebut "siap pakai" juga belum ada di repo.
 Status saat ini (per audit terakhir): bot berjalan mode paper trading, API key production belum diisi. Kedua jalur di atas yang aktif (1 dan 3) sudah punya pengaman. Belum ada logic position-sizing yang menghitung dari saldo/exposure asli — `execution/engine.ts` masih punya `quantity: 0` dengan TODO(SAFETY) di jalur ketiga yang belum tersambung.
 Sebelum mengklaim "live trading siap" ke user: telusuri end-to-end sendiri, jangan percaya klaim dokumen atau status build-passing saja.
----
 Keamanan — Item Terbuka Prioritas Tinggi
 `src/components/IndodaxAccountManager.tsx` + `src/services/firebase/indodaxAccounts.ts` (fitur multi-akun: user login → input API key/secret Indodax sendiri) menyimpan API key & secret KE FIRESTORE DALAM BENTUK POLOS (plaintext), langsung dari client-side Firestore SDK di browser. Tidak ada enkripsi AES-256-GCM (padahal itu rencana awal). Tidak ada file `firestore.rules` di repo — aturan keamanan Firestore (kalau ada) hanya ada di Firebase Console, tidak ter-review di git.
 Belum diperbaiki. Rencana perbaikan: pindahkan alur ke API route server-side (`/api/accounts/indodax`) yang enkripsi dengan master key dari `process.env` sebelum simpan ke Firestore — client tidak pernah kirim key mentah langsung ke Firestore. Plus tulis `firestore.rules` yang benar (`allow read, write: if request.auth.uid == uid;`).
 Kalau API key asli sudah pernah dicoba lewat form ini (bukan cuma testing kosong), perlakukan seperti insiden `.env.local` sebelumnya — revoke & regenerate dari Indodax.
----
 Known Duplication — Perlu Keputusan Konsolidasi
 Konsep	Implementasi paralel	Status
 Exchange API client	`services/indodax/` (lama, stub) vs `services/exchange/` (scaffolding luas, 44+ file)	`IndodaxAdapter` private ops (`placeOrder`, `getBalance`) sudah terisi (bukan lagi `AdapterNotImplementedError` seperti versi lama)
@@ -133,13 +118,11 @@ AI/ML layer	`services/ml/` + `services/intelligence/` (~10.000 baris, 63 file)	O
 Dashboard pages	`src/pages/dashboard/*` (Pages Router — `index.tsx`, `settings.tsx` pakai `IndodaxAccountManager`, lebih matang) vs `src/app/dashboard/{portfolio,scanner,settings}.tsx` (App Router draft, cuma widget statis)	Draft App Router sudah diarsipkan ke `_legacy-pages-reference/app-dashboard-draft/` supaya tidak bentrok build. Belum diporting dengan benar — App Router harus tetap kanonik, tapi kontennya perlu diambil dari versi Pages Router yang lebih lengkap. Sidebar link ke `/dashboard/portfolio` dll saat ini akan 404.
 Portfolio service	`services/portfolio/` sempat diarsipkan sebagai non-kanonik, lalu aktif lagi (regresi dari tool AI lain)	`portfolioRegistry` sudah diperbaiki (kurang named export)
 Sebelum membuat engine/adapter/service baru untuk konsep yang sudah ada implementasinya (aktif maupun scaffolding), WAJIB cek dulu — kalau ragu, tanya pemilik project sebelum menambah cabang baru.
----
 Code Quality Rules
 Jangan ubah API publik tanpa alasan.
 Jangan buat duplicate class/interface/folder/engine kalau sudah ada.
 Setiap folder baru di `services/*/` wajib langsung punya `index.ts` barrel saat dibuat.
 Sebelum redefine type/interface: cek dulu `types.ts`, `models/`, `core/` folder terkait.
----
 Build Requirements
 Perubahan dianggap selesai apabila:
 TypeScript compile tanpa error
@@ -147,14 +130,12 @@ Next.js build berhasil
 Tidak menambah circular dependency
 Tidak membuat dead code baru
 Perubahan benar-benar ter-commit ke branch `main` — verifikasi lewat commit history sebelum melaporkan hasil build (karena workflow ini browser-only, gampang lupa satu file belum di-apply)
----
 AI Assistant Guidelines
 Ikuti struktur proyek yang sudah ada. Gunakan modul yang tersedia sebelum membuat modul baru.
 Kalau perlu refactor besar, jelaskan alasan dan dampaknya SEBELUM mengubah struktur — jangan langsung eksekusi keputusan arsitektur besar secara sepihak.
 Sebelum menulis ulang (regenerate) file dari nol, cek riwayat/versi sebelumnya — regenerasi tanpa referensi berisiko mengembalikan bug yang sudah pernah diperbaiki.
 Jangan asumsikan angka/formula untuk logic yang menyangkut uang (position sizing, risk limit) — cari config yang sudah ada atau tanya pemilik project.
 Kalau menemukan isu keamanan (kredensial plaintext, key ter-commit, dst): laporkan dulu ke user secara eksplisit sebelum lanjut kerja lain, jangan diam-diam ditambal atau diabaikan.
----
 Session Log
 (Ringkas, bukan pengganti commit history. Update di akhir tiap sesi build-fix besar.)
 Sesi build-fix marathon (v0.1.0 Alpha, "Phase 17" audit):
@@ -168,7 +149,6 @@ Temuan keamanan belum diperbaiki: `IndodaxAccountManager` simpan API key/secret 
 `docs/environment-variables.md` dibuat (dokumentasi nama variabel, bukan file `.env`).
 Status build saat log ini ditulis: BELUM 100% bersih. Error terakhir: `src/services/strategy/rules/momentumRule.ts:11` — `RuleResult` belum ada di `strategy/types.ts` (bagian dari sistem strategi orphan (b) di atas, lihat "Known Duplication").
 Next step: lengkapi `RuleResult` + sisa tipe di `strategy/rules/*.ts` (orphan, aman diperbaiki cepat), lanjut sampai `npm run build` 100% bersih, baru commit per-file via GitHub browser.
----
 Update — file-by-file delivery selesai diterapkan (23 file + 1 arsip 3-file):
 `docs/claude.md`, `docs/environment-variables.md`, `src/lib/validators/env.ts`, arsip 3 file dashboard App Router (`portfolio.tsx`/`scanner.tsx`/`settings.tsx` → `_legacy-pages-reference/app-dashboard-draft/`), `services/portfolio/registry.ts`, `services/paperTrading/simulator.ts`, `services/market/aggregators/tradeAggregator.ts`, `services/market/aggregators/orderBookAggregator.ts`, `services/market/feeds/tickerFeed.ts`, `services/market/filters/liquidityFilter.ts`, `services/market/filters/spreadFilter.ts`, `services/market/snapshots/orderBookSnapshot.ts`, `services/market/snapshots/tickerSnapshot.ts`, `services/market/index.ts`, `services/strategy/core/strategyEngine.ts`, `services/strategy/index.ts`, `services/strategy/manager.ts`, `services/strategy/registry.ts`, `services/intelligence/types.ts`, `services/intelligence/ai/explanation.ts`, `services/liveTrading/exchange/orderExecutor.ts`, `services/liveTrading/execution/fillHandler.ts`, `services/indicators/index.ts`.
 Sudah dicek, TIDAK perlu diubah (sudah sama dengan versi terbaru di repo, kemungkinan diperbaiki di sesi lain): `services/backtest/execution/orderSimulator.ts`, `services/liveTrading/engine.ts`, `services/liveTrading/types.ts`, `.gitignore`.
@@ -176,7 +156,7 @@ Status build masih sama seperti di atas — BELUM 100% bersih. 23 file di atas m
 Cara pakai workflow sekarang (mulai sesi ini): perubahan dikirim satu file per pesan chat (bukan zip), lalu diterapkan manual satu-satu lewat GitHub browser oleh Raka. Kalau sesi Claude lain melanjutkan: cek dulu file mana di atas yang sudah live di repo (tanya user, jangan asumsi) sebelum lanjut kerja supaya tidak duplikat usaha.
 Known Duplication — Keputusan Konsolidasi
 (Diputuskan pada audit menyeluruh — arah project: fokus Indodax, multi-exchange ditunda/belum diputuskan)
-1. Exchange API Client: `services/exchange/` vs `services/indodax/`
+Exchange API Client: `services/exchange/` vs `services/indodax/`
 Keputusan: `services/exchange/` jadi kanonik.
 Alasan:
 Struktur lebih matang — pemisahan public/private API, error handling class-based (`ExchangeError`, `AuthenticationError`, dll), `RequestSigner` (HMAC-SHA512) siap pakai untuk private API asli nanti.
@@ -185,14 +165,14 @@ Status migrasi:
 `services/indodax/` tetap dipakai untuk sementara oleh Market Scanner (jangan diutak-atik, itu yang live sekarang).
 Migrasi bertahap: pindahkan scanner dari `services/indodax/{ticker,market,candles,orderbook}` ke `services/exchange/adapters/indodax` punya public services, BARU HAPUS `services/indodax/` setelah scanner terverifikasi jalan pakai `exchange/`.
 `services/indodax/client.ts`, `trades.ts`, `auth.ts`, `private.ts` (stub kosong) — TIDAK perlu diisi, karena private API akan diimplementasikan di `services/exchange/adapters/indodax.ts` + `services/exchange/private/*`, bukan di sini.
-2. Trading Execution: `services/trading/` vs `services/paperTrading/` vs `services/liveTrading/`
+Trading Execution: `services/trading/` vs `services/paperTrading/` vs `services/liveTrading/`
 Keputusan: `services/trading/` jadi kanonik.
 Alasan:
 Satu-satunya yang live — terhubung Firebase (`botState`, `logs`), dipanggil cron (`/api/cron/scan`), sudah diverifikasi jalan di production.
 Status modul lain:
 `services/paperTrading/` — DIHAPUS. Selain duplikat, state-nya in-memory (`Map`/variable JS biasa) yang secara fundamental tidak bisa dipakai di Vercel serverless (hilang tiap cold start). Paper trading yang benar sudah ditangani `services/trading/paper.ts` (`PaperTradingService`, Firebase-backed).
 `services/liveTrading/` — DIPERTAHANKAN, tidak dihapus. Ini scaffolding untuk orchestrator live trading berkelanjutan, secara eksplisit menunggu "Strategy Engine Phase 14". Jangan diaktifkan/disambungkan sampai fase itu benar-benar tiba.
-3. Execution Layer: `services/execution/engine.ts` vs `services/execution/executionEngine.ts`
+Execution Layer: `services/execution/engine.ts` vs `services/execution/executionEngine.ts`
 Keputusan: digabung jadi satu file, basis dari `executionEngine.ts`.
 Alasan: keduanya saling melengkapi, bukan murni duplikat.
 `engine.ts` — kuat di position sizing (`StrategyDecision` + harga pasar → `ExecutionRequest`, pakai `TRADING_CONFIG.defaultTradeAmount`/`maxTradeAmount`/`order.minimumAmount`).
@@ -256,7 +236,7 @@ Baca isi `paperTradingStore.ts`, `paper-trading.tsx`, `index.ts`, `status.ts`
 Pastikan apakah ini sistem paper trading yang AKTIF dipakai user (terpisah dari `trading/paper.ts`), atau memang legacy yang sudah digantikan
 BARU putuskan konsolidasi — jangan hapus dulu sebelum ini jelas
 Roadmap menuju Real Trading
-#	Tahap	Status
+Tahap	Status
 1	Gabungkan `execution/engine.ts` + `executionEngine.ts`	✅ Selesai
 2	Investigasi & putuskan `paperTrading/` vs `trading/paper.ts`	🔄 Sedang berjalan
 3	Implementasi private API Indodax asli (HMAC, `getBalance`, `placeOrder`, dll di `IndodaxAdapter`)	⏳ Belum — paling kritis, menyangkut API key & uang asli
@@ -266,7 +246,6 @@ Roadmap menuju Real Trading
 7	Aktifkan `BOT_MODE=live` dengan nominal kecil	⏳ Belum
 Cara pakai log ini untuk sesi Claude berikutnya
 Sebelum menyarankan perubahan besar, baca dulu seluruh bagian ini + "Known Duplication" di atas. Jangan re-investigasi dari nol hal yang statusnya sudah "Selesai" di atas, dan jangan berasumsi soal `paperTrading/` sebelum item investigasi terbuka itu dijawab tuntas.
----
 Update — sesi lanjutan (v0.1.2 Alpha): RiskManager wiring, regresi static-route, fitur Trade Amount slider
 RiskManager tersambung ke jalur live (`services/trading/engine.ts` v0.0.7):
 Sebelumnya `RiskManager`/`RISK_CONFIG` sudah lengkap (stop loss, take profit, max exposure, dst) tapi nol referensi dari `trading/engine.ts` — DecisionEngine murni EMA/RSI, tidak sadar harga SL/TP sama sekali. Sekarang: setiap siklus, kalau posisi terbuka, `riskManager.evaluate({buyPrice, currentPrice, inPosition})` dicek LEBIH DULU, sebelum tanya `DecisionEngine`. Kalau `shouldStopLoss`/`shouldTakeProfit` true → paksa SELL, DecisionEngine di-skip. Field baru `riskTriggered: boolean` ditambahkan ke `TradingEngineResult` + log, supaya kelihatan di histori mana SELL karena strategi vs karena kena SL/TP.
@@ -280,7 +259,6 @@ File baru `services/firebase/settingsService.ts` — `getBotSettings()`/`updateB
 Belum dikerjakan / catatan terbuka:
 `RiskManager.validateTradeAmount(amount)` di `services/trading/risk.ts` kemungkinan bug lama: membandingkan `amount` (nominal trade, IDR) dengan `RISK_CONFIG.maxOpenPosition` (jumlah posisi maksimal) — dua satuan berbeda, method ini kemungkinan tidak pernah dipanggil di jalur manapun (perlu diverifikasi) jadi belum terasa dampaknya. Belum diperbaiki, sengaja tidak disentuh karena di luar scope task saat ditemukan — tanya pemilik project sebelum ubah formula.
 Stop Loss / Take Profit / Max Position belum bisa diatur dari UI (masih env var only) — kalau mau dibuatkan slider serupa, tinggal ikuti pola `tradeAmountIdr` di atas.
----
 Update — sesi audit Settings API + awal implementasi Indodax Private API
 Bug build diperbaiki: `src/api/settings/route.ts` self-import.
 File ini mengimpor `GET`/`PUT` dari dirinya sendiri lalu mendefinisikan ulang keduanya di bawahnya — `PUT redefined`. Fix: hapus 2 baris self-import (`import { GET, PUT } from "@/api/settings/route"; export { GET, PUT };`), sisakan definisi asli yang manggil `getSettings()`/`saveSettings()`.
@@ -302,7 +280,6 @@ Opsi B — Kredensial per-panggilan: ubah signature `IExchangeAdapter` supaya ti
 JANGAN mulai menulis `RequestSigner`/private client/`IndodaxAdapter` real sebelum keputusan A/B ini diambil oleh pemilik project — menyangkut struktur data kredensial per-user yang akan dipakai di banyak file turunan.
 Keamanan — eskalasi prioritas:
 Isu lama (`IndodaxAccountManager` simpan API key/secret plaintext ke Firestore, tanpa `firestore.rules`) yang sebelumnya "belum mendesak karena belum tersambung ke eksekusi asli" sekarang jadi prioritas tinggi — begitu `IndodaxAdapter` bisa `placeOrder`/`getBalance` pakai kredensial dari Firestore, plaintext storage ini jadi jalur pencurian API key trading/withdraw milik semua user. Rekomendasi: kerjakan enkripsi server-side (lihat bagian "Keamanan" di atas) bersamaan atau sebelum private API ini live, bukan sesudahnya.
-
 Untuk BOT_OWNER_UID, cara dapatnya: buka Firebase Console → Authentication → Users, cari akun kamu (yang dipakai login ke dashboard AutoIDX), copy kolom User UID-nya.
 Untuk ACCOUNT_ENCRYPTION_KEY, saya generate sekarang biar tinggal pakai:
 Ini key-nya (32 byte, format hex):
@@ -316,7 +293,6 @@ Redeploy (otomatis kalau kamu commit sesuatu, atau trigger manual redeploy di Ve
 Baru buka /dashboard/settings, masukkan API Key & Secret Key Indodax kamu lewat form "Akun Trade API Indodax"
 Setelah itu tersimpan (statusnya "Aktif"), bot masih tetap paper trading sampai kamu secara eksplisit set BOT_MODE=live dan BOT_LIVE_CONFIRM=true barengan di Vercel — jangan lupa itu langkah terakhir sebelum benar-benar pakai uang asli.
 Simpan key enkripsi itu baik-baik (misal di password manager) — kalau hilang, semua API key/secret yang sudah tersimpan di Firestore tidak akan bisa didekripsi lagi.
----
 Update — BUILD 100% BERSIH TERCAPAI (lanjutan sesi di atas)
 `npm run build` sudah lolos total (TypeScript compile + type-check + static generation semua route), terverifikasi di container Claude maupun konfirmasi Raka di Vercel. Ini pencapaian penting: v0.0.1 Alpha yang stabil sudah tercapai.
 Pekerjaan tambahan sesi ini (setelah build pertama kali hijau)
@@ -381,14 +357,14 @@ Status keamanan SAAT INI
 Kode live trading belum pernah sukses ter-deploy sampai sesi ini (selalu ada build error yang menghalangi) — jadi belum ada order asli yang pernah tereksekusi.
 JANGAN aktifkan `BOT_LIVE_CONFIRM=true` sampai: (a) build sukses total, (b) sudah dites di mode paper beberapa siklus dengan log yang masuk akal, (c) investigasi `paperTrading/` vs `trading/paper.ts` yang masih tertunda sudah dituntaskan.
 Roadmap update
-#	Tahap	Status
-Konsolidasi execution/engine.ts + executionEngine.ts	✅ Selesai	
-Investigasi paperTrading/ vs trading/paper.ts	🔄 Masih tertunda (JANGAN diasumsikan selesai)	
-Live trading Indodax (HMAC, kredensial per-akun, dll)	✅ Kodenya sudah ada & diperbaiki, BELUM pernah dites nyata (BOT_LIVE_CONFIRM masih false)	
-RISK_CONFIG validasi di jalur eksekusi	✅ Lengkap (emergencyStop, allowAutoTrade/enabled, cooldown, maxOpenPosition, maxTradeAmount, maxExposurePercent, maxDailyLossPercent — semua tersambung & pakai saldo asli saat live)	
-Position-awareness strategi (auraTrend dkk)	⏳ Belum — CATATAN: strategi ini kemungkinan besar TIDAK dipakai jalur live sekarang (jalur live pakai `DecisionEngine` sederhana di `services/trading/decision.ts`, isinya belum pernah direview)	
-Testing menyeluruh mode PAPER	⏳ Belum dimulai serius	
-Aktifkan BOT_MODE=live nominal kecil	⏳ Belum — tunggu semua di atas tuntas	
+Tahap	Status
+Konsolidasi execution/engine.ts + executionEngine.ts	✅ Selesai
+Investigasi paperTrading/ vs trading/paper.ts	🔄 Masih tertunda (JANGAN diasumsikan selesai)
+Live trading Indodax (HMAC, kredensial per-akun, dll)	✅ Kodenya sudah ada & diperbaiki, BELUM pernah dites nyata (BOT_LIVE_CONFIRM masih false)
+RISK_CONFIG validasi di jalur eksekusi	✅ Lengkap (emergencyStop, allowAutoTrade/enabled, cooldown, maxOpenPosition, maxTradeAmount, maxExposurePercent, maxDailyLossPercent — semua tersambung & pakai saldo asli saat live)
+Position-awareness strategi (auraTrend dkk)	⏳ Belum — CATATAN: strategi ini kemungkinan besar TIDAK dipakai jalur live sekarang (jalur live pakai `DecisionEngine` sederhana di `services/trading/decision.ts`, isinya belum pernah direview)
+Testing menyeluruh mode PAPER	⏳ Belum dimulai serius
+Aktifkan BOT_MODE=live nominal kecil	⏳ Belum — tunggu semua di atas tuntas
 Multi-pair
 Sudah didukung penuh via `BotSettings.pairs` (Firestore, edit dari Settings UI, contoh saat ini: `btcidr`, `ethidr`, `solidr`). Rencana lanjutan: fetch daftar SEMUA pair IDR yang tersedia di Indodax (`/api/pairs`, endpoint publik) supaya opsi di UI Settings otomatis lengkap & selalu update — belum dikerjakan.
 ✅ RESOLVED: `services/paperTrading/` vs `services/trading/paper.ts`
@@ -403,7 +379,6 @@ Claude Development Guide
 Project: AURA Trade OS
 Version: 0.1.2 Alpha
 Terakhir diaudit: sesi build-fix marathon (lihat "Session Log" di bawah)
----
 Cara Pakai Dokumen Ini (untuk Claude sesi/akun lain)
 Project ini dikerjakan lintas beberapa akun Claude berbeda + ChatGPT, secara paralel, oleh satu orang (Raka) yang bekerja hanya lewat GitHub browser UI + Vercel dashboard (tidak ada terminal/git lokal).
 Aturan wajib sebelum menyentuh kode apapun di sini:
@@ -411,35 +386,31 @@ Jangan percaya dokumen manapun (termasuk file ini) tanpa verifikasi langsung ke 
 Selalu minta build log Vercel terbaru di awal sesi, atau clone repo dan jalankan `npm run build` sendiri untuk tahu persis di mana build berhenti.
 Cek dulu apakah sebuah engine/service/type sudah ada sebelum membuat yang baru — project ini sudah berkali-kali punya implementasi paralel untuk konsep yang sama (lihat tabel "Known Duplication").
 Ikuti seluruh "Development Principles" di bawah — ini bukan saran, ini sudah terbukti mencegah kelas bug yang sama berulang.
----
 Project Overview
 AURA Trade OS adalah platform trading cryptocurrency berbasis TypeScript untuk exchange Indodax.
 Tujuan utama: Realtime Market Engine, Technical Indicator Engine, Strategy Engine, Backtesting, Paper Trading, Live Trading, AI Assisted Trading, Dashboard Monitoring.
 Target deployment: GitHub → Vercel, database Firebase.
----
 Technology Stack
 Frontend: Next.js (App Router, kanonik), React, TypeScript, Tailwind CSS
 Backend: Vercel Functions
 Database: Firebase Firestore
 Realtime: Indodax WebSocket
 AI: OpenAI, Claude/Anthropic, Gemini (REST fetch langsung), DeepSeek
----
 Project Architecture (alur data yang seharusnya)
----
 Development Principles
-1. TypeScript First
+TypeScript First
 Jangan JavaScript. Typing jelas. Hindari `any` kecuali benar-benar perlu.
-2. Modular Architecture
+Modular Architecture
 Satu folder satu tanggung jawab. Jangan campur logika antar modul.
-3. Single Responsibility
+Single Responsibility
 Satu file satu tanggung jawab (`orderExecutor.ts` hanya kirim order, bukan juga hitung indikator).
-4. Shared Types — PALING SERING DILANGGAR
+Shared Types — PALING SERING DILANGGAR
 Interface bersama WAJIB di `types.ts` folder tersebut. Kalau tipe (mis. `OrderSide`, `StrategyDecision`, `TradeAction`) sudah ada di `types.ts`, file lain WAJIB `import type` dari sana, bukan menulis ulang union type/interface yang sama.
 Ini sudah menyebabkan build gagal berkali-kali karena TypeScript menganggap dua definisi bernama sama sebagai tipe berbeda saat barrel-export bersamaan. Contoh nyata yang baru saja diperbaiki: `StrategyDecision` didefinisikan ulang di `strategy/core/strategyEngine.ts` (tanpa field `riskLevel`) terpisah dari versi kanonik di `strategy/types.ts` — 5 file harus diperbaiki untuk menyatukannya kembali.
 Sebelum redefine type/interface: cek dulu `types.ts`, `models/`, `core/` folder terkait — apakah sudah ada versi lain dengan nama sama.
-5. Barrel Export
+Barrel Export
 Setiap module utama wajib punya `index.ts` sejak folder dibuat, bukan belakangan. Folder tanpa `index.ts` yang di-`export *` dari barrel atas akan gagal build ("Cannot find module").
-6. Configuration
+Configuration
 Jangan hardcode API Key/Secret/Trading Pair/Confidence/Fee/Position Size. Selalu lewat config atau Environment Variables.
 ---
 Environment Variables
@@ -447,23 +418,18 @@ Seluruh secret HANYA di Vercel Project Settings. Jangan buat file `.env`/`.env.l
 Referensi nama variabel (dokumentasi murni, tanpa nilai asli): `docs/environment-variables.md`
 Catatan penting: nama variabel secret Indodax yang BENAR adalah `INDODAX_SECRET_KEY` — bukan `INDODAX_SECRET`. Sempat ada mismatch antara `src/lib/validators/env.ts` (baca `INDODAX_SECRET`) dan `src/services/liveTrading/exchange/indodaxClient.ts` (baca `INDODAX_SECRET_KEY`, yang benar-benar dipakai). Sudah diperbaiki — kalau Vercel kamu masih pakai nama lama, ganti.
 GitHub Actions (`ci.yml`, `deploy.yml`) TIDAK otomatis mewarisi Environment Variables dari Vercel. Kalau ada workflow yang jalankan `npm run build`/`type-check` sendiri, env vars yang dibutuhkan (terutama `NEXT_PUBLIC_FIREBASE_*`) harus di-set terpisah sebagai GitHub Secrets.
----
 Logging & Error Handling
 Jangan `console.log()` untuk production — pakai Logger Service proyek. Semua async function pakai try/catch atau Result Object, jangan biarkan Promise gagal tanpa penanganan.
----
 Import Rules
 `import type { X } from "../types"` untuk tipe.
 `export { default as X } from "./y"` HANYA re-export, TIDAK membuat binding lokal — kalau nama itu juga dipakai di file yang sama, harus di-`import` biasa terpisah.
 Type assertion (`as X`) tidak boleh memulai baris baru setelah chained method call, karena Automatic Semicolon Insertion memutus expression jadi syntax error. Taruh `as X` di baris yang sama.
----
 Naming Convention
 Class `PascalCase` · Function `camelCase` · Constant `UPPER_CASE` · File `camelCase.ts`
 Nama file harus persis, tanpa spasi nyempil. File seperti `" index.ts"` (ada spasi tak kasat mata) gagal di-resolve module bundler meski terlihat identik di GitHub UI. (Kasus nyata: `services/exchange/adapters/ index.ts` — sudah diperbaiki jadi `index.ts`.)
----
 Trading Principles
 Jangan pernah melewati Risk Layer.
 Order tidak boleh dieksekusi apabila: confidence di bawah minimum · exposure melebihi batas · position limit terlampaui · saldo tidak cukup · health monitor critical.
----
 Live Trading Safety — WAJIB DIBACA SEBELUM SENTUH KODE EKSEKUSI
 Ada tiga jalur eksekusi order paralel di codebase ini (hasil kerja beberapa tool AI berbeda tanpa koordinasi):
 `services/exchange/adapters/indodax.ts` — `placeOrder()` sudah dikunci: menolak eksekusi kecuali `TRADING_CONFIG.mode === "live"`.
@@ -472,7 +438,6 @@ services/liveTrading/exchange/orderExecutor.ts — client HTTP terpisah sendiri 
 ⚠️ KOREKSI (audit terbaru): klaim sebelumnya bahwa services/exchange/adapters/indodax.ts → placeOrder() "sudah dikunci" adalah salah. Verifikasi langsung ke kode menunjukkan IndodaxAdapter di services/exchange/adapters/indodax.ts hanya berisi initialize(), start(), stop(), health() — semuanya cuma pakai publicClient (market data publik). Tidak ada implementasi placeOrder, getBalance, atau method private lainnya sama sekali — jadi bukan "dikunci aman", tapi memang belum ditulis. RequestSigner (HMAC-SHA512) yang disebut "siap pakai" juga belum ada di repo.
 Status saat ini (per audit terakhir): bot berjalan mode paper trading, API key production belum diisi. Kedua jalur di atas yang aktif (1 dan 3) sudah punya pengaman. Belum ada logic position-sizing yang menghitung dari saldo/exposure asli — `execution/engine.ts` masih punya `quantity: 0` dengan TODO(SAFETY) di jalur ketiga yang belum tersambung.
 Sebelum mengklaim "live trading siap" ke user: telusuri end-to-end sendiri, jangan percaya klaim dokumen atau status build-passing saja.
----
 Keamanan — Item Terbuka Prioritas Tinggi
 STATUS (audit ulang, verifikasi langsung ke kode — bukan cuma baca komentar): sudah diperbaiki, tapi dokumen ini sempat basi dan masih bilang "belum diperbaiki" padahal kodenya sudah pindah alur sejak beberapa sesi lalu. Kalau ragu, selalu cek langsung ke file-file berikut, jangan percaya ringkasan ini begitu saja:
 `src/components/IndodaxAccountManager.tsx` — form client HANYA memanggil `/api/settings/indodax-accounts` dengan Firebase ID Token, tidak pernah menulis ke Firestore langsung.
@@ -485,7 +450,6 @@ Kalau API key Indodax asli sudah pernah dicoba lewat form ini SEBELUM perbaikan 
 Yang masih perlu diputuskan pemilik project (belum saya sentuh, di luar scope audit keamanan ini):
 `firestore.rules` di atas menutup total akses client ke semua koleksi selain `users/{uid}`. Kalau ada halaman dashboard yang ternyata butuh baca Firestore langsung dari browser (belum ditemukan saat audit — semua pemakai `adminDb` service ada di `pages/api/*`), rules ini akan mem-block-nya dan perlu pengecualian eksplisit.
 Belum ada rate limit / batas jumlah akun per user di endpoint POST `/api/settings/indodax-accounts`.
----
 Known Duplication — Perlu Keputusan Konsolidasi
 Konsep	Implementasi paralel	Status
 Exchange API client	`services/indodax/` (lama, stub) vs `services/exchange/` (scaffolding luas, 44+ file)	`IndodaxAdapter` private ops (`placeOrder`, `getBalance`) sudah terisi (bukan lagi `AdapterNotImplementedError` seperti versi lama)
@@ -495,13 +459,11 @@ AI/ML layer	`services/ml/` + `services/intelligence/` (~10.000 baris, 63 file)	O
 Dashboard pages	`src/pages/dashboard/*` (Pages Router — `index.tsx`, `settings.tsx` pakai `IndodaxAccountManager`, lebih matang) vs `src/app/dashboard/{portfolio,scanner,settings}.tsx` (App Router draft, cuma widget statis)	Draft App Router sudah diarsipkan ke `_legacy-pages-reference/app-dashboard-draft/` supaya tidak bentrok build. Belum diporting dengan benar — App Router harus tetap kanonik, tapi kontennya perlu diambil dari versi Pages Router yang lebih lengkap. Sidebar link ke `/dashboard/portfolio` dll saat ini akan 404.
 Portfolio service	`services/portfolio/` sempat diarsipkan sebagai non-kanonik, lalu aktif lagi (regresi dari tool AI lain)	`portfolioRegistry` sudah diperbaiki (kurang named export)
 Sebelum membuat engine/adapter/service baru untuk konsep yang sudah ada implementasinya (aktif maupun scaffolding), WAJIB cek dulu — kalau ragu, tanya pemilik project sebelum menambah cabang baru.
----
 Code Quality Rules
 Jangan ubah API publik tanpa alasan.
 Jangan buat duplicate class/interface/folder/engine kalau sudah ada.
 Setiap folder baru di `services/*/` wajib langsung punya `index.ts` barrel saat dibuat.
 Sebelum redefine type/interface: cek dulu `types.ts`, `models/`, `core/` folder terkait.
----
 Build Requirements
 Perubahan dianggap selesai apabila:
 TypeScript compile tanpa error
@@ -509,14 +471,12 @@ Next.js build berhasil
 Tidak menambah circular dependency
 Tidak membuat dead code baru
 Perubahan benar-benar ter-commit ke branch `main` — verifikasi lewat commit history sebelum melaporkan hasil build (karena workflow ini browser-only, gampang lupa satu file belum di-apply)
----
 AI Assistant Guidelines
 Ikuti struktur proyek yang sudah ada. Gunakan modul yang tersedia sebelum membuat modul baru.
 Kalau perlu refactor besar, jelaskan alasan dan dampaknya SEBELUM mengubah struktur — jangan langsung eksekusi keputusan arsitektur besar secara sepihak.
 Sebelum menulis ulang (regenerate) file dari nol, cek riwayat/versi sebelumnya — regenerasi tanpa referensi berisiko mengembalikan bug yang sudah pernah diperbaiki.
 Jangan asumsikan angka/formula untuk logic yang menyangkut uang (position sizing, risk limit) — cari config yang sudah ada atau tanya pemilik project.
 Kalau menemukan isu keamanan (kredensial plaintext, key ter-commit, dst): laporkan dulu ke user secara eksplisit sebelum lanjut kerja lain, jangan diam-diam ditambal atau diabaikan.
----
 Session Log
 (Ringkas, bukan pengganti commit history. Update di akhir tiap sesi build-fix besar.)
 Sesi build-fix marathon (v0.1.0 Alpha, "Phase 17" audit):
@@ -530,7 +490,6 @@ Temuan keamanan belum diperbaiki: `IndodaxAccountManager` simpan API key/secret 
 `docs/environment-variables.md` dibuat (dokumentasi nama variabel, bukan file `.env`).
 Status build saat log ini ditulis: BELUM 100% bersih. Error terakhir: `src/services/strategy/rules/momentumRule.ts:11` — `RuleResult` belum ada di `strategy/types.ts` (bagian dari sistem strategi orphan (b) di atas, lihat "Known Duplication").
 Next step: lengkapi `RuleResult` + sisa tipe di `strategy/rules/*.ts` (orphan, aman diperbaiki cepat), lanjut sampai `npm run build` 100% bersih, baru commit per-file via GitHub browser.
----
 Update — file-by-file delivery selesai diterapkan (23 file + 1 arsip 3-file):
 `docs/claude.md`, `docs/environment-variables.md`, `src/lib/validators/env.ts`, arsip 3 file dashboard App Router (`portfolio.tsx`/`scanner.tsx`/`settings.tsx` → `_legacy-pages-reference/app-dashboard-draft/`), `services/portfolio/registry.ts`, `services/paperTrading/simulator.ts`, `services/market/aggregators/tradeAggregator.ts`, `services/market/aggregators/orderBookAggregator.ts`, `services/market/feeds/tickerFeed.ts`, `services/market/filters/liquidityFilter.ts`, `services/market/filters/spreadFilter.ts`, `services/market/snapshots/orderBookSnapshot.ts`, `services/market/snapshots/tickerSnapshot.ts`, `services/market/index.ts`, `services/strategy/core/strategyEngine.ts`, `services/strategy/index.ts`, `services/strategy/manager.ts`, `services/strategy/registry.ts`, `services/intelligence/types.ts`, `services/intelligence/ai/explanation.ts`, `services/liveTrading/exchange/orderExecutor.ts`, `services/liveTrading/execution/fillHandler.ts`, `services/indicators/index.ts`.
 Sudah dicek, TIDAK perlu diubah (sudah sama dengan versi terbaru di repo, kemungkinan diperbaiki di sesi lain): `services/backtest/execution/orderSimulator.ts`, `services/liveTrading/engine.ts`, `services/liveTrading/types.ts`, `.gitignore`.
@@ -538,7 +497,7 @@ Status build masih sama seperti di atas — BELUM 100% bersih. 23 file di atas m
 Cara pakai workflow sekarang (mulai sesi ini): perubahan dikirim satu file per pesan chat (bukan zip), lalu diterapkan manual satu-satu lewat GitHub browser oleh Raka. Kalau sesi Claude lain melanjutkan: cek dulu file mana di atas yang sudah live di repo (tanya user, jangan asumsi) sebelum lanjut kerja supaya tidak duplikat usaha.
 Known Duplication — Keputusan Konsolidasi
 (Diputuskan pada audit menyeluruh — arah project: fokus Indodax, multi-exchange ditunda/belum diputuskan)
-1. Exchange API Client: `services/exchange/` vs `services/indodax/`
+Exchange API Client: `services/exchange/` vs `services/indodax/`
 Keputusan: `services/exchange/` jadi kanonik.
 Alasan:
 Struktur lebih matang — pemisahan public/private API, error handling class-based (`ExchangeError`, `AuthenticationError`, dll), `RequestSigner` (HMAC-SHA512) siap pakai untuk private API asli nanti.
@@ -547,14 +506,14 @@ Status migrasi:
 `services/indodax/` tetap dipakai untuk sementara oleh Market Scanner (jangan diutak-atik, itu yang live sekarang).
 Migrasi bertahap: pindahkan scanner dari `services/indodax/{ticker,market,candles,orderbook}` ke `services/exchange/adapters/indodax` punya public services, BARU HAPUS `services/indodax/` setelah scanner terverifikasi jalan pakai `exchange/`.
 `services/indodax/client.ts`, `trades.ts`, `auth.ts`, `private.ts` (stub kosong) — TIDAK perlu diisi, karena private API akan diimplementasikan di `services/exchange/adapters/indodax.ts` + `services/exchange/private/*`, bukan di sini.
-2. Trading Execution: `services/trading/` vs `services/paperTrading/` vs `services/liveTrading/`
+Trading Execution: `services/trading/` vs `services/paperTrading/` vs `services/liveTrading/`
 Keputusan: `services/trading/` jadi kanonik.
 Alasan:
 Satu-satunya yang live — terhubung Firebase (`botState`, `logs`), dipanggil cron (`/api/cron/scan`), sudah diverifikasi jalan di production.
 Status modul lain:
 `services/paperTrading/` — DIHAPUS. Selain duplikat, state-nya in-memory (`Map`/variable JS biasa) yang secara fundamental tidak bisa dipakai di Vercel serverless (hilang tiap cold start). Paper trading yang benar sudah ditangani `services/trading/paper.ts` (`PaperTradingService`, Firebase-backed).
 `services/liveTrading/` — DIPERTAHANKAN, tidak dihapus. Ini scaffolding untuk orchestrator live trading berkelanjutan, secara eksplisit menunggu "Strategy Engine Phase 14". Jangan diaktifkan/disambungkan sampai fase itu benar-benar tiba.
-3. Execution Layer: `services/execution/engine.ts` vs `services/execution/executionEngine.ts`
+Execution Layer: `services/execution/engine.ts` vs `services/execution/executionEngine.ts`
 Keputusan: digabung jadi satu file, basis dari `executionEngine.ts`.
 Alasan: keduanya saling melengkapi, bukan murni duplikat.
 `engine.ts` — kuat di position sizing (`StrategyDecision` + harga pasar → `ExecutionRequest`, pakai `TRADING_CONFIG.defaultTradeAmount`/`maxTradeAmount`/`order.minimumAmount`).
@@ -618,7 +577,7 @@ Baca isi `paperTradingStore.ts`, `paper-trading.tsx`, `index.ts`, `status.ts`
 Pastikan apakah ini sistem paper trading yang AKTIF dipakai user (terpisah dari `trading/paper.ts`), atau memang legacy yang sudah digantikan
 BARU putuskan konsolidasi — jangan hapus dulu sebelum ini jelas
 Roadmap menuju Real Trading
-#	Tahap	Status
+Tahap	Status
 1	Gabungkan `execution/engine.ts` + `executionEngine.ts`	✅ Selesai
 2	Investigasi & putuskan `paperTrading/` vs `trading/paper.ts`	🔄 Sedang berjalan
 3	Implementasi private API Indodax asli (HMAC, `getBalance`, `placeOrder`, dll di `IndodaxAdapter`)	⏳ Belum — paling kritis, menyangkut API key & uang asli
@@ -628,7 +587,6 @@ Roadmap menuju Real Trading
 7	Aktifkan `BOT_MODE=live` dengan nominal kecil	⏳ Belum
 Cara pakai log ini untuk sesi Claude berikutnya
 Sebelum menyarankan perubahan besar, baca dulu seluruh bagian ini + "Known Duplication" di atas. Jangan re-investigasi dari nol hal yang statusnya sudah "Selesai" di atas, dan jangan berasumsi soal `paperTrading/` sebelum item investigasi terbuka itu dijawab tuntas.
----
 Update — sesi lanjutan (v0.1.2 Alpha): RiskManager wiring, regresi static-route, fitur Trade Amount slider
 RiskManager tersambung ke jalur live (`services/trading/engine.ts` v0.0.7):
 Sebelumnya `RiskManager`/`RISK_CONFIG` sudah lengkap (stop loss, take profit, max exposure, dst) tapi nol referensi dari `trading/engine.ts` — DecisionEngine murni EMA/RSI, tidak sadar harga SL/TP sama sekali. Sekarang: setiap siklus, kalau posisi terbuka, `riskManager.evaluate({buyPrice, currentPrice, inPosition})` dicek LEBIH DULU, sebelum tanya `DecisionEngine`. Kalau `shouldStopLoss`/`shouldTakeProfit` true → paksa SELL, DecisionEngine di-skip. Field baru `riskTriggered: boolean` ditambahkan ke `TradingEngineResult` + log, supaya kelihatan di histori mana SELL karena strategi vs karena kena SL/TP.
@@ -642,7 +600,6 @@ File baru `services/firebase/settingsService.ts` — `getBotSettings()`/`updateB
 Belum dikerjakan / catatan terbuka:
 `RiskManager.validateTradeAmount(amount)` di `services/trading/risk.ts` kemungkinan bug lama: membandingkan `amount` (nominal trade, IDR) dengan `RISK_CONFIG.maxOpenPosition` (jumlah posisi maksimal) — dua satuan berbeda, method ini kemungkinan tidak pernah dipanggil di jalur manapun (perlu diverifikasi) jadi belum terasa dampaknya. Belum diperbaiki, sengaja tidak disentuh karena di luar scope task saat ditemukan — tanya pemilik project sebelum ubah formula.
 Stop Loss / Take Profit / Max Position belum bisa diatur dari UI (masih env var only) — kalau mau dibuatkan slider serupa, tinggal ikuti pola `tradeAmountIdr` di atas.
----
 Update — sesi audit Settings API + awal implementasi Indodax Private API
 Bug build diperbaiki: `src/api/settings/route.ts` self-import.
 File ini mengimpor `GET`/`PUT` dari dirinya sendiri lalu mendefinisikan ulang keduanya di bawahnya — `PUT redefined`. Fix: hapus 2 baris self-import (`import { GET, PUT } from "@/api/settings/route"; export { GET, PUT };`), sisakan definisi asli yang manggil `getSettings()`/`saveSettings()`.
@@ -664,7 +621,6 @@ Opsi B — Kredensial per-panggilan: ubah signature `IExchangeAdapter` supaya ti
 JANGAN mulai menulis `RequestSigner`/private client/`IndodaxAdapter` real sebelum keputusan A/B ini diambil oleh pemilik project — menyangkut struktur data kredensial per-user yang akan dipakai di banyak file turunan.
 Keamanan — eskalasi prioritas:
 Isu lama (`IndodaxAccountManager` simpan API key/secret plaintext ke Firestore, tanpa `firestore.rules`) yang sebelumnya "belum mendesak karena belum tersambung ke eksekusi asli" sekarang jadi prioritas tinggi — begitu `IndodaxAdapter` bisa `placeOrder`/`getBalance` pakai kredensial dari Firestore, plaintext storage ini jadi jalur pencurian API key trading/withdraw milik semua user. Rekomendasi: kerjakan enkripsi server-side (lihat bagian "Keamanan" di atas) bersamaan atau sebelum private API ini live, bukan sesudahnya.
-
 Untuk BOT_OWNER_UID, cara dapatnya: buka Firebase Console → Authentication → Users, cari akun kamu (yang dipakai login ke dashboard AutoIDX), copy kolom User UID-nya.
 Untuk ACCOUNT_ENCRYPTION_KEY, saya generate sekarang biar tinggal pakai:
 Ini key-nya (32 byte, format hex):
@@ -678,7 +634,6 @@ Redeploy (otomatis kalau kamu commit sesuatu, atau trigger manual redeploy di Ve
 Baru buka /dashboard/settings, masukkan API Key & Secret Key Indodax kamu lewat form "Akun Trade API Indodax"
 Setelah itu tersimpan (statusnya "Aktif"), bot masih tetap paper trading sampai kamu secara eksplisit set BOT_MODE=live dan BOT_LIVE_CONFIRM=true barengan di Vercel — jangan lupa itu langkah terakhir sebelum benar-benar pakai uang asli.
 Simpan key enkripsi itu baik-baik (misal di password manager) — kalau hilang, semua API key/secret yang sudah tersimpan di Firestore tidak akan bisa didekripsi lagi.
----
 Update — BUILD 100% BERSIH TERCAPAI (lanjutan sesi di atas)
 `npm run build` sudah lolos total (TypeScript compile + type-check + static generation semua route), terverifikasi di container Claude maupun konfirmasi Raka di Vercel. Ini pencapaian penting: v0.0.1 Alpha yang stabil sudah tercapai.
 Pekerjaan tambahan sesi ini (setelah build pertama kali hijau)
@@ -743,14 +698,14 @@ Status keamanan SAAT INI
 Kode live trading belum pernah sukses ter-deploy sampai sesi ini (selalu ada build error yang menghalangi) — jadi belum ada order asli yang pernah tereksekusi.
 JANGAN aktifkan `BOT_LIVE_CONFIRM=true` sampai: (a) build sukses total, (b) sudah dites di mode paper beberapa siklus dengan log yang masuk akal, (c) investigasi `paperTrading/` vs `trading/paper.ts` yang masih tertunda sudah dituntaskan.
 Roadmap update
-#	Tahap	Status
-Konsolidasi execution/engine.ts + executionEngine.ts	✅ Selesai	
-Investigasi paperTrading/ vs trading/paper.ts	🔄 Masih tertunda (JANGAN diasumsikan selesai)	
-Live trading Indodax (HMAC, kredensial per-akun, dll)	✅ Kodenya sudah ada & diperbaiki, BELUM pernah dites nyata (BOT_LIVE_CONFIRM masih false)	
-RISK_CONFIG validasi di jalur eksekusi	✅ Lengkap (emergencyStop, allowAutoTrade/enabled, cooldown, maxOpenPosition, maxTradeAmount, maxExposurePercent, maxDailyLossPercent — semua tersambung & pakai saldo asli saat live)	
-Position-awareness strategi (auraTrend dkk)	⏳ Belum — CATATAN: strategi ini kemungkinan besar TIDAK dipakai jalur live sekarang (jalur live pakai `DecisionEngine` sederhana di `services/trading/decision.ts`, isinya belum pernah direview)	
-Testing menyeluruh mode PAPER	⏳ Belum dimulai serius	
-Aktifkan BOT_MODE=live nominal kecil	⏳ Belum — tunggu semua di atas tuntas	
+Tahap	Status
+Konsolidasi execution/engine.ts + executionEngine.ts	✅ Selesai
+Investigasi paperTrading/ vs trading/paper.ts	🔄 Masih tertunda (JANGAN diasumsikan selesai)
+Live trading Indodax (HMAC, kredensial per-akun, dll)	✅ Kodenya sudah ada & diperbaiki, BELUM pernah dites nyata (BOT_LIVE_CONFIRM masih false)
+RISK_CONFIG validasi di jalur eksekusi	✅ Lengkap (emergencyStop, allowAutoTrade/enabled, cooldown, maxOpenPosition, maxTradeAmount, maxExposurePercent, maxDailyLossPercent — semua tersambung & pakai saldo asli saat live)
+Position-awareness strategi (auraTrend dkk)	⏳ Belum — CATATAN: strategi ini kemungkinan besar TIDAK dipakai jalur live sekarang (jalur live pakai `DecisionEngine` sederhana di `services/trading/decision.ts`, isinya belum pernah direview)
+Testing menyeluruh mode PAPER	⏳ Belum dimulai serius
+Aktifkan BOT_MODE=live nominal kecil	⏳ Belum — tunggu semua di atas tuntas
 Multi-pair
 Sudah didukung penuh via `BotSettings.pairs` (Firestore, edit dari Settings UI, contoh saat ini: `btcidr`, `ethidr`, `solidr`). Rencana lanjutan: fetch daftar SEMUA pair IDR yang tersedia di Indodax (`/api/pairs`, endpoint publik) supaya opsi di UI Settings otomatis lengkap & selalu update — belum dikerjakan.
 ✅ RESOLVED: `services/paperTrading/` vs `services/trading/paper.ts`
@@ -761,7 +716,6 @@ Halaman live `/dashboard/paper-trading` (`src/pages/dashboard/paper-trading.tsx`
 Ketiga nama koleksi itu PERSIS sama dengan yang ditulis `paperTradingStore.ts` (`savePaperPortfolio`, `savePaperPosition`, `logPaperTrade`) — yang dipakai `services/trading/paper.ts`.
 Search menyeluruh: TIDAK ADA file di luar folder `services/paperTrading/` yang mengimpornya (`account.ts`, `engine.ts`, `index.ts`, `orders.ts`, `simulator.ts`, `tracker.ts`, `types.ts` — semua orphan).
 Tindakan: folder `src/services/paperTrading/` boleh dihapus kapan saja. Bukan lagi item "jangan diasumsikan selesai" — sudah final.
----
 Session Log 4 — Integrasi Strategi Orphan, AI Advisory, Redaksi Keamanan
 (Lanjutan sesi trading engine. Baca "✅ STATUS TERVERIFIKASI" di paling atas dokumen dulu -- itu ringkasan dari sesi ini, sudah diverifikasi ulang ke kode. Bagian ini cuma kronologi/detail tambahan.)
 Yang dikerjakan sesi ini
@@ -780,7 +734,6 @@ Duplikasi `bot_control`/`BOT_CONFIG` vs `bot_settings`/`BotSettings` -- lihat de
 `npm run build` (Next.js) belum dijalankan sesi ini, cuma `tsc --noEmit`. Minta build log Vercel terbaru sebelum deploy.
 `ACCOUNT_ENCRYPTION_KEY` yang bocor -- lihat peringatan keamanan di paling atas dokumen, WAJIB di-rotate kalau belum.
 Threshold sanity-check (kontradiksi kuat 2/2 strategi lain, confidence<30 di ScoreEngine) belum pernah diuji di paper trading nyata -- pantau log `[Sanity Check 1/2 ...]` beberapa siklus sebelum percaya kalibrasinya sudah pas.
----
 Session Log 5 — Canary Metrics untuk Live Trading Skala Kecil (via clone GitHub langsung)
 (Sesi ini pertama kali kerja lewat `git clone` langsung dari repo publik, bukan zip upload manual dari user - jadi verifikasi `tsc`/`npm run build` di sesi ini valid terhadap kode ASLI, bukan sandbox yang mungkin sudah divergen. Rekomendasi: kalau memungkinkan, sesi Claude berikutnya juga clone langsung dari `https://github.com/rakajuliantoro17-art/AutoIDX` alih-alih terima zip dari user, supaya tidak ada lagi masalah "versi saya beda dari punya kamu" seperti beberapa sesi sebelumnya.)
 Yang dikerjakan
@@ -794,3 +747,20 @@ PnL/equity real-time TIDAK mengalir ke canary. `live.ts` tidak tahu entry price 
 Ambang batas default `CanaryMetricsConfig` (maxErrorRate 5%, maxDrawdown 3%, maxLoss 0 - artinya rugi bersih SEDIKIT SAJA langsung CRITICAL) dipakai apa adanya dari kode yang sudah ada, TIDAK diubah/ditebak sesi ini. `maxLoss:0` sangat ketat (cocok untuk fase awal testing tapi user perlu tahu ini akan halt di kerugian pertama begitu PnL tersambung - lihat poin di atas). Belum didiskusikan dengan user apakah ini nilai yang diinginkan.
 Belum pernah dicoba dengan live trading sungguhan (belum ada order live yang tereksekusi untuk diuji) - baru lolos `tsc --noEmit` + `npm run build` penuh terhadap kode asli via clone.
 Audit repo ini juga menemukan dokumen `docs/claude.md` ini sendiri sudah 1174 baris dengan beberapa duplikasi historis (bagian sama muncul >1x karena pola append changelog) - belum dirapikan, di luar scope sesi ini.
+---
+Session Log 6 — Live Trading Config (Fase Canary) Diaktifkan
+Lanjutan langsung Session Log 5 (Canary Metrics). Ditemukan `services/liveTrading/risk/liveTradingConfig.ts` - orphan, didesain khusus untuk "live trading skala kecil untuk testing" (persis tujuan user): `canaryOnly`, `maxTradeAmount` (default Rp25.000), `maxOpenOrders` (default 1), `maxConsecutiveFailures` (default 3).
+Bug ditemukan SEBELUM disambungkan (untung belum sempat dipakai): file aslinya baca env var `BOT_MAX_TRADE_AMOUNT` dan `BOT_MAX_DAILY_LOSS` - DUA nama ini SUDAH dipakai untuk hal lain dengan arti/satuan berbeda (`config/bot.ts` BOT_CONFIG.maxTradeAmount default 50rb; BOT_CONFIG.maxDailyLoss & RISK_CONFIG.maxDailyLossPercent keduanya PERSENTASE, sedangkan file ini bacanya sebagai RUPIAH ABSOLUT). Kalau disambung apa adanya, orang yang set `BOT_MAX_DAILY_LOSS=5` (maksud "5%") akan diam-diam ditafsirkan jadi "batas rugi Rp5" oleh config canary ini. Semua env var yang berpotensi bentrok sudah diganti prefix `BOT_CANARY_*` (lihat `docs/environment-variables.md`, bagian baru "Live Trading Fase Canary").
+Yang disambungkan
+`trading/live.ts` `buy()` sekarang cek (berurutan, semua fail-closed):
+`BOT_CANARY_ENABLED === "true"` - gerbang TAMBAHAN, default FALSE (terpisah dari BOT_MODE/BOT_LIVE_CONFIRM yang sudah ada).
+Kalau `canaryOnly` aktif (default true): nominal trade dibatasi `maxTradeAmount`.
+`maxOpenOrders` (pakai `getOpenPositionsCount()` yang sudah ada di botState.ts).
+`maxConsecutiveFailures` - dihitung dari `canaryStore.getRecentCanaryOrders()` (fungsi baru, expose order mentah karena `CanaryMetricsSnapshot` cuma simpan agregat).
+Status Canary CRITICAL (dari Session Log 5).
+PENTING - dampak ke deployment yang sudah jalan
+`BOT_CANARY_ENABLED` default FALSE. Begitu 3 file sesi ini di-deploy, SEMUA BUY live akan mulai ditolak sampai user set env var ini `"true"` di Vercel. Ini disengaja (fail-closed, konsisten filosofi dua-gerbang yang sudah ada), TAPI user harus diberi tahu eksplisit sebelum deploy - jangan biarkan mereka kaget kenapa bot berhenti BUY.
+Belum ditegakkan / catatan jujur
+`requireReconciliation` disimpan di config tapi TIDAK ditegakkan kode manapun - butuh bandingkan posisi tercatat vs saldo/posisi asli Indodax, belum ada.
+`maxDailyLossIdr` (canary) juga belum ditegakkan di `live.ts` - RISK_CONFIG.maxDailyLossPercent (existing, di engine.ts) sudah menutupi kasus serupa dengan basis persentase, jadi belum genting, tapi kalau mau presisi sesuai desain asli file ini, perlu ditambahkan.
+Diverifikasi via clone langsung (`git clone https://github.com/rakajuliantoro17-art/AutoIDX.git`) - `tsc --noEmit` + `npm run build` PENUH sukses terhadap kode asli, semua route (termasuk `/dashboard/canary-monitor`, `/api/canary/status`, `/api/ml/*`) ter-generate benar.
