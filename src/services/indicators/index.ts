@@ -72,6 +72,20 @@ export interface IndicatorFeatureVector {
     macdHistogram: number;
     atr: number;
     adx: number;
+    /**
+     * Opsional -- ADX standar (Wilder) menghasilkan +DI/-DI sebagai
+     * bagian dari perhitungan yang sama, tapi field ini sebelumnya
+     * dibuang (cuma "adx" scalar yang disimpan) walau calculateADX()
+     * di scheduler/cron.ts sudah menghitungnya. Ditambahkan sebagai
+     * optional (bukan required) supaya non-breaking untuk seluruh
+     * consumer type ini yang sudah ada -- konsumen lama yang tidak
+     * mengisi field ini tetap valid secara TypeScript.
+     * Dipakai services/intelligence/ml/mlAdvisor.ts supaya fitur yang
+     * dikirim ke model ML persis sama dengan fitur yang dipakai saat
+     * training (lihat services/ml/dataset/collector.ts).
+     */
+    plusDI?: number;
+    minusDI?: number;
     stochasticK: number;
     stochasticD: number;
     bollingerUpper: number;
