@@ -122,6 +122,8 @@ export class Readiness {
 
             exchange,
 
+            scheduler,
+
         ] = await Promise.all([
 
             databaseHealth.isHealthy(),
@@ -130,13 +132,9 @@ export class Readiness {
 
             exchangeHealth.isHealthy(),
 
+            schedulerHealth.isHealthy(),
+
         ]);
-
-
-
-        const scheduler =
-
-            schedulerHealth.isHealthy();
 
 
 
