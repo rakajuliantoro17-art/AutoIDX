@@ -18,6 +18,7 @@ import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmi
 import { recordTrade, recordLog } from "@/services/firebase/logService";
 import { BOT_CONFIG } from "@/config/bot";
 import { validateLiveOrder } from "./liveOrderValidator";
+import { acquireLiveOrderLock, releaseLiveOrderLock } from "@/services/firebase/liveOrderLock";
 import { getCanarySnapshot, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
 import { CanaryOrderMetric } from "@/services/liveTrading/monitoring/canaryMetrics";
 
@@ -185,132 +186,155 @@ class LiveTradingService {
 
     }
 
-    const client = await this.getClient();
+    // --- Idempotency guard (services/firebase/liveOrderLock.ts) ---
+    // Terinspirasi dari OrderManager.hasDuplicate() (services/
+    // liveTrading/execution/orderManager.ts) yang orphan & pakai
+    // array in-memory (tidak reliable di Vercel serverless) --
+    // diimplementasi ulang berbasis Firestore supaya lock
+    // persisten lintas invocation. Throw di sini kalau ada BUY
+    // lain untuk pair yang sama masih diproses (window 60 detik).
+    await acquireLiveOrderLock(request.pair, "BUY");
 
-    // --- Cek saldo IDR cukup sebelum order ---
-    const info = await client.getInfo();
+    try {
 
-    if (!info.success) {
+      const client = await this.getClient();
+
+      // --- Cek saldo IDR cukup sebelum order ---
+      const info = await client.getInfo();
+
+      if (!info.success) {
+
+        await recordLog(
+          "BOT",
+          "danger",
+          `LIVE BUY GAGAL ${request.pair.toUpperCase()} - tidak bisa ambil saldo: ${info.message}`
+        );
+
+        throw new Error(`Gagal ambil saldo Indodax: ${info.message}`);
+
+      }
+
+      const idrBalance = Number(info.data.balance?.idr ?? 0);
+
+      if (idrBalance < tradeAmountIdr) {
+
+        await recordLog(
+          "RISK",
+          "warning",
+          `LIVE BUY dibatalkan - saldo IDR tidak cukup (${idrBalance} < ${tradeAmountIdr})`
+        );
+
+        throw new Error(
+          `Saldo IDR tidak cukup (tersedia ${idrBalance}, butuh ${tradeAmountIdr})`
+        );
+
+      }
+
+      // --- Tempatkan order asli ---
+      const result = await client.trade({
+        pair: request.pair,
+        type: "buy",
+        orderType: "market",
+        idr: tradeAmountIdr,
+      });
+
+      if (!result.success) {
+
+        await recordLog(
+          "BOT",
+          "danger",
+          `LIVE BUY GAGAL ${request.pair.toUpperCase()}: ${result.message}`
+        );
+
+        throw new Error(result.message);
+
+      }
+
+      // --- Catat RAW response penuh, untuk verifikasi manual ---
+      await recordLog(
+        "SYSTEM",
+        "info",
+        `LIVE BUY raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
+          result.data
+        )}`
+      );
+
+      const coin = request.pair.replace(/_idr$/i, "");
+
+      const receivedCoin = Number(
+        (result.data as any)[`receive_${coin}`] ?? 0
+      );
+
+      const spentIdr = Number(
+        (result.data as any).spend_rp ?? tradeAmountIdr
+      );
+
+      const actualPrice =
+        receivedCoin > 0
+          ? spentIdr / receivedCoin
+          : request.price;
+
+      await recordTrade({
+
+        pair: request.pair,
+
+        type: "BUY",
+
+        price: actualPrice,
+
+        amount: receivedCoin,
+
+        totalIdr: spentIdr,
+
+        fee: Number((result.data as any).fee ?? 0),
+
+        orderId: String(result.data.order_id),
+
+        reason: "Live Trading BUY",
+
+        mode: "live",
+
+      });
 
       await recordLog(
         "BOT",
-        "danger",
-        `LIVE BUY GAGAL ${request.pair.toUpperCase()} - tidak bisa ambil saldo: ${info.message}`
+        "success",
+        `LIVE BUY ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
+          0
+        )} (order_id: ${result.data.order_id})`
       );
 
-      throw new Error(`Gagal ambil saldo Indodax: ${info.message}`);
+      const buyResult: LiveTradeResult = {
+
+        success: true,
+
+        orderId: String(result.data.order_id),
+
+        pair: request.pair,
+
+        side: "BUY",
+
+        price: actualPrice,
+
+        amount: receivedCoin,
+
+        total: spentIdr,
+
+        timestamp: new Date().toISOString(),
+
+      };
+
+      await releaseLiveOrderLock(request.pair, "BUY", true);
+
+      return buyResult;
+
+    } catch (error) {
+
+      await releaseLiveOrderLock(request.pair, "BUY", false);
+
+      throw error;
 
     }
-
-    const idrBalance = Number(info.data.balance?.idr ?? 0);
-
-    if (idrBalance < tradeAmountIdr) {
-
-      await recordLog(
-        "RISK",
-        "warning",
-        `LIVE BUY dibatalkan - saldo IDR tidak cukup (${idrBalance} < ${tradeAmountIdr})`
-      );
-
-      throw new Error(
-        `Saldo IDR tidak cukup (tersedia ${idrBalance}, butuh ${tradeAmountIdr})`
-      );
-
-    }
-
-    // --- Tempatkan order asli ---
-    const result = await client.trade({
-      pair: request.pair,
-      type: "buy",
-      orderType: "market",
-      idr: tradeAmountIdr,
-    });
-
-    if (!result.success) {
-
-      await recordLog(
-        "BOT",
-        "danger",
-        `LIVE BUY GAGAL ${request.pair.toUpperCase()}: ${result.message}`
-      );
-
-      throw new Error(result.message);
-
-    }
-
-    // --- Catat RAW response penuh, untuk verifikasi manual ---
-    await recordLog(
-      "SYSTEM",
-      "info",
-      `LIVE BUY raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
-        result.data
-      )}`
-    );
-
-    const coin = request.pair.replace(/_idr$/i, "");
-
-    const receivedCoin = Number(
-      (result.data as any)[`receive_${coin}`] ?? 0
-    );
-
-    const spentIdr = Number(
-      (result.data as any).spend_rp ?? tradeAmountIdr
-    );
-
-    const actualPrice =
-      receivedCoin > 0
-        ? spentIdr / receivedCoin
-        : request.price;
-
-    await recordTrade({
-
-      pair: request.pair,
-
-      type: "BUY",
-
-      price: actualPrice,
-
-      amount: receivedCoin,
-
-      totalIdr: spentIdr,
-
-      fee: Number((result.data as any).fee ?? 0),
-
-      orderId: String(result.data.order_id),
-
-      reason: "Live Trading BUY",
-
-      mode: "live",
-
-    });
-
-    await recordLog(
-      "BOT",
-      "success",
-      `LIVE BUY ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
-        0
-      )} (order_id: ${result.data.order_id})`
-    );
-
-    return {
-
-      success: true,
-
-      orderId: String(result.data.order_id),
-
-      pair: request.pair,
-
-      side: "BUY",
-
-      price: actualPrice,
-
-      amount: receivedCoin,
-
-      total: spentIdr,
-
-      timestamp: new Date().toISOString(),
-
-    };
 
   }
 
@@ -380,101 +404,119 @@ class LiveTradingService {
 
     }
 
-    const client = await this.getClient();
+    // --- Idempotency guard, sama seperti buyInternal() -- lihat
+    // komentar lengkap di sana. ---
+    await acquireLiveOrderLock(request.pair, "SELL");
 
-    const result = await client.trade({
-      pair: request.pair,
-      type: "sell",
-      orderType: "market",
-      coinAmount: request.amount,
-    });
+    try {
 
-    if (!result.success) {
+      const client = await this.getClient();
+
+      const result = await client.trade({
+        pair: request.pair,
+        type: "sell",
+        orderType: "market",
+        coinAmount: request.amount,
+      });
+
+      if (!result.success) {
+
+        await recordLog(
+          "BOT",
+          "danger",
+          `LIVE SELL GAGAL ${request.pair.toUpperCase()}: ${result.message}`
+        );
+
+        throw new Error(result.message);
+
+      }
+
+      // --- Catat RAW response penuh, untuk verifikasi manual ---
+      await recordLog(
+        "SYSTEM",
+        "info",
+        `LIVE SELL raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
+          result.data
+        )}`
+      );
+
+      const data = result.data as any;
+
+      const receivedIdr = Number(
+        data.receive_idr ?? data.receive_rp ?? 0
+      );
+
+      const total =
+        receivedIdr > 0
+          ? receivedIdr
+          : request.amount * request.price;
+
+      const actualPrice =
+        receivedIdr > 0
+          ? receivedIdr / request.amount
+          : request.price;
+
+      await recordTrade({
+
+        pair: request.pair,
+
+        type: "SELL",
+
+        price: actualPrice,
+
+        amount: request.amount,
+
+        totalIdr: total,
+
+        fee: Number(data.fee ?? 0),
+
+        orderId: String(data.order_id),
+
+        reason: "Live Trading SELL",
+
+        mode: "live",
+
+      });
 
       await recordLog(
         "BOT",
-        "danger",
-        `LIVE SELL GAGAL ${request.pair.toUpperCase()}: ${result.message}`
+        "success",
+        `LIVE SELL ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
+          0
+        )} (order_id: ${data.order_id})`
       );
 
-      throw new Error(result.message);
+      const sellResult: LiveTradeResult = {
+
+        success: true,
+
+        orderId: String(data.order_id),
+
+        pair: request.pair,
+
+        side: "SELL",
+
+        price: actualPrice,
+
+        amount: request.amount,
+
+        total,
+
+        timestamp: new Date().toISOString(),
+
+      };
+
+      await releaseLiveOrderLock(request.pair, "SELL", true);
+
+      return sellResult;
+
+    } catch (error) {
+
+      await releaseLiveOrderLock(request.pair, "SELL", false);
+
+      throw error;
 
     }
-
-    // --- Catat RAW response penuh, untuk verifikasi manual ---
-    await recordLog(
-      "SYSTEM",
-      "info",
-      `LIVE SELL raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
-        result.data
-      )}`
-    );
-
-    const data = result.data as any;
-
-    const receivedIdr = Number(
-      data.receive_idr ?? data.receive_rp ?? 0
-    );
-
-    const total =
-      receivedIdr > 0
-        ? receivedIdr
-        : request.amount * request.price;
-
-    const actualPrice =
-      receivedIdr > 0
-        ? receivedIdr / request.amount
-        : request.price;
-
-    await recordTrade({
-
-      pair: request.pair,
-
-      type: "SELL",
-
-      price: actualPrice,
-
-      amount: request.amount,
-
-      totalIdr: total,
-
-      fee: Number(data.fee ?? 0),
-
-      orderId: String(data.order_id),
-
-      reason: "Live Trading SELL",
-
-      mode: "live",
-
-    });
-
-    await recordLog(
-      "BOT",
-      "success",
-      `LIVE SELL ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
-        0
-      )} (order_id: ${data.order_id})`
-    );
-
-    return {
-
-      success: true,
-
-      orderId: String(data.order_id),
-
-      pair: request.pair,
-
-      side: "SELL",
-
-      price: actualPrice,
-
-      amount: request.amount,
-
-      total,
-
-      timestamp: new Date().toISOString(),
-
-    };
 
   }
 
