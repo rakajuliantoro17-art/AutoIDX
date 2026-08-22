@@ -2,11 +2,68 @@ import crypto from 'crypto';
 import querystring from 'querystring';
 import indodaxLimiter from './limiter';
 import IndodaxCache from './cache';
+import RetryExecutor from '@/services/resilience/retryExecutor';
 
 // Cache khusus daftar pair (/api/pairs jarang berubah - TTL 6 jam cukup
 // aman, tetap bisa dipaksa refresh lewat forceRefresh()).
 const pairsCache = new IndodaxCache({ ttlMs: 6 * 60 * 60 * 1000, maxEntries: 4 });
 const PAIRS_CACHE_KEY = 'indodax:pairs:all';
+
+// Mengaktifkan services/resilience/retryExecutor.ts yang sebelumnya
+// orphan. HANYA dipasang di endpoint PUBLIK (baca data, idempoten) --
+// SENGAJA TIDAK dipasang di _privateRequest/createTrade/cancelOrder,
+// karena mengulang order/cancel yang responsnya hilang (padahal
+// sebenarnya sudah dieksekusi Indodax) berisiko duplikat. Untuk BUY
+// live, pencegahan duplikat sudah ditangani liveOrderLock.ts +
+// status UNCERTAIN (lihat services/trading/live.ts) -- retry generik
+// di sini TIDAK BOLEH menggantikan mekanisme itu.
+const retryExecutor = new RetryExecutor();
+
+/**
+ * Retryable HANYA untuk kegagalan transien: exception jaringan asli
+ * (tidak punya .status sama sekali), HTTP 429 (rate limit), atau 5xx
+ * (masalah sisi server Indodax). HTTP 4xx lain (mis. 404 pair tidak
+ * ada) TIDAK di-retry -- mengulang tidak akan pernah mengubah hasil.
+ */
+function isRetryablePublicError(error) {
+  if (error && typeof error.status === 'number') {
+    return error.status === 429 || error.status >= 500;
+  }
+  return true;
+}
+
+/**
+ * Bungkus fetch endpoint PUBLIK Indodax dengan rate limiter (sudah
+ * ada) + retry exponential backoff (baru). Melempar Error yang sama
+ * seperti sebelumnya kalau semua percobaan gagal -- method pemanggil
+ * di bawah TIDAK berubah kontraknya sama sekali (masih try/catch +
+ * fallback null/[]/{} seperti semula).
+ */
+async function fetchPublicWithRetry(url, options = {}) {
+  const result = await retryExecutor.execute(
+    async () => {
+      const response = await indodaxLimiter.executePublic(() => fetch(url, options));
+
+      if (!response.ok) {
+        const httpError = new Error(`HTTP Error: ${response.status}`);
+        httpError.status = response.status;
+        throw httpError;
+      }
+
+      return response;
+    },
+    {
+      policy: { maxAttempts: 3 },
+      shouldRetry: isRetryablePublicError,
+    }
+  );
+
+  if (!result.success) {
+    throw result.error;
+  }
+
+  return result.value;
+}
 
 /**
  * Service Wrapper untuk Indodax Public & Private API (TAPI)
@@ -29,16 +86,10 @@ class IndodaxService {
    */
   async getTicker(pair = 'btc_idr') {
     try {
-      const response = await indodaxLimiter.executePublic(() =>
-        fetch(`${this.publicBaseUrl}/${pair}/ticker`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        })
-      );
-
-      if (!response.ok) {
-        throw new Error(`Public API Error: ${response.statusText}`);
-      }
+      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/${pair}/ticker`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
 
       const data = await response.json();
       return data.ticker;
@@ -56,13 +107,7 @@ class IndodaxService {
    */
   async getAllTickers() {
     try {
-      const response = await indodaxLimiter.executePublic(() =>
-        fetch(`${this.publicBaseUrl}/ticker_all`)
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status}`);
-      }
+      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/ticker_all`);
 
       const data = await response.json();
       return data.tickers || {};
@@ -78,10 +123,7 @@ class IndodaxService {
    */
   async getDepth(pair = 'btc_idr') {
     try {
-      const response = await indodaxLimiter.executePublic(() =>
-        fetch(`${this.publicBaseUrl}/${pair}/depth`)
-      );
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/${pair}/depth`);
       return await response.json();
     } catch (error) {
       console.error(`[Indodax API Error] Failed to fetch depth (${pair}):`, error.message);
@@ -95,10 +137,7 @@ class IndodaxService {
    */
   async getTrades(pair = 'btc_idr') {
     try {
-      const response = await indodaxLimiter.executePublic(() =>
-        fetch(`${this.publicBaseUrl}/${pair}/trades`)
-      );
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/${pair}/trades`);
       return await response.json();
     } catch (error) {
       console.error(`[Indodax API Error] Failed to fetch trades (${pair}):`, error.message);
@@ -119,11 +158,7 @@ class IndodaxService {
     }
 
     try {
-      const response = await indodaxLimiter.executePublic(() =>
-        fetch(`${this.publicBaseUrl}/pairs`)
-      );
-
-      if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/pairs`);
 
       const data = await response.json();
 
@@ -166,6 +201,9 @@ class IndodaxService {
 
   // ==========================================
   // PRIVATE API (TAPI) - HMAC-SHA512 AUTH
+  //
+  // TIDAK ADA RETRY DI BAWAH SINI (SENGAJA). Lihat catatan di
+  // retryExecutor/fetchPublicWithRetry di atas file ini.
   // ==========================================
 
   /**
