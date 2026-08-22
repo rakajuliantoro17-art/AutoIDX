@@ -76,22 +76,39 @@ export class NetworkHealth {
 
             /*
             ==============================================
-
-            TODO
-
-            Network connectivity check.
-
-            Example:
-
-            await fetch(
-                "https://example.com",
-                {
-                    method: "HEAD",
-                },
-            );
-
+            Cek konektivitas internet umum (BUKAN Indodax
+            spesifik -- itu sudah dicek terpisah di
+            exchangeHealth.ts). HEAD request ke endpoint
+            publik yang stabil & cepat, timeout 3 detik
+            supaya tidak menggantung kalau jaringan benar-
+            benar putus.
             ==============================================
             */
+
+            const controller = new AbortController();
+
+            const timeoutId = setTimeout(
+                () => controller.abort(),
+                3000
+            );
+
+            const response = await fetch(
+                "https://www.google.com",
+                {
+                    method: "HEAD",
+                    signal: controller.signal,
+                }
+            );
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `Network check gagal (status ${response.status}).`
+                );
+
+            }
 
             const latency =
 
