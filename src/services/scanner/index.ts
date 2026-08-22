@@ -61,6 +61,18 @@ import type { PredictionInput } from "../ai/prediction/predictionInput";
 import { evaluateMarketQuality, evaluateVolumeSurge } from "./marketQuality";
 import { getCandles } from "../indodax/candles";
 
+// --- Circuit Breaker (services/resilience, sebelumnya orphan) ---
+// Satu instance DIBAGIKAN sepanjang satu siklus scanMarket() (bukan
+// lintas siklus -- state in-memory tidak bisa diandalkan lintas
+// invocation di Vercel serverless, lihat catatan lengkap di komentar
+// scanMarket()). Nilainya: kalau Indodax down TOTAL di tengah scan,
+// setelah beberapa kegagalan beruntun breaker akan OPEN dan sisa
+// kandidat di siklus yang sama gagal cepat (fail-fast) alih-alih
+// tetap mencoba network call yang pasti gagal untuk puluhan pair
+// berikutnya -- menghemat waktu & kuota rate-limit untuk outage yang
+// sama.
+import { CircuitBreaker } from "../resilience/circuitBreaker";
+
 const aiPredictionEngine = new PredictionEngine(new BasicPredictionModel());
 
 /**
@@ -191,6 +203,15 @@ export class MarketScanner {
 
     const qualified: ScannedPairResult[] = [];
 
+    // Dibuat SEKALI per siklus scanMarket() ini, dibagikan ke semua
+    // kandidat yang diproses mapWithConcurrency di bawah. TIDAK
+    // disimpan sebagai field class/module-level -- sengaja dibuang
+    // begitu scanMarket() ini selesai, karena instance baru akan
+    // dibuat lagi di panggilan scanMarket() berikutnya (cron/API
+    // route berikutnya). Ini scoped ke SATU siklus, bukan proteksi
+    // permanen lintas waktu -- lihat catatan impor di atas.
+    const breaker = new CircuitBreaker();
+
     // Skor SEMUA kandidat yang berhasil dianalisa (bukan cuma yang
     // qualified) -- dipakai untuk scoreStats di bawah, supaya bisa
     // dipantau apakah threshold minOpportunityScore terlalu ketat
@@ -202,7 +223,9 @@ export class MarketScanner {
     //    dengan concurrency terbatas.
     await mapWithConcurrency(candidates, TRADES_CONCURRENCY, async (ticker) => {
       try {
-        const prices = await indodaxMarketService.getPriceSeries(ticker.pair, 50);
+        const prices = await breaker.execute(() =>
+          indodaxMarketService.getPriceSeries(ticker.pair, 50)
+        );
 
         if (prices.length < 25) {
           return;
@@ -231,9 +254,8 @@ export class MarketScanner {
         let spreadPercent: number | undefined;
 
         try {
-          const depth = await indodaxMarketService.getOrderBookDepth(
-            ticker.pair,
-            20
+          const depth = await breaker.execute(() =>
+            indodaxMarketService.getOrderBookDepth(ticker.pair, 20)
           );
 
           const quality = evaluateMarketQuality(
@@ -264,7 +286,9 @@ export class MarketScanner {
         let priceRangePercent: number | undefined;
 
         try {
-          const candles = await getCandles({ pair: ticker.pair, limit: 50 });
+          const candles = await breaker.execute(() =>
+            getCandles({ pair: ticker.pair, limit: 50 })
+          );
           const surge = evaluateVolumeSurge(candles, ticker.pair);
 
           if (surge) {
