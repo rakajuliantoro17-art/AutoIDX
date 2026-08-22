@@ -28,6 +28,7 @@ dari engine.ts, bukan fallback implisit lagi).
 */
 
 import { useEffect, useState } from "react";
+import { formatIDR } from "@/utils";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
 // Minimum transaksi Indodax adalah Rp10.000 (Rp10.000-24.999 diproses
@@ -158,13 +159,13 @@ export default function RiskSettings() {
           <div className="flex justify-between items-center mb-2">
             <p className="text-slate-400 text-sm">Trade Amount</p>
             <p className="text-sky-400 font-bold">
-              {loading ? "..." : `Rp ${tradeAmount.toLocaleString("id-ID")}`}
+              {loading ? "..." : formatIDR(tradeAmount)}
             </p>
           </div>
 
           {TRADE_AMOUNT_MIN === TRADE_AMOUNT_MAX ? (
             <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
-              Dikunci Rp {TRADE_AMOUNT_MIN.toLocaleString("id-ID")} sementara
+              Dikunci {formatIDR(TRADE_AMOUNT_MIN)} sementara
               selama fase uji coba live trading. Akan dilebarkan ke rentang
               Rp10.000-Rp500.000 setelah BUY live terbukti jalan beberapa
               siklus.
@@ -189,8 +190,8 @@ export default function RiskSettings() {
               />
 
               <div className="flex justify-between text-xs text-slate-500 mt-1">
-                <span>Rp {TRADE_AMOUNT_MIN.toLocaleString("id-ID")}</span>
-                <span>Rp {TRADE_AMOUNT_MAX.toLocaleString("id-ID")}</span>
+                <span>{formatIDR(TRADE_AMOUNT_MIN)}</span>
+                <span>{formatIDR(TRADE_AMOUNT_MAX)}</span>
               </div>
             </>
           )}
