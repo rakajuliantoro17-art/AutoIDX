@@ -32,11 +32,19 @@ Detail: AI/ML Layer").
 import type { NextApiRequest, NextApiResponse } from "next";
 
 import { verifyApiAuth } from "@/lib/auth/verifyApiAuth";
+import { checkRateLimit } from "@/services/security/rateLimitStore";
 import { collectDataset } from "@/services/ml/dataset/collector";
 import modelTrainer from "@/services/ml/models/trainer";
 import { saveActiveModel } from "@/services/ml/storage/modelStore";
 
 const DEFAULT_PAIRS = ["btc_idr", "eth_idr", "sol_idr", "usdt_idr", "xrp_idr"];
+
+// Training = beberapa request ke Indodax (candle historis) + tulis
+// Firestore + komputasi gradient descent - jelas bukan operasi
+// ringan, dibatasi 5x/10 menit per user (bukan global, supaya satu
+// user yang training berkali-kali tidak mengunci user lain).
+const TRAIN_RATE_LIMIT = 5;
+const TRAIN_RATE_WINDOW_MS = 10 * 60 * 1000;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
@@ -48,6 +56,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!user) {
     return res.status(401).json({ error: "Unauthorized - login diperlukan" });
+  }
+
+  const rateLimit = await checkRateLimit(`ml_train:${user.uid}`, TRAIN_RATE_LIMIT, TRAIN_RATE_WINDOW_MS);
+
+  if (!rateLimit.allowed) {
+    res.setHeader("Retry-After", Math.ceil((rateLimit.resetAt - Date.now()) / 1000));
+    return res.status(429).json({
+      error: `Terlalu sering training (maks ${TRAIN_RATE_LIMIT}x per 10 menit). Coba lagi setelah ${new Date(rateLimit.resetAt).toLocaleTimeString("id-ID")}.`,
+    });
   }
 
   const body = req.body ?? {};
