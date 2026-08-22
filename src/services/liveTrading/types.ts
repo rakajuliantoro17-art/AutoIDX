@@ -471,6 +471,27 @@ export interface ExchangeResponse {
     data:any;
 
 
+    /**
+     * Cuma relevan kalau success===false. Terinspirasi dari
+     * services/liveTrading/gate/uncertainExecutionGuard.ts
+     * (orphan, konsepnya dipakai di sini tanpa import filenya).
+     *
+     * "CERTAIN" -- Indodax MERESPONS dengan jelas (data.success!==1
+     * dari API mereka) -- order PASTI TIDAK tereksekusi, aman
+     * untuk retry/anggap gagal bersih.
+     *
+     * "UNCERTAIN" -- request gagal lewat exception (network error,
+     * timeout, response tidak bisa di-parse) SEBELUM sempat dapat
+     * jawaban jelas dari Indodax -- order BISA JADI tetap
+     * tereksekusi di sisi mereka walau kita tidak dapat
+     * konfirmasinya. TIDAK aman dianggap gagal bersih -- pemanggil
+     * (trading/live.ts) WAJIB menahan lock (jangan langsung
+     * release sebagai "boleh retry") sampai dicek manual lewat
+     * getInfo()/riwayat order asli.
+     */
+    certainty?:"CERTAIN"|"UNCERTAIN";
+
+
 }
 
 
