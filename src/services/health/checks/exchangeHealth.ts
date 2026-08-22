@@ -10,6 +10,8 @@ Exchange Health Monitoring
 
 import logger from "@/services/logger";
 
+import indodaxClient from "@/services/liveTrading/exchange/indodaxClient";
+
 
 
 
@@ -84,17 +86,21 @@ export class ExchangeHealth {
 
             /*
             ==============================================
-
-            TODO
-
-            Ping Exchange API
-
-            Example:
-
-            await exchangeService.ping();
-
+            Ping API publik Indodax beneran (endpoint ticker,
+            tanpa perlu API key) -- ini persis endpoint yang
+            dipakai scanner & trading engine tiap siklus,
+            jadi latency-nya representatif untuk kondisi
+            nyata yang dialami bot.
             ==============================================
             */
+
+            const reachable = await indodaxClient.ping();
+
+            if (!reachable) {
+
+                throw new Error("Indodax ping gagal.");
+
+            }
 
             const latency =
 
