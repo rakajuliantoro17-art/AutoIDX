@@ -239,6 +239,32 @@ scannedCount:number;
 
 
 
+/**
+ * Jumlah pair yang lolos prefilter volume (t.volIdr >= minVolumeIdr)
+ * dan masuk daftar kandidat yang benar-benar dianalisa RSI/EMA
+ * (sebelum dipotong DEEP_SCAN_LIMIT). Field diagnostik -- membedakan
+ * "tidak ada pair yang lolos filter volume" (candidatesCount: 0)
+ * dari "pair lolos filter volume tapi analisa RSI/EMA gagal untuk
+ * semuanya" (candidatesCount > 0, scoreStats.analyzedCount: 0).
+ */
+
+candidatesCount:number;
+
+
+
+/**
+ * Nilai volIdr (volume 24 jam dalam IDR) TERTINGGI yang terlihat di
+ * antara seluruh consideredPairs, SEBELUM difilter minVolumeIdr.
+ * Field diagnostik murni -- kalau candidatesCount: 0 tapi angka ini
+ * juga sangat kecil/0 padahal mestinya ada pair besar seperti
+ * btc_idr, itu tanda parsing volIdr dari Indodax bermasalah (bukan
+ * market yang benar-benar sepi).
+ */
+
+maxVolIdrSeen:number;
+
+
+
 qualifiedCount:number;
 
 
