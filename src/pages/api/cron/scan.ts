@@ -21,6 +21,7 @@ import {
   recordCalibrationSnapshots,
   evaluateDueCalibrations,
 } from "@/services/analytics/aiCalibration";
+import { reconcileUncertainOrders } from "@/services/liveTrading/reconciliation/uncertainOrderReconciler";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
@@ -85,6 +86,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       );
     }
 
+    // --- Uncertain Order Reconciler ------------------------------
+    // Menutup celah "requireReconciliation belum ditegakkan":
+    // lock live_order_locks berstatus UNCERTAIN (order gagal
+    // lewat exception network, status di Indodax tidak diketahui)
+    // dicek ulang terhadap riwayat trade asli Indodax tiap siklus
+    // -- auto-resolve kalau terbukti gagal, escalate untuk review
+    // manual kalau terbukti tereksekusi tapi tidak tercatat. Fail-
+    // safe sepenuhnya di dalam reconciler-nya sendiri.
+    const reconciliation = await reconcileUncertainOrders();
+
+    if (reconciliation.checked > 0) {
+      console.log(
+        `[CRON] Reconciliation: ${reconciliation.checked} lock UNCERTAIN dicek, ` +
+        `${reconciliation.autoResolved} auto-resolved, ` +
+        `${reconciliation.escalatedForReview} di-escalate untuk review manual.`
+      );
+    }
+
     // SEMUA pair yang lolos filter opportunityScore (bukan cuma top 10
     // topOpportunities yang dipakai dashboard) -- inilah yang
     // menyambungkan scanner ke eksekusi live trading. executeCron()
@@ -109,6 +128,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         correctThisCycle: calibrationEvaluation.correct,
         newSnapshots: calibrationRecording.written,
       },
+      orderReconciliation: reconciliation,
     });
 
   } catch (error) {
