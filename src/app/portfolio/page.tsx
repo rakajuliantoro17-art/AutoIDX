@@ -18,6 +18,7 @@ supaya pengguna tidak salah kira angka Rp 0 adalah saldo sungguhan.
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
+import { formatIDR, formatPercent } from "@/utils";
 
 interface TradeRow {
   pair: string;
@@ -58,7 +59,7 @@ const EMPTY_SUMMARY: PortfolioSummary = {
 };
 
 function formatIdr(value: number): string {
-  return Math.round(value).toLocaleString("id-ID");
+  return formatIDR(value, false);
 }
 
 function pnlColor(value: number): string {
@@ -353,7 +354,7 @@ export default function PortfolioPage() {
                     <td className={pnlColor(trade.pnlIdr)}>
                       {trade.status === "OPEN"
                         ? "-"
-                        : `Rp ${formatIdr(trade.pnlIdr)} (${trade.pnlPercent.toFixed(2)}%)`}
+                        : `Rp ${formatIdr(trade.pnlIdr)} (${formatPercent(trade.pnlPercent)})`}
                     </td>
 
                   </tr>
