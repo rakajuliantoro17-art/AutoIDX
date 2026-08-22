@@ -52,7 +52,7 @@ type OrderSide = "BUY" | "SELL";
 interface LiveOrderLockDoc {
   pair: string;
   side: OrderSide;
-  status: "PENDING" | "COMPLETED" | "FAILED";
+  status: "PENDING" | "COMPLETED" | "FAILED" | "UNCERTAIN";
   lockedAt: number;
 }
 
@@ -83,6 +83,17 @@ export async function acquireLiveOrderLock(
 
       const data = snap.data() as LiveOrderLockDoc;
       const ageMs = Date.now() - data.lockedAt;
+
+      if (data.status === "UNCERTAIN") {
+
+        throw new Error(
+          `Order ${side} ${pair.toUpperCase()} sebelumnya berstatus TIDAK PASTI ` +
+          `(kemungkinan tereksekusi di Indodax tapi respons gagal diterima) -- ` +
+          `diblokir sampai diverifikasi manual & di-resolve lewat resolveLiveOrderLock(). ` +
+          `Cek riwayat order asli di Indodax sebelum resolve.`
+        );
+
+      }
 
       if (data.status === "PENDING" && ageMs < LOCK_WINDOW_MS) {
 
@@ -146,5 +157,83 @@ export async function releaseLiveOrderLock(
     console.error("[LiveOrderLock] Gagal release lock:", error);
 
   }
+
+}
+
+/**
+ * Tandai lock sebagai TIDAK PASTI -- dipanggil sebagai ganti
+ * releaseLiveOrderLock() ketika client.trade() gagal lewat
+ * exception (certainty==="UNCERTAIN", lihat
+ * liveTrading/exchange/indodaxClient.ts & types.ts
+ * ExchangeResponse.certainty), BUKAN penolakan bersih dari
+ * Indodax. Lock TETAP memblokir order pair+side yang sama
+ * (terlepas dari LOCK_WINDOW_MS) sampai di-resolve manual lewat
+ * resolveLiveOrderLock() -- operator WAJIB cek riwayat order
+ * asli di Indodax dulu sebelum resolve, untuk pastikan order itu
+ * benar-benar tidak tereksekusi (kalau ternyata tereksekusi,
+ * JANGAN resolve -- rekonsiliasi posisi manual dulu).
+ */
+export async function markLiveOrderUncertain(
+  pair: string,
+  side: OrderSide,
+  reason: string
+): Promise<void> {
+
+  const docRef = adminDb
+    .collection(COLLECTION)
+    .doc(lockDocId(pair, side));
+
+  try {
+
+    await docRef.set(
+      {
+        pair: pair.trim().toLowerCase(),
+        side,
+        status: "UNCERTAIN",
+        uncertainReason: reason,
+        markedUncertainAt: Date.now(),
+      },
+      { merge: true }
+    );
+
+  } catch (error) {
+
+    // Kalau bahkan penandaan UNCERTAIN gagal tersimpan, ini
+    // serius -- log sekeras mungkin, tapi tetap tidak melempar
+    // supaya tidak menutupi error asli (kegagalan trade() itu
+    // sendiri) yang memicu pemanggilan fungsi ini.
+    console.error(
+      "[LiveOrderLock] GAGAL menandai lock sebagai UNCERTAIN -- " +
+      "order mungkin dalam status tidak diketahui tanpa jejak di Firestore:",
+      error
+    );
+
+  }
+
+}
+
+/**
+ * Resolusi manual untuk lock berstatus UNCERTAIN -- panggil
+ * HANYA setelah operator memverifikasi langsung ke Indodax
+ * (riwayat order/getInfo) bahwa order tersebut TIDAK tereksekusi.
+ * Melepas lock supaya order pair+side yang sama bisa dicoba lagi.
+ */
+export async function resolveLiveOrderLock(
+  pair: string,
+  side: OrderSide
+): Promise<void> {
+
+  const docRef = adminDb
+    .collection(COLLECTION)
+    .doc(lockDocId(pair, side));
+
+  await docRef.set(
+    {
+      status: "COMPLETED",
+      resolvedAt: Date.now(),
+      resolvedManually: true,
+    },
+    { merge: true }
+  );
 
 }
