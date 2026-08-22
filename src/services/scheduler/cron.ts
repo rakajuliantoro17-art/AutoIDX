@@ -145,6 +145,7 @@ async function processPair(pair: string): Promise<CronPairResult> {
       pair,
       price,
       features,
+      candles,
     });
 
     await recordLog(
