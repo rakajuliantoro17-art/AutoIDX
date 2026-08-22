@@ -91,10 +91,10 @@ export function getLiveTradingConfig():
         3,
       ),
 
-    // BELUM DITEGAKKAN oleh kode manapun (lihat live.ts) - field ini
-    // disimpan untuk kelengkapan config tapi butuh implementasi
-    // reconciliation (bandingkan posisi tercatat vs saldo/posisi
-    // asli di Indodax) yang belum ada. Jangan asumsikan aktif.
+    // Ditegakkan di trading/live.ts (assertReconciliationFresh) --
+    // dicek SEBELUM tiap live BUY. null/basi (>15 menit default)/
+    // mismatch = BUY diblokir fail-closed. SELL/exit tidak
+    // terpengaruh field ini.
     requireReconciliation:
       process.env.BOT_CANARY_REQUIRE_RECONCILIATION !==
       "false",
