@@ -16,6 +16,7 @@ otomatis memblokir BUY live baru (lihat services/trading/live.ts)
 import { useState, useEffect, useCallback } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/services/auth/AuthContext";
+import { formatIDR, formatFullDateTime } from "@/utils";
 
 interface CanarySnapshot {
   status: "HEALTHY" | "WARNING" | "CRITICAL";
@@ -191,14 +192,14 @@ export default function CanaryMonitorPage() {
               <div className="card">
                 <p className="text-xs text-slate-400">Total PnL</p>
                 <p className="text-xl font-bold">
-                  Rp{snapshot.totalPnl.toLocaleString("id-ID")}
+                  {formatIDR(snapshot.totalPnl)}
                 </p>
               </div>
               <div className="card">
                 <p className="text-xs text-slate-400">Order Terakhir</p>
                 <p className="text-sm">
                   {snapshot.lastOrderAt
-                    ? new Date(snapshot.lastOrderAt).toLocaleString("id-ID")
+                    ? formatFullDateTime(new Date(snapshot.lastOrderAt).toISOString())
                     : "-"}
                 </p>
               </div>
