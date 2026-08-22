@@ -81,7 +81,10 @@ Variabel	Wajib	Keterangan
 `BOT_CANARY_MAX_DAILY_LOSS_IDR`	Tidak	Default 50.000 (IDR, ABSOLUT). BEDA dari `BOT_MAX_DAILY_LOSS` (itu persentase, dipakai `config/bot.ts`/`config/risk.ts`) - saat ini disimpan di config tapi belum ditegakkan kode manapun
 `BOT_CANARY_MAX_OPEN_ORDERS`	Tidak	Default 1 - ditegakkan di `trading/live.ts` sebelum BUY live baru
 `BOT_CANARY_MAX_CONSECUTIVE_FAILURES`	Tidak	Default 3 - dihitung dari histori Canary Metrics (`canary_metrics/live` di Firestore), ditegakkan di `trading/live.ts`
-`BOT_CANARY_REQUIRE_RECONCILIATION`	Tidak	Disimpan di config tapi BELUM ditegakkan kode manapun - butuh logika bandingkan posisi tercatat vs saldo asli Indodax yang belum ada
+`BOT_CANARY_REQUIRE_RECONCILIATION`	Tidak	Default `true`. SEKARANG DITEGAKKAN oleh `trading/live.ts` (`assertReconciliationFresh()`) - baca hasil terakhir `/api/cron/reconcile` dari `system_status/reconciliation` (Firestore, via `reconciliationStatus.ts`). BUY live ditolak kalau reconciliation belum pernah jalan, hasilnya mismatch, atau basi
+`BOT_CANARY_RECONCILIATION_MAX_AGE_MINUTES`	Tidak	Default 15 (menit). Reconciliation lebih tua dari ini dianggap basi, BUY live ditolak fail-closed. Dibaca `trading/live.ts`
+`BOT_SIZING_MODE`	Tidak	`FIXED` (default) atau `RISK_BASED`. RISK_BASED = nominal per trade dihitung dari `BOT_RISK_PERCENT_PER_TRADE` + jarak stop-loss (`execution/risk/positionSizing.ts`), bukan nominal tetap. Gagal hitung -> fallback otomatis ke nominal tetap (tidak pernah gagal-blokir BUY)
+`BOT_RISK_PERCENT_PER_TRADE`	Tidak	Default 1 (persen). HANYA berlaku kalau `BOT_SIZING_MODE=RISK_BASED`
 Indicator Settings
 Variabel	Wajib	Keterangan
 `EMA_FAST`	Tidak (ada default)	Periode EMA cepat
