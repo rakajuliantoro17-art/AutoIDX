@@ -805,3 +805,26 @@ Belum ada model ML yang terlatih di production (asumsi) -- kalau `POST /api/ml/t
 Belum ada indikator UI di dashboard yang menunjukkan status ML advisory (kapan terakhir prediksi, berapa confidence rata-rata, dst) -- saat ini cuma muncul di Activity Log seperti AI Advisory lainnya.
 trendRule/volumeRule (orphan) dan audit api/bot/execute.ts (jalur eksekusi ganda, status aktif/tidak belum jelas) SENGAJA tidak disentuh sesi ini -- di luar scope yang dikonfirmasi user. Lihat "Audit Detail" di atas untuk detail masing-masing kalau mau dilanjutkan sesi berikutnya.
 Peringatan keamanan `ACCOUNT_ENCRYPTION_KEY` yang bocor (lihat paling atas dokumen ini) -- BELUM dikonfirmasi user sudah di-rotate atau belum saat sesi ini dimulai. Sesi berikutnya WAJIB tanya ulang kalau belum ada jawaban eksplisit.
+
+Session Log 11 — Audit api/bot/execute.ts + Perbaikan Keamanan Kritis (Endpoint Trading Tanpa Auth)
+(Lanjutan Session Log 10, item yang sengaja di-defer. User minta "lanjut" tanpa spesifikasi lebih lanjut -- diprioritaskan audit ini dulu dari 2 opsi tersisa (trendRule/volumeRule vs audit execute.ts) karena berkaitan langsung dengan keamanan uang, sesuai aturan wajib dokumen ini: "Kalau menemukan isu keamanan: laporkan dulu ke user secara eksplisit sebelum lanjut kerja lain".)
+
+Temuan
+`src/api/bot/execute.ts` TERNYATA BUKAN jalur eksekusi paralel yang berbahaya seperti dikhawatirkan Session Log 4/9 -- sudah memanggil `executeCron()` (pipeline yang SAMA persis dipakai cron terjadwal), bukan logika terpisah. Ini kabar baik, klaim lama "belum diverifikasi apakah aktif" di dokumen ini SEKARANG terjawab: aktif, dan sudah delegasi ke jalur kanonik.
+TAPI ditemukan bug keamanan serius yang belum pernah tercatat di manapun: `api/bot/route.ts` (dipanggil publik lewat `/api/bot`, App Router GET handler) TIDAK PUNYA autentikasi sama sekali, DAN tidak memakai `cronLock` yang sudah ada. Dibandingkan `/api/cron/scan.ts` yang sudah benar (cek `CRON_SECRET` Bearer token + `acquireCronLock()`), `/api/bot` API benar-benar terbuka ke publik.
+Dampak: (1) siapapun yang tahu URL bisa memicu siklus trading (bisa BUY/SELL sungguhan kalau `BOT_MODE=live`) kapan saja tanpa login. (2) Kalau tertembak bersamaan dengan cron terjadwal, `executeCron()` bisa jalan 2x paralel tanpa proteksi -- race condition di Firestore (baca posisi/saldo stale), berpotensi double BUY/SELL.
+Dicek juga: tidak ada pemanggil dari frontend (`grep` menyeluruh ke semua `.tsx`) -- endpoint ini genuinely tidak dipakai UI manapun saat ini, tapi tetap reachable publik karena route App Router aktif (`export const dynamic = "force-dynamic"`).
+
+Yang diperbaiki
+`src/api/bot/route.ts` (v0.0.2) -- ditambah 2 lapis proteksi, pola PERSIS SAMA seperti `/api/cron/scan.ts`:
+Auth: header `Authorization: Bearer <CRON_SECRET>` wajib cocok (reuse env var `CRON_SECRET` yang sudah ada, BUKAN secret baru -- endpoint ini secara fungsi trigger manual untuk pipeline yang sama dengan cron, bukan API end-user).
+Lock: `acquireCronLock()` dipanggil sebelum `executeBot()`, `release()` di `finally` -- kalau lock sedang dipegang siklus lain, request di-skip aman (response 200, `{skipped:true}`), BUKAN dijalankan dobel.
+`docs/environment-variables.md` -- baris `CRON_SECRET` diperbarui, sekarang dicocokkan di 2 tempat.
+
+Keputusan TERBUKA -- belum diputuskan, jangan asumsikan
+Karena endpoint ini sekarang butuh `CRON_SECRET` (server-side secret), TIDAK BISA dipanggil langsung dari client browser (kalau mau tombol "Run Now" di dashboard, JANGAN expose `CRON_SECRET` ke client -- butuh API route perantara yang auth-nya `verifyApiAuth`/Firebase ID Token, lalu route itu yang menyimpan `CRON_SECRET` server-side dan memanggil `/api/bot` secara internal, ATAU ganti langsung auth `/api/bot` ke `verifyApiAuth`). Belum dikerjakan sesi ini karena tidak ada permintaan UI eksplisit untuk fitur ini -- tanya user dulu kalau mau dibuatkan.
+
+Yang BELUM dikerjakan / catatan jujur
+BELUM diverifikasi `tsc`/`npm run build` sungguhan -- sandbox sesi ini masih tanpa akses internet, sama seperti Session Log 10. Verifikasi manual: brace/paren seimbang, signature `successResponse`/`errorResponse` dicocokkan ke `response.ts` langsung.
+`trendRule`/`volumeRule` (orphan strategy rules) BELUM dikerjakan -- masih di antrian kalau user mau lanjutkan.
+Belum dicek apakah ada endpoint App Router lain dengan pola serupa (dynamic route publik tanpa auth) -- audit ini hanya fokus ke `/api/bot` sesuai scope temuan. Kalau mau menyeluruh, perlu audit semua `app/api/*/route.ts` satu-satu.
