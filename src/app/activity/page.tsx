@@ -15,6 +15,7 @@ Firestore), auto-refresh tiap 5 detik selama halaman ini dibuka
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
+import { formatIDR } from "@/utils";
 
 interface ActivityItem {
   id: string;
@@ -269,7 +270,7 @@ export default function ActivityPage() {
                   <td className={trade.type === "BUY" ? "text-emerald-400" : "text-rose-400"}>
                     {trade.type}
                   </td>
-                  <td>Rp {trade.price?.toLocaleString("id-ID")}</td>
+                  <td>{formatIDR(trade.price ?? 0)}</td>
                   <td>{trade.amount}</td>
                   <td>
                     <span
