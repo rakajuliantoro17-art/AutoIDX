@@ -27,10 +27,8 @@ menampilkannya sama sekali.
 
 import { useEffect, useState, useCallback } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
-import StatusCard from "@/components/StatusCard";
-import RiskBadge from "@/components/RiskBadge";
-import PriceChart from "@/components/PriceChart";
-import ActivityLogs from "@/components/ActivityLogs";
+import DashboardOverview from "@/components/DashboardOverview";
+import type { ActivityLog } from "@/components/RecentActivity";
 import { useAuth } from "@/services/auth/AuthContext";
 
 interface DashboardData {
@@ -43,18 +41,32 @@ interface DashboardData {
   error: string | null;
 }
 
-interface LogItem {
-  id: string;
-  timestamp: string;
-  message: string;
-  type: "info" | "success" | "warning" | "danger";
-}
-
 const REFRESH_INTERVAL_MS = 10000;
 
 function formatClock(iso: string | null): string {
   if (!iso) return "-";
   return new Date(iso).toLocaleTimeString("id-ID", { hour12: false });
+}
+
+/**
+ * /api/logs/recent balikin `type` (info/success/warning/danger,
+ * huruf kecil, konsisten dengan Firestore field). DashboardOverview
+ * (lewat RecentActivity/ActivityView, sebelumnya orphan, sekarang
+ * diintegrasikan -- lihat docs/claude.md Session Log 7) pakai
+ * bentuk ActivityLog (`level`, huruf besar, tanpa varian DANGER
+ * terpisah -- dipetakan ke ERROR).
+ */
+function mapLogType(type: string): ActivityLog["level"] {
+  switch (type) {
+    case "success":
+      return "SUCCESS";
+    case "warning":
+      return "WARNING";
+    case "danger":
+      return "ERROR";
+    default:
+      return "INFO";
+  }
 }
 
 export default function DashboardPage() {
@@ -71,7 +83,8 @@ export default function DashboardPage() {
     error: null,
   });
 
-  const [logs, setLogs] = useState<LogItem[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
 
   const loadBotState = useCallback(async () => {
 
@@ -135,17 +148,16 @@ export default function DashboardPage() {
       setLogs(
         (json.logs ?? []).map((log: any) => ({
           id: log.id,
-          timestamp: formatClock(log.timestamp),
+          time: formatClock(log.timestamp),
           message: log.message,
-          type:
-            log.type === "success" || log.type === "warning" || log.type === "danger"
-              ? log.type
-              : "info",
+          level: mapLogType(log.type),
         }))
       );
 
     } catch (error) {
       console.error("[Dashboard] Failed to load logs:", error);
+    } finally {
+      setLogsLoading(false);
     }
 
   }, [user]);
@@ -173,7 +185,6 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold">Bot Executive Overview</h1>
             <p className="text-xs text-slate-400">Serverless Trading Monitoring</p>
           </div>
-          <RiskBadge signal={data.signal} />
         </div>
 
         {/* Error banner (tampil kalau fetch gagal, tidak menutupi seluruh dashboard) */}
@@ -183,29 +194,12 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <StatusCard
-            title="BTC/IDR Price"
-            value={data.loading ? "..." : `Rp ${(data.price ?? 0).toLocaleString("id-ID")}`}
-            subtext="bot_state (siklus terakhir)"
-            loading={data.loading}
-          />
-          <StatusCard title="Position" value={data.position} />
-          <StatusCard
-            title="Risk"
-            value={`${data.stopLoss}% / ${data.takeProfit}%`}
-            subtext="SL / TP"
-          />
-        </div>
-
-        {/* Main Area */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <PriceChart pair="btc_idr" />
-          </div>
-          <ActivityLogs logs={logs} />
-        </div>
+        <DashboardOverview
+          data={data}
+          logs={logs}
+          logsLoading={logsLoading}
+          pair="btc_idr"
+        />
       </div>
     </DashboardLayout>
   );
