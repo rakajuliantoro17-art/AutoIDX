@@ -374,6 +374,48 @@ export class IndodaxClient {
   }
 
   /**
+   * Daftar order yang masih OPEN (belum fully filled/cancelled)
+   * untuk satu pair -- private endpoint "openOrders". Dipakai
+   * cron/reconcile.ts untuk mengisi `unknownOrderIds` yang
+   * sebelumnya SELALU kosong (lihat catatan di reconcile.ts).
+   *
+   * Bot ini SELALU pakai market order (fill instan), jadi order
+   * apa pun yang masih OPEN di sini pada dasarnya "tidak dikenal"
+   * dari sudut pandang bot -- bot tidak punya registry order
+   * limit yang sengaja dibiarkan terbuka. Kemunculan hasil di
+   * sini kemungkinan besar order manual di luar bot, atau order
+   * yang macet/partial-fill yang butuh perhatian operator.
+   */
+  async openOrders(
+    pair: string
+  ): Promise<
+    | { success: true; data: Array<{ order_id: string | number }> }
+    | { success: false; message: string }
+  > {
+
+    const result = await this.privateRequest("openOrders", { pair });
+
+    if (!result.success) {
+
+      return {
+        success: false,
+        message: result.message ?? "Unknown error",
+      };
+
+    }
+
+    const raw = Array.isArray(result.data)
+      ? result.data
+      : ((result.data as Record<string, unknown>)?.[pair] as unknown[]) ?? [];
+
+    return {
+      success: true,
+      data: raw as Array<{ order_id: string | number }>,
+    };
+
+  }
+
+  /**
    * Check API connection
    */
   async ping() {
