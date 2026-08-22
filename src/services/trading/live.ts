@@ -22,6 +22,11 @@ import { validateLiveOrder } from "./liveOrderValidator";
 import { getCanarySnapshot, getRecentCanaryOrders, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
 import { CanaryOrderMetric } from "@/services/liveTrading/monitoring/canaryMetrics";
 import { getLiveTradingConfig } from "@/services/liveTrading/risk/liveTradingConfig";
+import {
+  acquireLiveOrderLock,
+  releaseLiveOrderLock,
+  markLiveOrderUncertain,
+} from "@/services/firebase/liveOrderLock";
 
 export interface LiveTradeRequest {
   pair: string;
@@ -299,99 +304,154 @@ class LiveTradingService {
 
     }
 
-    // --- Tempatkan order asli ---
-    const result = await client.trade({
-      pair: request.pair,
-      type: "buy",
-      orderType: "market",
-      idr: tradeAmountIdr,
-    });
+    // --- Idempotency guard (services/firebase/liveOrderLock.ts,
+    // sebelumnya orphan) - diambil SEBELUM order asli dikirim ke
+    // Indodax. Kalau ada lock PENDING lain untuk pair+BUY yang
+    // sama (mis. cron overlap), acquire() ini akan throw dan
+    // order TIDAK dikirim sama sekali - fail-safe di sisi kita,
+    // bukan cuma mengandalkan Indodax menolak duplikat.
+    await acquireLiveOrderLock(request.pair, "BUY");
 
-    if (!result.success) {
+    // Sengaja BUKAN try/finally biasa dengan release tanpa syarat
+    // - kasus certainty==="UNCERTAIN" (exception network SEBELUM
+    // dapat jawaban jelas dari Indodax) harus MENAHAN lock lewat
+    // markLiveOrderUncertain(), bukan melepasnya seolah aman untuk
+    // dicoba lagi. Flag lockResolved menandai jalur mana yang
+    // sudah menangani lock supaya finally di bawah tidak
+    // menimpanya dengan release biasa.
+    let lockResolved = false;
+
+    try {
+
+      // --- Tempatkan order asli ---
+      const result = await client.trade({
+        pair: request.pair,
+        type: "buy",
+        orderType: "market",
+        idr: tradeAmountIdr,
+      });
+
+      if (!result.success) {
+
+        if (result.certainty === "UNCERTAIN") {
+
+          await markLiveOrderUncertain(
+            request.pair,
+            "BUY",
+            result.message ?? "Trade gagal via exception, status tidak pasti."
+          );
+
+          lockResolved = true;
+
+          await recordLog(
+            "BOT",
+            "danger",
+            `LIVE BUY ${request.pair.toUpperCase()} STATUS TIDAK PASTI (kemungkinan tereksekusi tapi respons gagal diterima) - lock ditahan, cek riwayat order asli di Indodax sebelum resolve manual: ${result.message}`
+          );
+
+        } else {
+
+          await recordLog(
+            "BOT",
+            "danger",
+            `LIVE BUY GAGAL ${request.pair.toUpperCase()}: ${result.message}`
+          );
+
+        }
+
+        throw new Error(result.message);
+
+      }
+
+      await releaseLiveOrderLock(request.pair, "BUY", true);
+      lockResolved = true;
+
+      // --- Catat RAW response penuh, untuk verifikasi manual ---
+      await recordLog(
+        "SYSTEM",
+        "info",
+        `LIVE BUY raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
+          result.data
+        )}`
+      );
+
+      const coin = request.pair.replace(/_idr$/i, "");
+
+      const receivedCoin = Number(
+        (result.data as any)[`receive_${coin}`] ?? 0
+      );
+
+      const spentIdr = Number(
+        (result.data as any).spend_rp ?? tradeAmountIdr
+      );
+
+      const actualPrice =
+        receivedCoin > 0
+          ? spentIdr / receivedCoin
+          : request.price;
+
+      await recordTrade({
+
+        pair: request.pair,
+
+        type: "BUY",
+
+        price: actualPrice,
+
+        amount: receivedCoin,
+
+        totalIdr: spentIdr,
+
+        fee: Number((result.data as any).fee ?? 0),
+
+        orderId: String(result.data.order_id),
+
+        reason: "Live Trading BUY",
+
+        mode: "live",
+
+      });
 
       await recordLog(
         "BOT",
-        "danger",
-        `LIVE BUY GAGAL ${request.pair.toUpperCase()}: ${result.message}`
+        "success",
+        `LIVE BUY ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
+          0
+        )} (order_id: ${result.data.order_id})`
       );
 
-      throw new Error(result.message);
+      return {
+
+        success: true,
+
+        orderId: String(result.data.order_id),
+
+        pair: request.pair,
+
+        side: "BUY",
+
+        price: actualPrice,
+
+        amount: receivedCoin,
+
+        total: spentIdr,
+
+        timestamp: new Date().toISOString(),
+
+      };
+
+    } finally {
+
+      // Jalur error mana pun yang belum menangani lock secara
+      // eksplisit (mis. exception dari recordTrade/recordLog
+      // setelah order sukses TIDAK akan sampai sini karena
+      // lockResolved sudah true di atas; ini menangani jalur
+      // gagal CERTAIN yang belum sempat release di atas).
+      if (!lockResolved) {
+        await releaseLiveOrderLock(request.pair, "BUY", false);
+      }
 
     }
-
-    // --- Catat RAW response penuh, untuk verifikasi manual ---
-    await recordLog(
-      "SYSTEM",
-      "info",
-      `LIVE BUY raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
-        result.data
-      )}`
-    );
-
-    const coin = request.pair.replace(/_idr$/i, "");
-
-    const receivedCoin = Number(
-      (result.data as any)[`receive_${coin}`] ?? 0
-    );
-
-    const spentIdr = Number(
-      (result.data as any).spend_rp ?? tradeAmountIdr
-    );
-
-    const actualPrice =
-      receivedCoin > 0
-        ? spentIdr / receivedCoin
-        : request.price;
-
-    await recordTrade({
-
-      pair: request.pair,
-
-      type: "BUY",
-
-      price: actualPrice,
-
-      amount: receivedCoin,
-
-      totalIdr: spentIdr,
-
-      fee: Number((result.data as any).fee ?? 0),
-
-      orderId: String(result.data.order_id),
-
-      reason: "Live Trading BUY",
-
-      mode: "live",
-
-    });
-
-    await recordLog(
-      "BOT",
-      "success",
-      `LIVE BUY ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
-        0
-      )} (order_id: ${result.data.order_id})`
-    );
-
-    return {
-
-      success: true,
-
-      orderId: String(result.data.order_id),
-
-      pair: request.pair,
-
-      side: "BUY",
-
-      price: actualPrice,
-
-      amount: receivedCoin,
-
-      total: spentIdr,
-
-      timestamp: new Date().toISOString(),
-
-    };
 
   }
 
@@ -463,99 +523,141 @@ class LiveTradingService {
 
     const client = await this.getClient();
 
-    const result = await client.trade({
-      pair: request.pair,
-      type: "sell",
-      orderType: "market",
-      coinAmount: request.amount,
-    });
+    // --- Idempotency guard, sama seperti buyInternal() di atas -
+    // lihat komentar di sana untuk penjelasan lengkap pola
+    // lockResolved. SELL sama pentingnya untuk dijaga dari
+    // duplikat - overlap cron yang mengirim SELL dua kali bisa
+    // menjual koin lebih dari posisi yang sebenarnya tercatat. ---
+    await acquireLiveOrderLock(request.pair, "SELL");
 
-    if (!result.success) {
+    let lockResolved = false;
+
+    try {
+
+      const result = await client.trade({
+        pair: request.pair,
+        type: "sell",
+        orderType: "market",
+        coinAmount: request.amount,
+      });
+
+      if (!result.success) {
+
+        if (result.certainty === "UNCERTAIN") {
+
+          await markLiveOrderUncertain(
+            request.pair,
+            "SELL",
+            result.message ?? "Trade gagal via exception, status tidak pasti."
+          );
+
+          lockResolved = true;
+
+          await recordLog(
+            "BOT",
+            "danger",
+            `LIVE SELL ${request.pair.toUpperCase()} STATUS TIDAK PASTI (kemungkinan tereksekusi tapi respons gagal diterima) - lock ditahan, cek riwayat order asli di Indodax sebelum resolve manual: ${result.message}`
+          );
+
+        } else {
+
+          await recordLog(
+            "BOT",
+            "danger",
+            `LIVE SELL GAGAL ${request.pair.toUpperCase()}: ${result.message}`
+          );
+
+        }
+
+        throw new Error(result.message);
+
+      }
+
+      await releaseLiveOrderLock(request.pair, "SELL", true);
+      lockResolved = true;
+
+      // --- Catat RAW response penuh, untuk verifikasi manual ---
+      await recordLog(
+        "SYSTEM",
+        "info",
+        `LIVE SELL raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
+          result.data
+        )}`
+      );
+
+      const data = result.data as any;
+
+      const receivedIdr = Number(
+        data.receive_idr ?? data.receive_rp ?? 0
+      );
+
+      const total =
+        receivedIdr > 0
+          ? receivedIdr
+          : request.amount * request.price;
+
+      const actualPrice =
+        receivedIdr > 0
+          ? receivedIdr / request.amount
+          : request.price;
+
+      await recordTrade({
+
+        pair: request.pair,
+
+        type: "SELL",
+
+        price: actualPrice,
+
+        amount: request.amount,
+
+        totalIdr: total,
+
+        fee: Number(data.fee ?? 0),
+
+        orderId: String(data.order_id),
+
+        reason: "Live Trading SELL",
+
+        mode: "live",
+
+      });
 
       await recordLog(
         "BOT",
-        "danger",
-        `LIVE SELL GAGAL ${request.pair.toUpperCase()}: ${result.message}`
+        "success",
+        `LIVE SELL ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
+          0
+        )} (order_id: ${data.order_id})`
       );
 
-      throw new Error(result.message);
+      return {
+
+        success: true,
+
+        orderId: String(data.order_id),
+
+        pair: request.pair,
+
+        side: "SELL",
+
+        price: actualPrice,
+
+        amount: request.amount,
+
+        total,
+
+        timestamp: new Date().toISOString(),
+
+      };
+
+    } finally {
+
+      if (!lockResolved) {
+        await releaseLiveOrderLock(request.pair, "SELL", false);
+      }
 
     }
-
-    // --- Catat RAW response penuh, untuk verifikasi manual ---
-    await recordLog(
-      "SYSTEM",
-      "info",
-      `LIVE SELL raw response ${request.pair.toUpperCase()}: ${JSON.stringify(
-        result.data
-      )}`
-    );
-
-    const data = result.data as any;
-
-    const receivedIdr = Number(
-      data.receive_idr ?? data.receive_rp ?? 0
-    );
-
-    const total =
-      receivedIdr > 0
-        ? receivedIdr
-        : request.amount * request.price;
-
-    const actualPrice =
-      receivedIdr > 0
-        ? receivedIdr / request.amount
-        : request.price;
-
-    await recordTrade({
-
-      pair: request.pair,
-
-      type: "SELL",
-
-      price: actualPrice,
-
-      amount: request.amount,
-
-      totalIdr: total,
-
-      fee: Number(data.fee ?? 0),
-
-      orderId: String(data.order_id),
-
-      reason: "Live Trading SELL",
-
-      mode: "live",
-
-    });
-
-    await recordLog(
-      "BOT",
-      "success",
-      `LIVE SELL ${request.pair.toUpperCase()} @ ${actualPrice.toFixed(
-        0
-      )} (order_id: ${data.order_id})`
-    );
-
-    return {
-
-      success: true,
-
-      orderId: String(data.order_id),
-
-      pair: request.pair,
-
-      side: "SELL",
-
-      price: actualPrice,
-
-      amount: request.amount,
-
-      total,
-
-      timestamp: new Date().toISOString(),
-
-    };
 
   }
 
