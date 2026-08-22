@@ -2,9 +2,28 @@
 ==========================================================
 AURA Trade OS
 Risk Management Configuration
-Version : 0.0.1 Alpha
+Version : 0.0.2 Alpha
+==========================================================
+UPDATE (integrasi config/limits.ts): maxExposurePercent dan
+maxDailyLossPercent sekarang di-clamp ke MAX_EXPOSURE_PERCENT /
+MAX_DAILY_LOSS_PERCENT dari config/limits.ts -- batas keamanan
+MUTLAK yang cuma bisa berubah lewat edit kode + redeploy, bukan
+cuma env var Vercel. TIDAK mengubah perilaku saat ini (default
+env var: maxExposurePercent 20% & maxDailyLossPercent 5%, sama-
+sama di bawah ceiling limits.ts 50% & 5%) -- murni jaring
+pengaman kalau env var di Vercel ke-set ke angka yang salah.
 ==========================================================
 */
+
+import {
+  MAX_EXPOSURE_PERCENT as ABSOLUTE_MAX_EXPOSURE_PERCENT,
+  MAX_DAILY_LOSS_PERCENT as ABSOLUTE_MAX_DAILY_LOSS_PERCENT,
+} from "./limits";
+
+function clampToAbsoluteCeiling(value: number, ceiling: number): number {
+  if (!Number.isFinite(value)) return ceiling;
+  return Math.min(value, ceiling);
+}
 
 
 export const RISK_CONFIG = {
@@ -100,11 +119,17 @@ export const RISK_CONFIG = {
 
   maxExposurePercent:
 
-    Number(
+    clampToAbsoluteCeiling(
 
-      process.env.BOT_MAX_EXPOSURE
+      Number(
 
-      ?? 20
+        process.env.BOT_MAX_EXPOSURE
+
+        ?? 20
+
+      ),
+
+      ABSOLUTE_MAX_EXPOSURE_PERCENT
 
     ),
 
@@ -118,11 +143,17 @@ export const RISK_CONFIG = {
 
   maxDailyLossPercent:
 
-    Number(
+    clampToAbsoluteCeiling(
 
-      process.env.BOT_MAX_DAILY_LOSS
+      Number(
 
-      ?? 5
+        process.env.BOT_MAX_DAILY_LOSS
+
+        ?? 5
+
+      ),
+
+      ABSOLUTE_MAX_DAILY_LOSS_PERCENT
 
     ),
 
