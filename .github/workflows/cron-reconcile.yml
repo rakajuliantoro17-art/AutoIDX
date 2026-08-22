@@ -1,0 +1,30 @@
+name: AURA Trade OS - Position Reconciliation Cron
+
+# Memicu /api/cron/reconcile secara berkala. Endpoint ini sudah
+# lengkap dibangun (services/reconciliation/*) tapi sebelumnya
+# TIDAK PERNAH dipanggil oleh workflow manapun -- cuma ada
+# cron-scan.yml untuk /api/cron/scan. File ini menutup celah itu.
+#
+# Endpoint sendiri sudah aman dipanggil sesering apapun saat mode
+# PAPER (langsung skip, lihat isLiveModeActive() di reconcile.ts)
+# -- jadi jadwal di bawah aktif terus, tidak perlu diaktif-matikan
+# manual saat ganti mode paper/live.
+#
+# Interval SAMA dengan cron-scan.yml (5 menit) -- reconciliation
+# cukup sering untuk menangkap drift posisi lebih cepat daripada
+# menunggu insiden ditemukan manual, tapi tidak perlu lebih rapat
+# dari siklus scan/trading itu sendiri.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # setiap 5 menit
+  workflow_dispatch: {}     # bisa juga trigger manual dari tab Actions
+
+jobs:
+  trigger-reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reconcile endpoint
+        run: |
+          curl -f -X POST https://auto-idx.vercel.app/api/cron/reconcile \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
