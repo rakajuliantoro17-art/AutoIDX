@@ -20,6 +20,7 @@ const menus: MenuItem[] = [
   { name: "Portfolio", path: "/portfolio" },
   { name: "Activity", path: "/activity" },
   { name: "Backtest", path: "/backtest" },
+  { name: "Risk Analytics", path: "/dashboard/analytics" },
   { name: "Canary Monitor", path: "/dashboard/canary-monitor" },
   { name: "ML Lab (Eksperimental)", path: "/dashboard/ml-lab" },
   { name: "Settings", path: "/dashboard/settings" },
