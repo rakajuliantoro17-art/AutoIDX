@@ -59,7 +59,7 @@ export type IndodaxGetInfoResponse =
 
 export type IndodaxTradeResponse =
   | { success: true; data: IndodaxTradeResult }
-  | { success: false; message: string };
+  | { success: false; message: string; certainty?: "CERTAIN" | "UNCERTAIN" };
 
 export class IndodaxClient {
 
@@ -178,6 +178,9 @@ export class IndodaxClient {
           success: false,
           message: data.error ?? "API Error",
           data: null,
+          // Indodax MERESPONS dengan jelas menolak -- order pasti
+          // tidak tereksekusi.
+          certainty: "CERTAIN",
         };
 
       }
@@ -194,6 +197,12 @@ export class IndodaxClient {
         success: false,
         message: error.message,
         data: null,
+        // Gagal lewat exception (network/timeout/parse error)
+        // SEBELUM dapat jawaban jelas dari Indodax -- order BISA
+        // JADI tetap tereksekusi di sisi mereka. Lihat catatan
+        // lengkap di types.ts ExchangeResponse.certainty.
+        certainty: "UNCERTAIN",
+
       };
 
     }
@@ -297,6 +306,11 @@ export class IndodaxClient {
       return {
         success: false,
         message: result.message ?? "Unknown error",
+        // Diteruskan dari privateRequest() -- lihat catatan
+        // lengkap di types.ts ExchangeResponse.certainty. Dipakai
+        // trading/live.ts untuk memutuskan aman-tidaknya lock
+        // di-release sebagai "boleh retry".
+        certainty: result.certainty,
       };
 
     }
