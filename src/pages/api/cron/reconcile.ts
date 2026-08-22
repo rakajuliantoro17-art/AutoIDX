@@ -66,6 +66,7 @@ import { getBotState, getOpenPositionPairs } from "@/services/firebase/botState"
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
 import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
 import { recordLog } from "@/services/firebase/logService";
+import { recordReconciliationStatus } from "@/services/firebase/reconciliationStatus";
 import automationNotifier from "@/services/automation/notifier";
 
 /**
@@ -208,6 +209,12 @@ export default async function handler(
         `[Reconciliation] Konsisten -- ${context.positions.length} posisi dicocokkan dengan saldo Indodax asli, tidak ada mismatch.`
       );
 
+      await recordReconciliationStatus({
+        consistent: true,
+        positionsChecked: context.positions.length,
+        mismatchCount: 0,
+      });
+
       return res.status(200).json({
         success: true,
         consistent: true,
@@ -240,6 +247,12 @@ export default async function handler(
       );
 
     }
+
+    await recordReconciliationStatus({
+      consistent: false,
+      positionsChecked: context.positions.length,
+      mismatchCount: result.mismatches.length,
+    });
 
     return res.status(200).json({
       success: true,
