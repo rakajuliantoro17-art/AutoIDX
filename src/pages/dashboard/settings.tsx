@@ -20,6 +20,7 @@ sudah nyambung ke data asli dari sebelumnya.
 
 import { useEffect, useState, useCallback } from "react";
 import { formatIDR } from "@/utils";
+import { REFRESH_INTERVALS } from "@/utils/constants";
 import Link from "next/link";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import IndodaxAccountManager from "@/components/IndodaxAccountManager";
@@ -46,7 +47,7 @@ interface RuntimeConfig {
   cronIntervalSeconds: number;
 }
 
-const REFRESH_INTERVAL_MS = 10000;
+const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.STATUS_MS;
 
 const EMPTY_CONFIG: RuntimeConfig = {
   mode: "paper",
