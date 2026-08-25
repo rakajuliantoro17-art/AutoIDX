@@ -25,6 +25,8 @@ import type {
 
 from "./types";
 
+import { getStrategyStatusMap } from "./registryStore";
+
 export interface StrategyRegistryItem {
 
     name:string;
@@ -418,6 +420,32 @@ export class StrategyRegistry {
 
         );
 
+
+    }
+
+
+
+    /**
+     * Rekonsiliasi status enable/disable dari Firestore
+     * (registryStore.ts) - dipanggil SEKALI per siklus cron
+     * (scheduler/cron.ts), BUKAN di setiap evaluasi pair, supaya
+     * tidak menambah biaya baca Firestore per pair.
+     *
+     * Firestore jadi SUMBER KEBENARAN: strategi yang tidak
+     * disebut di dokumen status dianggap ACTIVE (default aman -
+     * operator harus eksplisit menonaktifkan).
+     */
+    async refreshFromStore(): Promise<void> {
+
+        const statusMap = await getStrategyStatusMap();
+
+        for (const [name, item] of this.strategies) {
+
+            const persistedStatus = statusMap[name];
+
+            item.status = persistedStatus === "DISABLED" ? "DISABLED" : "ACTIVE";
+
+        }
 
     }
 
