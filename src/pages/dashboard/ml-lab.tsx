@@ -19,8 +19,9 @@ import { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/services/auth/AuthContext";
 import { formatIDR } from "@/utils";
+import { POPULAR_PAIRS } from "@/utils/constants";
 
-const DEFAULT_PAIRS = ["btc_idr", "eth_idr", "sol_idr", "xrp_idr", "ada_idr"];
+const DEFAULT_PAIRS = POPULAR_PAIRS.map((p) => p.pair);
 
 interface TrainResponse {
   success?: boolean;
