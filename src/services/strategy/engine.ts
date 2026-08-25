@@ -5,9 +5,19 @@ Strategy Service Engine
 Version : 0.1.0 Alpha
 ==========================================================
 Public Strategy Execution Facade
+
+PERINGATAN (audit orphan): file ini BUKAN yang dipakai
+strategy/manager.ts - itu import "./core/strategyEngine"
+(nama beda tipis, gampang salah baca). File INI cuma facade
+tipis yang meneruskan ke strategyManager, tidak pernah
+diimpor dari manapun (orphan total, dikonfirmasi lewat
+dependency-graph scan). SENGAJA TIDAK dihapus/disambungkan -
+tidak menawarkan kapabilitas baru dibanding memanggil
+strategyManager langsung, cuma nambah satu layer tidak perlu.
+Kalau mau pakai facade publik untuk strategy execution,
+pakai strategyManager (./manager.ts) langsung.
 ==========================================================
 */
-
 
 import {
 
