@@ -17,6 +17,7 @@ Perubahan dari 0.0.1: sebelumnya halaman ini SELALU menampilkan
 import { useCallback, useEffect, useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/services/auth/AuthContext";
+import { REFRESH_INTERVALS } from "@/utils/constants";
 
 interface OrderHistoryRow {
   id: string;
@@ -30,7 +31,7 @@ interface OrderHistoryRow {
   status: "FILLED";
 }
 
-const REFRESH_INTERVAL_MS = 10000;
+const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.STATUS_MS;
 
 function formatIdr(value: number): string {
   return `Rp ${Math.round(value).toLocaleString("id-ID")}`;
