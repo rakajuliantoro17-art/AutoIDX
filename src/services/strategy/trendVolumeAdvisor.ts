@@ -36,6 +36,7 @@ import type { IndicatorFeatureVector } from "@/services/indicators";
 import type { Candle } from "@/services/indodax/candles";
 import type { MarketCandle } from "@/services/market";
 import logger from "@/lib/error/Logger";
+import { AppError } from "@/lib/error/AppError";
 
 const smaIndicator = new SMAIndicator({ period: 20 });
 const obvIndicator = new OBVIndicator();
@@ -126,8 +127,17 @@ export function getTrendVolumeAdvisory(
 
     return { logLine };
   } catch (error) {
-    logger.error("[Trend+Volume Advisory] Gagal hitung sinyal", error, {
+    // Dibungkus AppError.trading() dulu supaya error punya `code`
+    // terstruktur (TRADING_ENGINE_ERROR) sebelum di-log -- TETAP
+    // fail-safe, ditangkap di sini, TIDAK PERNAH dilempar ke atas.
+    const wrapped = AppError.trading(
+      "Trend+Volume Advisory gagal hitung sinyal",
+      error
+    );
+
+    logger.error(wrapped.message, wrapped, {
       service: "trendVolumeAdvisor",
+      code: wrapped.code,
       pair,
     });
     return null;
