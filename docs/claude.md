@@ -876,3 +876,26 @@ Yang BELUM dikerjakan / catatan jujur
 BELUM di-`tsc`/build — sesi ini read-only (audit only, tidak ada kode diubah).
 Kalau suatu saat file-file ini benar-benar mau diaktifkan: `fileLogger.ts` dan `logRotation.ts` WAJIB ditulis ulang dulu (target Firestore atau layanan log eksternal, BUKAN filesystem lokal) sebelum bisa dipakai di Vercel — jangan asumsikan bisa langsung disambungkan apa adanya.
 Peringatan `ACCOUNT_ENCRYPTION_KEY` yang bocor MASIH belum dikonfirmasi user sudah di-rotate atau belum (dari sesi-sesi sebelumnya).
+
+Session Log 15 — Perkuat Validasi `api/backtest/run.ts` + Wire `lib/validators/env.ts` (Read-Only, Bukan Live Order)
+Lanjutan Session Log 14. User minta lanjutkan 5 file `lib/validators/*` yang sempat direkomendasikan diintegrasikan. Setelah dicek satu-satu ke endpoint aktif, ternyata TIDAK ADA 5 titik integrasi yang genuinely aman/bernilai (order.ts/pair.ts/trade.ts/scanner.ts/portfolio.ts/strategy.ts/trading.ts/config.ts/api.ts semua sudah ditolak dengan alasan tertulis di validate.ts, atau endpoint tujuannya ternyata read-only tanpa input klien). Dilaporkan jujur ke user, ditawarkan 2 kerjaan nyata sebagai gantinya, disetujui user.
+
+Temuan penting sebelum eksekusi
+Ditemukan `services/backtest/run.ts` (v0.1.1) -- draft duplikat PERSIS `pages/api/backtest/run.ts` (v0.1.0) plus 1 perbaikan (validasi `strategy` terhadap VALID_STRATEGIES), tapi diletakkan di lokasi yang BUKAN Next.js API route (services/, bukan pages/api/ atau app/api/) -- nol importer, TIDAK PERNAH benar-benar diterapkan ke endpoint aktif. Kemungkinan besar sisa sesi lain yang lupa memindahkan/menerapkan hasil editnya.
+
+Yang dikerjakan
+`src/pages/api/backtest/run.ts` (v0.1.0 -> v0.1.2): ditambah validasi input menyeluruh SEBELUM dipakai, semua pakai primitives yang SUDAH reachable (bukan file orphan baru):
+`pair` -- `validateTradingPair()` dari `lib/validators/market.ts` (format-only regex, BUKAN whitelist -- konsisten pola yang sudah dipakai `api/settings/validate.ts`, tidak bentrok scanner all-pair).
+`strategy` -- diterapkan fix dari draft `services/backtest/run.ts` (VALID_STRATEGIES: AURA_TREND/EMA_CROSSOVER/MOMENTUM).
+`days`/`initialCapital`/`feeRate`/`slippage` -- `NumberValidator.positive()`/`.between()` dari `lib/validators/number.ts`. Sebelumnya `Number(days)` yang NaN (body kosong/rusak) mengalir diam-diam ke `Math.max/Math.min` jadi `limit` NaN tanpa error jelas ke `getCandles()`.
+Validation errors dikembalikan sebagai 400 dengan pesan jelas (bukan 500 generic).
+`services/backtest/run.ts` (draft yang sudah diterapkan) DIHAPUS -- dikonfirmasi nol importer sebelum hapus.
+Ini SEMUA backtest (simulasi historis, paper) -- TIDAK menyentuh jalur eksekusi order live (`live.ts`/`liveOrderValidator.ts`) sama sekali.
+
+`src/pages/api/settings/config.ts`: ditambah field `envStatus: {ok, message}` di response. Memanggil `EnvValidator.validate()` (`lib/validators/env.ts`, sebelumnya 100% orphan) TAPI dibungkus try/catch supaya TIDAK PERNAH melempar/mem-block response endpoint ini -- env yang tidak lengkap cuma jadi info tambahan (potensi banner peringatan di dashboard), bukan syarat endpoint bisa dipakai. Endpoint ini sudah di belakang Firebase ID Token (bukan publik) jadi aman menampilkan nama var yang hilang (bukan nilai/secret). SENGAJA TIDAK di-wire ke endpoint publik `health/status.ts` -- endpoint itu eksplisit menyatakan "tidak ada data sensitif di-expose", nama env var yang hilang berpotensi jadi info recon buat siapa pun tanpa login.
+Dikonfirmasi lewat BFS reachability analysis ulang (Python, bukan asumsi): `lib/validators/env.ts`, `market.ts`, `number.ts` sekarang REACHABLE dari entry point Next.js.
+
+Yang BELUM dikerjakan / catatan jujur
+BELUM di-`tsc`/`npm run build` sungguhan -- sandbox sesi ini (upload zip, bukan clone git, tanpa akses internet). Verifikasi manual: brace/paren balance dicek terpisah untuk kedua file yang diubah (hasil seimbang).
+9 file `lib/validators/*` sisanya (api/config/order/pair/portfolio/scanner/strategy/timeframe/trade) TETAP orphan sesuai keputusan Session Log 14 -- alasan penolakan masing-masing sudah tercatat di komentar `api/settings/validate.ts` & `docs/Orphanintegrationroadmap.md`, TIDAK diulang di sini.
+Peringatan `ACCOUNT_ENCRYPTION_KEY` yang bocor MASIH belum dikonfirmasi user sudah di-rotate atau belum.
