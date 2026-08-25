@@ -27,6 +27,7 @@ menampilkannya sama sekali.
 
 import { useEffect, useState, useCallback } from "react";
 import { formatIDR } from "@/utils";
+import { REFRESH_INTERVALS } from "@/utils/constants";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import StatusCard from "@/components/StatusCard";
 import RiskBadge from "@/components/RiskBadge";
@@ -51,7 +52,7 @@ interface LogItem {
   type: "info" | "success" | "warning" | "danger";
 }
 
-const REFRESH_INTERVAL_MS = 10000;
+const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.STATUS_MS;
 
 function formatClock(iso: string | null): string {
   if (!iso) return "-";
