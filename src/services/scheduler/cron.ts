@@ -128,6 +128,13 @@ async function processPair(pair: string): Promise<CronPairResult> {
       macdHistogram: macdResult.histogram,
       atr: atrResult.atr,
       adx: adxResult.adx,
+      // plusDI/minusDI: sudah dihitung calculateADX() di atas tapi
+      // sebelumnya dibuang -- diisi di sini (tanpa fetch/hitung ulang
+      // apapun) supaya services/intelligence/ml/mlAdvisor.ts bisa
+      // kirim fitur yang persis sama dengan saat training model
+      // (lihat services/ml/dataset/collector.ts), bukan fallback 0.
+      plusDI: adxResult.plusDI,
+      minusDI: adxResult.minusDI,
       stochasticK: stochasticResult.k,
       stochasticD: stochasticResult.d,
       bollingerUpper: bollinger.upper,
@@ -139,6 +146,7 @@ async function processPair(pair: string): Promise<CronPairResult> {
       pair,
       price,
       features,
+      candles,
     });
 
     await recordLog(
