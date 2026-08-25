@@ -44,6 +44,7 @@ PENTING -- batas tanggung jawab modul ini:
 
 import modelPredictor, { PredictionResult } from "@/services/ml/models/predictor";
 import type { IndicatorFeatureVector } from "@/services/indicators";
+import logger from "@/lib/error/Logger";
 
 export interface MLAdvisoryResult {
   label: PredictionResult["label"];
@@ -120,9 +121,12 @@ export async function getMLAdvisory(
   } catch (error) {
     // Fail-safe: paling sering karena belum ada model terlatih
     // (lihat error message di predictor.ts) -- ini kondisi NORMAL
-    // sebelum training pertama dijalankan, bukan bug. console.error
+    // sebelum training pertama dijalankan, bukan bug. logger.error
     // di sini cuma untuk debugging, TIDAK PERNAH dilempar ke atas.
-    console.error("[ML Advisory]", error);
+    logger.error("[ML Advisory] Gagal mendapat prediksi", error, {
+      service: "mlAdvisor",
+      pair,
+    });
     return null;
   }
 }
