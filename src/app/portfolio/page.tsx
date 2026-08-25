@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { formatIDR, formatPercent } from "@/utils";
+import { REFRESH_INTERVALS } from "@/utils/constants";
 
 interface TradeRow {
   pair: string;
@@ -43,7 +44,7 @@ interface PortfolioSummary {
   liveBalanceError?: string;
 }
 
-const REFRESH_INTERVAL_MS = 5000;
+const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.TICKER_MS;
 
 const EMPTY_SUMMARY: PortfolioSummary = {
   mode: "paper",
