@@ -10,6 +10,14 @@ dengan paper.ts -- supaya risk-gate validation di
 TradingEngine dan nominal order asli yang benar-benar
 dikirim ke Indodax SELALU sama persis. Sisanya (ambil
 kredensial dari akun aktif Firestore) TIDAK berubah.
+
+Perubahan dari 0.0.3: setiap buy()/sell() sekarang mencatat
+seluruh siklus hidup order (ORDER_CREATED -> ORDER_VALIDATED
+-> CANARY_APPROVED/REJECTED (BUY saja) -> ORDER_SUBMITTED ->
+ORDER_FILLED/REJECTED/RECONCILIATION_UNKNOWN) lewat
+services/liveTrading/audit/executionAudit.ts (Phase 38/Batch 4,
+sebelumnya orphan) via executionAuditSink.ts. Best-effort/non-
+fatal seperti recordCanarySafe -- lihat auditSafe().
 ==========================================================
 */
 
@@ -28,6 +36,7 @@ import {
   releaseLiveOrderLock,
   markLiveOrderUncertain,
 } from "@/services/firebase/liveOrderLock";
+import executionAudit from "@/services/firebase/executionAuditSink";
 
 export interface LiveTradeRequest {
   pair: string;
@@ -52,6 +61,31 @@ export interface LiveTradeResult {
 }
 
 class LiveTradingService {
+
+  /**
+   * Local correlation ID untuk 1 percobaan order, dibuat SEBELUM
+   * ada order_id dari Indodax (dipakai menyambungkan semua event
+   * ExecutionAudit satu order yang sama dari ORDER_CREATED sampai
+   * ORDER_FILLED/REJECTED, termasuk event yang terjadi SEBELUM
+   * order_id asli diketahui).
+   */
+  private newLocalOrderId(pair: string, side: "BUY" | "SELL"): string {
+    return `live_${side.toLowerCase()}_${pair}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  /**
+   * Best-effort dengan sengaja - sama seperti recordCanarySafe().
+   * Audit trail TIDAK PERNAH boleh menggagalkan order asli.
+   */
+  private async auditSafe(
+    ...args: Parameters<typeof executionAudit.record>
+  ): Promise<void> {
+    try {
+      await executionAudit.record(...args);
+    } catch (error) {
+      console.error("[LiveTrading] Gagal mencatat execution audit (non-fatal):", error);
+    }
+  }
 
   /**
    * Umur maksimum reconciliation yang masih dianggap "segar" --
@@ -185,6 +219,12 @@ class LiveTradingService {
     request: LiveTradeRequest
   ): Promise<LiveTradeResult> {
 
+    const localOrderId = this.newLocalOrderId(request.pair, "BUY");
+
+    await this.auditSafe("ORDER_CREATED", localOrderId, {
+      metadata: { pair: request.pair, side: "BUY", requestedTradeAmountIdr: request.tradeAmountIdr },
+    });
+
     const canaryConfig = getLiveTradingConfig();
 
     if (!canaryConfig.enabled) {
@@ -194,12 +234,28 @@ class LiveTradingService {
 
       await recordLog("RISK", "warning", `LIVE BUY ditolak: ${reason}`);
 
+      await this.auditSafe("CANARY_REJECTED", localOrderId, { metadata: { reason } });
+
       throw new Error(reason);
 
     }
 
     if (canaryConfig.requireReconciliation) {
-      await this.assertReconciliationFresh();
+
+      try {
+
+        await this.assertReconciliationFresh();
+
+      } catch (error) {
+
+        await this.auditSafe("CANARY_REJECTED", localOrderId, {
+          metadata: { reason: error instanceof Error ? error.message : String(error), gate: "reconciliation" },
+        });
+
+        throw error;
+
+      }
+
     }
 
     const effectiveTradeAmountIdr =
@@ -210,6 +266,8 @@ class LiveTradingService {
       const reason = `Fase canary aktif - nominal trade (Rp${effectiveTradeAmountIdr.toLocaleString("id-ID")}) melebihi batas Rp${canaryConfig.maxTradeAmount.toLocaleString("id-ID")}. Set BOT_CANARY_MAX_TRADE_AMOUNT lebih besar atau BOT_CANARY_ONLY=false kalau sudah siap keluar fase canary.`;
 
       await recordLog("RISK", "warning", `LIVE BUY ditolak: ${reason}`);
+
+      await this.auditSafe("CANARY_REJECTED", localOrderId, { metadata: { reason, gate: "maxTradeAmount" } });
 
       throw new Error(reason);
 
@@ -223,6 +281,8 @@ class LiveTradingService {
 
       await recordLog("RISK", "warning", `LIVE BUY ditolak: ${reason}`);
 
+      await this.auditSafe("CANARY_REJECTED", localOrderId, { metadata: { reason, gate: "maxOpenOrders" } });
+
       throw new Error(reason);
 
     }
@@ -234,6 +294,8 @@ class LiveTradingService {
       const reason = `Canary CRITICAL - BUY live diblokir otomatis (${canarySnapshot.reasons.join("; ") || "lihat snapshot"}).`;
 
       await recordLog("RISK", "danger", `LIVE BUY ditolak: ${reason}`);
+
+      await this.auditSafe("CANARY_REJECTED", localOrderId, { metadata: { reason, gate: "canarySnapshot" } });
 
       throw new Error(reason);
 
@@ -264,17 +326,21 @@ class LiveTradingService {
 
         await recordLog("RISK", "danger", `LIVE BUY ditolak: ${reason}`);
 
+        await this.auditSafe("CANARY_REJECTED", localOrderId, { metadata: { reason, gate: "consecutiveFailures" } });
+
         throw new Error(reason);
 
       }
 
     }
 
+    await this.auditSafe("CANARY_APPROVED", localOrderId);
+
     const startedAt = Date.now();
 
     try {
 
-      const result = await this.buyInternal(request);
+      const result = await this.buyInternal(request, localOrderId);
 
       await this.recordCanarySafe({
         orderId: result.orderId,
@@ -290,6 +356,10 @@ class LiveTradingService {
       return result;
 
     } catch (error) {
+
+      await this.auditSafe("EXECUTION_FAILED", localOrderId, {
+        metadata: { error: error instanceof Error ? error.message : String(error) },
+      });
 
       await this.recordCanarySafe({
         orderId: `failed_${startedAt}`,
@@ -313,7 +383,8 @@ class LiveTradingService {
   }
 
   private async buyInternal(
-    request: LiveTradeRequest
+    request: LiveTradeRequest,
+    localOrderId: string
   ): Promise<LiveTradeResult> {
 
     const tradeAmountIdr =
@@ -336,11 +407,19 @@ class LiveTradingService {
         `LIVE BUY ditolak validasi pre-flight ${request.pair.toUpperCase()}: ${validation.message}`
       );
 
+      await this.auditSafe("ORDER_REJECTED", localOrderId, {
+        metadata: { stage: "preflight-validation", message: validation.message },
+      });
+
       throw new Error(
         `Order tidak valid: ${validation.message}`
       );
 
     }
+
+    await this.auditSafe("ORDER_VALIDATED", localOrderId, {
+      metadata: { pair: request.pair, tradeAmountIdr },
+    });
 
     const client = await this.getClient();
 
@@ -394,6 +473,10 @@ class LiveTradingService {
 
     try {
 
+      await this.auditSafe("ORDER_SUBMITTED", localOrderId, {
+        metadata: { pair: request.pair, tradeAmountIdr },
+      });
+
       // --- Tempatkan order asli ---
       const result = await client.trade({
         pair: request.pair,
@@ -420,6 +503,10 @@ class LiveTradingService {
             `LIVE BUY ${request.pair.toUpperCase()} STATUS TIDAK PASTI (kemungkinan tereksekusi tapi respons gagal diterima) - lock ditahan, cek riwayat order asli di Indodax sebelum resolve manual: ${result.message}`
           );
 
+          await this.auditSafe("RECONCILIATION_UNKNOWN", localOrderId, {
+            metadata: { message: result.message, reason: "exception sebelum respons jelas dari Indodax - lihat uncertainOrderReconciler.ts" },
+          });
+
         } else {
 
           await recordLog(
@@ -427,6 +514,10 @@ class LiveTradingService {
             "danger",
             `LIVE BUY GAGAL ${request.pair.toUpperCase()}: ${result.message}`
           );
+
+          await this.auditSafe("ORDER_REJECTED", localOrderId, {
+            metadata: { message: result.message },
+          });
 
         }
 
@@ -436,6 +527,11 @@ class LiveTradingService {
 
       await releaseLiveOrderLock(request.pair, "BUY", true);
       lockResolved = true;
+
+      await this.auditSafe("ORDER_FILLED", localOrderId, {
+        exchangeOrderId: String(result.data.order_id),
+        metadata: { rawResponse: result.data },
+      });
 
       // --- Catat RAW response penuh, untuk verifikasi manual ---
       await recordLog(
@@ -540,11 +636,17 @@ class LiveTradingService {
     request: LiveTradeRequest
   ): Promise<LiveTradeResult> {
 
+    const localOrderId = this.newLocalOrderId(request.pair, "SELL");
+
+    await this.auditSafe("ORDER_CREATED", localOrderId, {
+      metadata: { pair: request.pair, side: "SELL", amount: request.amount },
+    });
+
     const startedAt = Date.now();
 
     try {
 
-      const result = await this.sellInternal(request);
+      const result = await this.sellInternal(request, localOrderId);
 
       await this.recordCanarySafe({
         orderId: result.orderId,
@@ -560,6 +662,10 @@ class LiveTradingService {
       return result;
 
     } catch (error) {
+
+      await this.auditSafe("EXECUTION_FAILED", localOrderId, {
+        metadata: { error: error instanceof Error ? error.message : String(error) },
+      });
 
       await this.recordCanarySafe({
         orderId: `failed_${startedAt}`,
@@ -581,16 +687,25 @@ class LiveTradingService {
   }
 
   private async sellInternal(
-    request: LiveTradeRequest
+    request: LiveTradeRequest,
+    localOrderId: string
   ): Promise<LiveTradeResult> {
 
     if (!request.amount || request.amount <= 0) {
+
+      await this.auditSafe("ORDER_REJECTED", localOrderId, {
+        metadata: { stage: "preflight-validation", message: "amount tidak valid" },
+      });
 
       throw new Error(
         "LIVE SELL butuh amount (jumlah koin) dari posisi yang tercatat di bot_state."
       );
 
     }
+
+    await this.auditSafe("ORDER_VALIDATED", localOrderId, {
+      metadata: { pair: request.pair, amount: request.amount },
+    });
 
     const client = await this.getClient();
 
@@ -604,6 +719,10 @@ class LiveTradingService {
     let lockResolved = false;
 
     try {
+
+      await this.auditSafe("ORDER_SUBMITTED", localOrderId, {
+        metadata: { pair: request.pair, amount: request.amount },
+      });
 
       const result = await client.trade({
         pair: request.pair,
@@ -630,6 +749,10 @@ class LiveTradingService {
             `LIVE SELL ${request.pair.toUpperCase()} STATUS TIDAK PASTI (kemungkinan tereksekusi tapi respons gagal diterima) - lock ditahan, cek riwayat order asli di Indodax sebelum resolve manual: ${result.message}`
           );
 
+          await this.auditSafe("RECONCILIATION_UNKNOWN", localOrderId, {
+            metadata: { message: result.message, reason: "exception sebelum respons jelas dari Indodax - lihat uncertainOrderReconciler.ts" },
+          });
+
         } else {
 
           await recordLog(
@@ -637,6 +760,10 @@ class LiveTradingService {
             "danger",
             `LIVE SELL GAGAL ${request.pair.toUpperCase()}: ${result.message}`
           );
+
+          await this.auditSafe("ORDER_REJECTED", localOrderId, {
+            metadata: { message: result.message },
+          });
 
         }
 
@@ -646,6 +773,11 @@ class LiveTradingService {
 
       await releaseLiveOrderLock(request.pair, "SELL", true);
       lockResolved = true;
+
+      await this.auditSafe("ORDER_FILLED", localOrderId, {
+        exchangeOrderId: String(result.data.order_id),
+        metadata: { rawResponse: result.data },
+      });
 
       // --- Catat RAW response penuh, untuk verifikasi manual ---
       await recordLog(
