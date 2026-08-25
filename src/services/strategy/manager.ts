@@ -47,6 +47,8 @@ import momentum
 
 from "./strategies/momentum";
 
+import strategyRegistry from "./registry";
+
 
 
 
@@ -201,8 +203,11 @@ export class StrategyManager {
     /**
      * Get active strategy
      */
-    private getStrategyName(){
-
+    /**
+     * Mode -> nama strategi PREFERENSI (belum tentu aktif -
+     * lihat getStrategyName() untuk pengecekan status).
+     */
+    private getPreferredStrategyName(){
 
 
         switch(
@@ -241,6 +246,38 @@ export class StrategyManager {
 
 
 
+    /**
+     * Get active strategy - MENGHORMATI status enable/disable dari
+     * strategyRegistry (registry.ts, di-refresh dari Firestore
+     * sekali per siklus cron via refreshFromStore()). Kalau
+     * strategi yang seharusnya aktif sesuai mode ternyata
+     * DISABLED operator, fallback ke AURA_TREND (default aman,
+     * keputusan operator - lihat docs/claude.md). Kalau AURA_TREND
+     * SENDIRI juga disabled, return null - evaluate() akan
+     * menghasilkan HOLD (bukan crash, bukan diam-diam pakai
+     * strategi yang sudah sengaja dimatikan).
+     */
+    private getStrategyName(): string | null {
+
+        const preferred = this.getPreferredStrategyName();
+
+        const isActive = (name: string): boolean =>
+            !strategyRegistry.has(name) || strategyRegistry.get(name)?.status === "ACTIVE";
+
+        if (isActive(preferred)) {
+            return preferred;
+        }
+
+        if (preferred !== "AURA_TREND" && isActive("AURA_TREND")) {
+            return "AURA_TREND";
+        }
+
+        return null;
+
+    }
+
+
+
 
 
 
@@ -274,15 +311,17 @@ export class StrategyManager {
 
         const decision =
 
-            strategyEngine.evaluate(
+            strategy === null
+                ? null
+                : strategyEngine.evaluate(
 
-                strategy,
+                    strategy,
 
-                features,
+                    features,
 
-                position
+                    position
 
-            );
+                );
 
 
 
@@ -295,7 +334,7 @@ export class StrategyManager {
                 this.activeMode,
 
 
-            strategy,
+            strategy: strategy ?? "NONE (semua strategi disabled)",
 
 
             decision,
@@ -335,16 +374,37 @@ export class StrategyManager {
 
 
 
+        // Filter hasil evaluateAll() ke strategi yang statusnya
+        // ACTIVE saja - strategi yang sengaja dinonaktifkan operator
+        // (mis. karena terbukti sering salah) tidak boleh ikut
+        // "memveto" sinyal strategi lain lewat sanity check
+        // kontradiksi di engine.ts (checkStrategyContradiction).
         return (
 
             strategyEngine.evaluateAll(
 
                 features
 
+            ).filter((d) =>
+                !strategyRegistry.has(d.strategy) ||
+                strategyRegistry.get(d.strategy)?.status === "ACTIVE"
             )
 
         );
 
+
+    }
+
+
+
+    /**
+     * Rekonsiliasi status enable/disable strategi dari Firestore -
+     * dipanggil SEKALI per siklus cron (scheduler/cron.ts), sebelum
+     * loop per-pair dimulai. Lihat registry.ts.refreshFromStore().
+     */
+    async refreshRegistry(): Promise<void> {
+
+        await strategyRegistry.refreshFromStore();
 
     }
 
