@@ -3,6 +3,7 @@ import querystring from 'querystring';
 import indodaxLimiter from './limiter';
 import IndodaxCache from './cache';
 import RetryExecutor from '@/services/resilience/retryExecutor';
+import { latencyMonitor } from '@/services/monitor/latencyMonitor';
 
 // Cache khusus daftar pair (/api/pairs jarang berubah - TTL 6 jam cukup
 // aman, tetap bisa dipaksa refresh lewat forceRefresh()).
@@ -40,29 +41,45 @@ function isRetryablePublicError(error) {
  * fallback null/[]/{} seperti semula).
  */
 async function fetchPublicWithRetry(url, options = {}) {
-  const result = await retryExecutor.execute(
-    async () => {
-      const response = await indodaxLimiter.executePublic(() => fetch(url, options));
+  // Variabel lokal per-panggilan (BUKAN module-level/static) --
+  // wajib begini karena banyak pair diproses BERSAMAAN lewat
+  // mapWithConcurrency di scanner; static/shared state di sini akan
+  // saling menimpa antar panggilan konkuren (race condition).
+  let capturedResponse;
+  let capturedError;
 
-      if (!response.ok) {
-        const httpError = new Error(`HTTP Error: ${response.status}`);
-        httpError.status = response.status;
-        throw httpError;
+  const measurement = await latencyMonitor.measure('indodax_public', async () => {
+    const result = await retryExecutor.execute(
+      async () => {
+        const response = await indodaxLimiter.executePublic(() => fetch(url, options));
+
+        if (!response.ok) {
+          const httpError = new Error(`HTTP Error: ${response.status}`);
+          httpError.status = response.status;
+          throw httpError;
+        }
+
+        return response;
+      },
+      {
+        policy: { maxAttempts: 3 },
+        shouldRetry: isRetryablePublicError,
       }
+    );
 
-      return response;
-    },
-    {
-      policy: { maxAttempts: 3 },
-      shouldRetry: isRetryablePublicError,
+    if (!result.success) {
+      capturedError = result.error;
+      throw result.error; // supaya latencyMonitor mencatat success:false
     }
-  );
 
-  if (!result.success) {
-    throw result.error;
+    capturedResponse = result.value;
+  });
+
+  if (!measurement.success) {
+    throw capturedError ?? new Error(`Public request to Indodax failed: ${url}`);
   }
 
-  return result.value;
+  return capturedResponse;
 }
 
 /**
