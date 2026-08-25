@@ -899,3 +899,9 @@ Yang BELUM dikerjakan / catatan jujur
 BELUM di-`tsc`/`npm run build` sungguhan -- sandbox sesi ini (upload zip, bukan clone git, tanpa akses internet). Verifikasi manual: brace/paren balance dicek terpisah untuk kedua file yang diubah (hasil seimbang).
 9 file `lib/validators/*` sisanya (api/config/order/pair/portfolio/scanner/strategy/timeframe/trade) TETAP orphan sesuai keputusan Session Log 14 -- alasan penolakan masing-masing sudah tercatat di komentar `api/settings/validate.ts` & `docs/Orphanintegrationroadmap.md`, TIDAK diulang di sini.
 Peringatan `ACCOUNT_ENCRYPTION_KEY` yang bocor MASIH belum dikonfirmasi user sudah di-rotate atau belum.
+
+Session Log 16 — Konfirmasi Pra-Deploy (User)
+User mengkonfirmasi 2 hal yang sebelumnya berstatus "belum diverifikasi" di catatan sesi-sesi lalu:
+`npm run build`/`tsc --noEmit` SUDAH dijalankan user sendiri (lokal/CI, di luar sandbox ini) untuk perubahan Session Log 15 (`api/backtest/run.ts` v0.1.2, `api/settings/config.ts` envStatus) -- hasil 0 error, aman.
+`ACCOUNT_ENCRYPTION_KEY` yang sempat bocor (dicatat sejak sesi lama, berulang kali muncul sebagai item terbuka) SUDAH DI-ROTATE user. Peringatan berulang ini SEKARANG SELESAI -- sesi berikutnya TIDAK PERLU menanyakan ulang, kecuali ada indikasi baru kunci itu bocor lagi.
+Status: repo dianggap user siap deploy.
