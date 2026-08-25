@@ -35,6 +35,7 @@ import type { StrategyContext } from "@/services/strategy/types";
 import type { IndicatorFeatureVector } from "@/services/indicators";
 import type { Candle } from "@/services/indodax/candles";
 import type { MarketCandle } from "@/services/market";
+import logger from "@/lib/error/Logger";
 
 const smaIndicator = new SMAIndicator({ period: 20 });
 const obvIndicator = new OBVIndicator();
@@ -125,7 +126,10 @@ export function getTrendVolumeAdvisory(
 
     return { logLine };
   } catch (error) {
-    console.error("[Trend+Volume Advisory]", error);
+    logger.error("[Trend+Volume Advisory] Gagal hitung sinyal", error, {
+      service: "trendVolumeAdvisor",
+      pair,
+    });
     return null;
   }
 }
