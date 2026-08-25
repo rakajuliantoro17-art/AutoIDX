@@ -16,6 +16,7 @@ Firestore), auto-refresh tiap 5 detik selama halaman ini dibuka
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { formatIDR } from "@/utils";
+import { REFRESH_INTERVALS } from "@/utils/constants";
 
 interface ActivityItem {
   id: string;
@@ -37,7 +38,7 @@ interface TradeItem {
   time: string | null;
 }
 
-const REFRESH_INTERVAL_MS = 5000;
+const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.TICKER_MS;
 
 function levelFromType(type: string): ActivityItem["level"] {
   switch (type) {
