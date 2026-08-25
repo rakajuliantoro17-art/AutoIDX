@@ -27,6 +27,7 @@ import { recordTrade, recordLog } from "@/services/firebase/logService";
 import { getOpenPositionsCount } from "@/services/firebase/botState";
 import { BOT_CONFIG } from "@/config/bot";
 import { validateLiveOrder } from "./liveOrderValidator";
+import { validateLiveSellOrder } from "./liveSellValidator";
 import { getCanarySnapshot, getRecentCanaryOrders, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
 import { CanaryOrderMetric } from "@/services/liveTrading/monitoring/canaryMetrics";
 import { getLiveTradingConfig } from "@/services/liveTrading/risk/liveTradingConfig";
@@ -700,6 +701,43 @@ class LiveTradingService {
       throw new Error(
         "LIVE SELL butuh amount (jumlah koin) dari posisi yang tercatat di bot_state."
       );
+
+    }
+
+    // --- Pre-flight validation FORMAT PAIR (services/validation/,
+    // ObjectValidator+PrimitiveValidator - lihat liveSellValidator.ts
+    // untuk penjelasan lengkap). Cek amount>0 di atas TETAP jadi
+    // baris pertahanan utama untuk amount -- ini TAMBAHAN, bukan
+    // pengganti, dan cakupannya khusus FORMAT PAIR yang SEBELUMNYA
+    // tidak pernah dicek sama sekali untuk SELL.
+    //
+    // KONSISTEN dengan prinsip "SELL tidak pernah diblokir gerbang
+    // bisnis" (CanaryGate/reconciliation/dst SENGAJA tidak berlaku
+    // untuk SELL, lihat komentar sell() di atas) -- ini BUKAN
+    // gerbang bisnis, ini sanity-check KORUPSI DATA (sama kategori
+    // dengan cek amount>0 yang sudah ada SEBELUM file ini pernah
+    // ditulis). pair selalu berasal dari bot_state yang sudah
+    // divalidasi saat BUY, jadi dalam kondisi normal TIDAK PERNAH
+    // gagal -- kalaupun gagal, itu tandanya ada bug upstream yang
+    // justru harus menghentikan order, bukan diloloskan. ---
+    const sellValidation = validateLiveSellOrder({
+      pair: request.pair,
+      amount: request.amount,
+    });
+
+    if (!sellValidation.valid) {
+
+      await recordLog(
+        "RISK",
+        "danger",
+        `LIVE SELL ditolak validasi pre-flight ${request.pair.toUpperCase()}: ${sellValidation.message}`
+      );
+
+      await this.auditSafe("ORDER_REJECTED", localOrderId, {
+        metadata: { stage: "preflight-validation", message: sellValidation.message },
+      });
+
+      throw new Error(`Order tidak valid: ${sellValidation.message}`);
 
     }
 
