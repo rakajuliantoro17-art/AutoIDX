@@ -22,6 +22,7 @@ const menus: MenuItem[] = [
   { name: "Transaction History", path: "/dashboard/history" },
   { name: "Backtest", path: "/backtest" },
   { name: "Risk Analytics", path: "/dashboard/analytics" },
+  { name: "Strategy Control", path: "/dashboard/strategy-control" },
   { name: "Canary Monitor", path: "/dashboard/canary-monitor" },
   { name: "ML Lab (Eksperimental)", path: "/dashboard/ml-lab" },
   { name: "Settings", path: "/dashboard/settings" },
