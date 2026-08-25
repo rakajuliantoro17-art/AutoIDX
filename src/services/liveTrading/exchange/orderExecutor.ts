@@ -34,6 +34,7 @@ Live Trading Order Execution Adapter
 import { IndodaxClient } from "./indodaxClient";
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
 import { TRADING_CONFIG } from "@/config/trading";
+import { ExchangeError } from "@/errors";
 
 import type {
   LiveOrderRequest,
@@ -152,6 +153,29 @@ export class OrderExecutor {
 
     if (!response.success) {
 
+      // Klasifikasi heuristik dari pesan mentah Indodax -- API mereka
+      // tidak mengembalikan kode error terstruktur, cuma teks bebas,
+      // jadi ini best-effort (default UNKNOWN kalau tidak cocok pola
+      // yang dikenal). Tetap lebih berguna daripada teks mentah saja
+      // saat di-filter di log Firestore.
+      const rawMessage = response.message ?? "Order rejected by exchange.";
+      const lowerMessage = rawMessage.toLowerCase();
+
+      const exchangeError = new ExchangeError({
+        message: rawMessage,
+        code: lowerMessage.includes("balance") || lowerMessage.includes("saldo")
+          ? "INSUFFICIENT_BALANCE"
+          : lowerMessage.includes("signature") || lowerMessage.includes("sign")
+          ? "INVALID_SIGNATURE"
+          : lowerMessage.includes("key")
+          ? "INVALID_API_KEY"
+          : lowerMessage.includes("not found")
+          ? "ORDER_NOT_FOUND"
+          : "UNKNOWN",
+        exchange: "INDODAX",
+        details: response.data,
+      });
+
       return {
         success: false,
         symbol: request.symbol,
@@ -161,7 +185,7 @@ export class OrderExecutor {
         executedPrice: null,
         executedQuantity: 0,
         fee: 0,
-        message: response.message ?? "Order rejected by exchange.",
+        message: `[${exchangeError.code}] ${exchangeError.message}`,
         timestamp: Date.now(),
       };
 
