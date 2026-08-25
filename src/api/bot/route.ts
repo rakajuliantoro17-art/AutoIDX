@@ -2,9 +2,9 @@
 ==========================================================
 AURA Trade OS
 Bot API Route
-Version : 0.0.2 Alpha
+Version : 0.0.3 Alpha
 
-PERBAIKAN KEAMANAN (audit sesi ini): route ini SEBELUMNYA
+PERBAIKAN KEAMANAN (sesi audit orphan): route ini SEBELUMNYA
 tidak punya autentikasi SAMA SEKALI dan tidak memakai
 cronLock -- padahal executeBot() -> executeCron() adalah
 pipeline TRADING NYATA yang sama persis dipanggil jalur cron
@@ -29,11 +29,31 @@ Juga sekarang acquireCronLock() SEBELUM executeBot(), pola
 identik dengan /api/cron/scan.ts, supaya tidak pernah overlap
 dengan cron terjadwal. Kalau lock sedang dipegang siklus lain,
 request ini di-skip dengan aman (bukan dijalankan dobel).
+
+INTEGRASI ERROR/RESPONSE HELPER (sesi orphan cleanup): ./response.ts
+(successResponse/errorResponse lokal) diganti ResponseHelper +
+ApiError dari @/lib/error (sebelumnya orphan total -- zero
+importer di luar dirinya sendiri, cuma dipakai internal oleh
+lib/validators/* yang JUGA orphan). Perilaku response JSON
+IDENTIK, cuma menghilangkan duplikasi implementasi envelope
+yang sama persis dengan ./response.ts. File ./response.ts
+SENGAJA TIDAK dihapus -- cuma tidak dipakai lagi di sini,
+belum dicek dipakai tempat lain atau tidak.
+
+Ini pilot/contoh integrasi TERBATAS pada 1 file yang saya
+kuasai penuh (belum disentuh sesi Claude lain) -- BUKAN
+migrasi massal ke seluruh API routes. lib/error/Logger.ts &
+lib/error/Response.ts masih orphan di tempat lain, AppError
+masih cuma dipakai lib/validators/* yang sendiri juga orphan
+(tidak reachable dari live path). Kalau mau dilanjutkan ke
+file lain, lakukan satu-satu (risiko tabrakan dengan sesi lain
+yang sedang paralel mengedit repo yang sama).
 ==========================================================
 */
 
 import { executeBot } from "./execute";
-import { successResponse, errorResponse } from "./response";
+import ResponseHelper from "@/lib/error/Response";
+import { ApiError } from "@/lib/error/ApiError";
 import { logger } from "./logger";
 import { acquireCronLock } from "@/services/scheduler/cronLock";
 
@@ -48,7 +68,7 @@ export async function GET(request: Request) {
 
     if (!process.env.CRON_SECRET || authHeader !== expectedToken) {
       logger.error("BOT", "Bot execution ditolak -- auth tidak valid.");
-      return errorResponse("Unauthorized", 401);
+      throw ApiError.unauthorized("Unauthorized");
     }
 
     const lock = await acquireCronLock();
@@ -58,11 +78,10 @@ export async function GET(request: Request) {
         "BOT",
         "Bot execution di-skip -- siklus cron lain sedang berjalan."
       );
-      return successResponse(
-        { skipped: true },
-        "Skipped: previous cycle still running.",
-        200
-      );
+      return ResponseHelper.success({
+        skipped: true,
+        message: "Skipped: previous cycle still running.",
+      });
     }
 
     logger.info(
@@ -84,10 +103,7 @@ export async function GET(request: Request) {
       result.statistics
     );
 
-    return successResponse(
-      result,
-      "Bot executed successfully."
-    );
+    return ResponseHelper.success(result);
 
   } catch (error) {
 
@@ -97,11 +113,12 @@ export async function GET(request: Request) {
       error
     );
 
-    return errorResponse(
-      error instanceof Error
-        ? error.message
-        : "Unknown error",
-      500
+    if (error instanceof ApiError) {
+      return ResponseHelper.error(error.message, error.status, error.code);
+    }
+
+    return ResponseHelper.internal(
+      error instanceof Error ? error.message : "Unknown error"
     );
 
   }
