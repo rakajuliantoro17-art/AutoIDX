@@ -12,11 +12,12 @@ export const POPULAR_PAIRS = [
   { pair: 'eth_idr', symbol: 'ETH', name: 'Ethereum' },
   { pair: 'sol_idr', symbol: 'SOL', name: 'Solana' },
   { pair: 'ada_idr', symbol: 'ADA', name: 'Cardano' },
-  { pair: 'xrpl_idr', symbol: 'XRP', name: 'Ripple' },
+  { pair: 'xrp_idr', symbol: 'XRP', name: 'Ripple' }, // FIX: sebelumnya 'xrpl_idr' -- typo, ticker asli Indodax untuk XRP adalah xrp_idr (dikonfirmasi sama dengan FALLBACK_PAIRS di services/scanner/index.ts)
 ];
 
 export const REFRESH_INTERVALS = {
   TICKER_MS: 5000,    // Refresh harga tiap 5 detik
   LOGS_MS: 3000,      // Refresh log aktivitas tiap 3 detik
   PORTFOLIO_MS: 15000,// Refresh portofolio tiap 15 detik
+  STATUS_MS: 10000,   // Refresh status/config dashboard tiap 10 detik
 };
