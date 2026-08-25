@@ -112,6 +112,23 @@ seperti `services/liveTrading/`.
   `logRotation.ts` WAJIB ditulis ulang dulu targetnya ke Firestore/layanan log
   eksternal, bukan filesystem lokal.
 
+## 4b. `lib/validators/*` — status akhir (Session Log 15)
+
+Dari 12 file yang sempat diminta diintegrasikan, hasil akhirnya:
+- ✅ `risk.ts`, `market.ts`, `number.ts` — sudah AKTIF (lewat `api/settings/validate.ts`,
+  dan sekarang juga `api/backtest/run.ts`).
+- ✅ `env.ts` — sekarang AKTIF, di-wire ke `api/settings/config.ts` sebagai info
+  non-blocking (`envStatus`), TIDAK melempar/mem-block endpoint manapun.
+- ❌ `api.ts`, `config.ts`, `order.ts`, `pair.ts`, `portfolio.ts`, `scanner.ts`,
+  `strategy.ts`, `trade.ts`, `trading.ts` — TETAP orphan dengan sengaja. Alasan
+  tertulis lengkap di komentar `api/settings/validate.ts`. Jangan diintegrasikan
+  tanpa use-case konkret baru (bukan sekadar "filenya ada") — terutama `pair.ts`
+  yang whitelist-nya bentrok langsung dengan scanner all-pair.
+
+Juga ditemukan & dibereskan: `services/backtest/run.ts` (draft duplikat
+`pages/api/backtest/run.ts` yang salah lokasi, tidak pernah jadi route aktif) —
+perbaikannya (validasi `strategy`) sudah diterapkan ke file asli, draftnya dihapus.
+
 ## 5. Isu terbuka dari audit sebelumnya yang lebih mendesak dari semua di atas
 
 Dicatat di `docs/claude.md`, belum diselesaikan:
