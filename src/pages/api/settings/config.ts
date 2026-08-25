@@ -30,6 +30,30 @@ import { BOT_CONFIG } from "@/config/bot";
 import { RISK_CONFIG } from "@/config/risk";
 import { TRADING_CONFIG } from "@/config/trading";
 import { getBotControl } from "@/services/firebase/botControl";
+import EnvValidator from "@/lib/validators/env";
+
+/**
+ * Cek env var wajib (BOT_MODE/BOT_INTERVAL/BOT_DEFAULT_TRADE_AMOUNT/
+ * BOT_MAX_TRADE_AMOUNT/BOT_TARGET_PROFIT/BOT_STOP_LOSS/Firebase client
+ * config) TANPA pernah melempar/mem-block response ini -- endpoint
+ * ini sudah berguna walau env ada yang tidak lengkap, jadi validasi
+ * env HANYA jadi info tambahan (banner peringatan di dashboard),
+ * bukan syarat endpoint bisa dipakai. Cuma NAMA var yang hilang yang
+ * dikembalikan (dari AppError.message bawaan EnvValidator, bukan
+ * nilai/secret apa pun) -- aman karena endpoint ini sudah di belakang
+ * Firebase ID Token, bukan publik.
+ */
+function checkEnvStatus(): { ok: boolean; message: string | null } {
+  try {
+    EnvValidator.validate();
+    return { ok: true, message: null };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Env tidak valid.",
+    };
+  }
+}
 
 async function getUidFromRequest(
   req: NextApiRequest
@@ -126,6 +150,8 @@ export default async function handler(
       minVolumeIdr: TRADING_CONFIG.minVolumeIdr,
 
       cronIntervalSeconds: BOT_CONFIG.interval,
+
+      envStatus: checkEnvStatus(),
 
       fetchedAt: new Date().toISOString(),
 
