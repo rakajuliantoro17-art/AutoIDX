@@ -18,6 +18,7 @@ butuh redeploy supaya tidak ada yang "kepencet" tanpa sadar).
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
+import { formatFullDateTime, formatRelativeTime } from "@/utils";
 
 interface BotControlState {
   emergencyStop: boolean;
@@ -133,7 +134,10 @@ export default function BotControlPanel() {
         <h2 className="text-xl font-semibold">Bot Control</h2>
         {control.updatedAt ? (
           <span className="text-xs text-slate-500">
-            Terakhir diubah: {new Date(control.updatedAt).toLocaleString("id-ID")}
+            Terakhir diubah:{" "}
+            <span title={formatFullDateTime(new Date(control.updatedAt).toISOString())}>
+              {formatRelativeTime(new Date(control.updatedAt).toISOString())}
+            </span>
             {control.updatedBy ? ` oleh ${control.updatedBy}` : ""}
           </span>
         ) : null}
