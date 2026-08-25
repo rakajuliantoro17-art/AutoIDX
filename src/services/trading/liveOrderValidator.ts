@@ -23,7 +23,7 @@ Dipanggil dari trading/live.ts SEBELUM client.trade().
 
 import { SchemaValidator } from "@/services/validation/schemaValidator";
 import type { Schema } from "@/services/validation/schema";
-import { ValidationError, type ValidationErrorCode } from "@/errors";
+import { validationManager } from "@/services/validation/validationManager";
 
 /**
  * Minimum transaksi Indodax adalah Rp10.000. Catatan dari
@@ -43,7 +43,7 @@ export const INDODAX_MIN_ORDER_IDR = 10_000;
  * (mis. "btc_idr"). Sumber: dokumentasi resmi
  * (github.com/btcid/indodax-official-api-docs).
  */
-const PAIR_PATTERN = /^[a-z0-9]+_idr$/;
+export const PAIR_PATTERN = /^[a-z0-9]+_idr$/;
 
 interface LiveOrderInput {
   pair: string;
@@ -67,6 +67,17 @@ const liveOrderSchema: Schema = {
 
 const validator = new SchemaValidator<LiveOrderInput>(liveOrderSchema);
 
+// Didaftarkan ke validationManager.ts (services/validation/, SEBELUMNYA
+// orphan - lihat liveSellValidator.ts untuk pasangan SELL-nya dan
+// penjelasan lengkap kenapa disambungkan) supaya ada SATU titik
+// terpusat untuk menemukan semua validator live-trading yang aktif,
+// tanpa mengubah cara validateLiveOrder() di bawah ini bekerja sama
+// sekali (function ini TETAP jalur utama yang dipanggil live.ts,
+// registrasi ini cuma tambahan untuk discoverability).
+validationManager.register("live.order.buy", validator, {
+  description: "Pre-flight BUY order live (pair format + minimum nominal Indodax)",
+});
+
 export interface LiveOrderValidationResult {
   valid: boolean;
   /** Pesan gabungan, siap dipakai langsung di Error/log. */
@@ -89,25 +100,8 @@ export function validateLiveOrder(
     return { valid: true, message: "OK" };
   }
 
-  const errors = result.issues.map((issue) => {
-
-    const code: ValidationErrorCode =
-      issue.path === "pair"
-        ? "INVALID_PAIR"
-        : issue.path === "tradeAmountIdr"
-        ? "OUT_OF_RANGE"
-        : "INVALID_PARAMETER";
-
-    return new ValidationError({
-      message: issue.message,
-      code,
-      field: issue.path,
-    });
-
-  });
-
-  const message = errors
-    .map((error) => `[${error.code}] ${error.field}: ${error.message}`)
+  const message = result.issues
+    .map((issue) => `${issue.path}: ${issue.message}`)
     .join("; ");
 
   return { valid: false, message };
