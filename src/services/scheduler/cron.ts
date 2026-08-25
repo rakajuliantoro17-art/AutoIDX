@@ -42,6 +42,11 @@ import { recordLog } from "../firebase/logService";
 import { getOpenPositionPairs } from "../firebase/botState";
 import { TRADING_CONFIG } from "@/config/trading";
 import { latencyMonitor } from "@/services/monitor/latencyMonitor";
+import strategyManager from "@/services/strategy/manager";
+import evaluator from "@/services/strategy/core/evaluator";
+import entryRules from "@/services/strategy/rules/entryRules";
+import strategyScore from "@/services/strategy/scoring/strategyScore";
+import confidenceEngine from "@/services/strategy/scoring/confidence";
 
 const RSI_PERIOD = 14;
 const EMA_FAST_PERIOD = 9;
@@ -155,6 +160,37 @@ async function processPair(pair: string): Promise<CronPairResult> {
       `Trading Engine (${pair}): ${engineResult.reason}`
     );
 
+    // --- Confidence Engine (INFO ONLY - lihat docs/claude.md,
+    // strategyScore.ts SENGAJA dilepas dari gerbang keputusan BUY
+    // di auraTrend.ts karena pernah bikin bug "silent double-gate".
+    // Log ini TIDAK PERNAH mempengaruhi engineResult/decision di
+    // atas - murni informasi tambahan untuk analitik/kalibrasi
+    // manual nanti, dihitung ulang independen dari features yang
+    // sama, tidak menyentuh alur keputusan sama sekali. ---
+    try {
+
+      const entryEvaluation = evaluator.evaluate(features, entryRules);
+      const scoreResult = strategyScore.calculate(features);
+
+      const confidenceResult = confidenceEngine.calculate(
+        scoreResult,
+        entryEvaluation
+      );
+
+      await recordLog(
+        "BOT",
+        "info",
+        `[Confidence Info ${pair.toUpperCase()}] ${confidenceResult.level} (${confidenceResult.confidence}) - ${confidenceResult.explanation.join("; ")}. TIDAK mempengaruhi keputusan di atas.`
+      );
+
+    } catch (error) {
+
+      // Fail-safe: gagal hitung confidence info TIDAK PERNAH boleh
+      // menghentikan/mengganggu siklus trading yang sebenarnya.
+      console.error(`[Confidence Info] Gagal dihitung untuk ${pair} (non-fatal):`, error);
+
+    }
+
     return {
       pair,
       success: engineResult.success,
@@ -195,6 +231,18 @@ export async function executeCron(
 ): Promise<CronResult> {
 
   const started = Date.now();
+
+  // Rekonsiliasi status enable/disable strategi dari Firestore
+  // SEKALI per siklus (bukan per-pair) - lihat strategy/registry.ts
+  // + registryStore.ts. Fail-safe: kalau gagal, strategyRegistry
+  // tetap pakai status terakhir yang sempat ter-cache (atau default
+  // semua ACTIVE kalau ini invocation pertama) - tidak menghentikan
+  // siklus cron.
+  try {
+    await strategyManager.refreshRegistry();
+  } catch (error) {
+    console.error("[Scheduler] Gagal refresh strategy registry (non-fatal):", error);
+  }
 
   // Pair yang SEDANG open position -- selalu ikut diproses supaya
   // stop-loss/take-profit/SELL tetap jalan walau pair itu sudah
