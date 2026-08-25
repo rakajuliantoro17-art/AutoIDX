@@ -856,3 +856,23 @@ Yang BELUM dikerjakan / catatan jujur
 BELUM di-`tsc`/build sungguhan (sandbox tanpa internet, konsisten seluruh sesi sebelumnya).
 Penghapusan 6 file dieksekusi USER SENDIRI lewat GitHub browser UI (bukan lewat sandbox ini) -- sesi berikutnya WAJIB verifikasi lewat grep bahwa memang sudah terhapus & tidak ada dangling import baru sebelum asumsi bersih.
 Peringatan `ACCOUNT_ENCRYPTION_KEY` yang bocor (dari awal chat sesi-sesi sebelumnya) MASIH belum pernah dikonfirmasi user sudah di-rotate atau belum.
+
+Session Log 14 — Audit `services/logger/` Stack Kedua (logger.ts/consoleLogger.ts/fileLogger.ts/remoteLogger.ts/logRotation.ts)
+User minta lanjutkan integrasi 5 file ini. Dibaca isi asli tiap file (bukan asumsi dari nama), lalu dijalankan BFS reachability analysis penuh dari seluruh entry point Next.js (`src/app/**/page.tsx`, `layout.tsx`, `route.ts`, `src/pages/**`) terhadap 1037 file TS/TSX di repo.
+
+Temuan
+`services/logger/index.ts` (+ `formatter.ts`, `types.ts`) TERKONFIRMASI AKTIF — logger produksi asli (console + Firestore via `recordLog()`), di-import ~85 file lintas domain (jobs, cache, middleware, security, analytics, bootstrap, recovery, dll).
+5 file yang diminta user (`logger.ts`, `consoleLogger.ts`, `fileLogger.ts`, `remoteLogger.ts`, `logRotation.ts`) SEMUA orphan — nol reachability dari entry point manapun. Pola sama persis dengan `services/liveTrading/` (Phase 38): stack lama yang sudah digantikan `index.ts`, bukan fitur "belum sempat disambungkan".
+`logger.ts` — facade class yang menggabungkan `consoleLogger`+`fileLogger`, nol importer di luar dirinya sendiri.
+`consoleLogger.ts` — hanya dipakai internal oleh `logger.ts`/`fileLogger.ts`/`remoteLogger.ts`. Referensi di `serviceRegistry.ts` cuma komentar `/* Future: consoleLogger */`, bukan import nyata.
+`fileLogger.ts` — pakai `fs.appendFileSync`/`fs.writeFileSync` ke direktori lokal. SECARA ARSITEKTUR TIDAK KOMPATIBEL dengan Vercel serverless (filesystem ephemeral, tidak persisten antar invocation) — bukan cuma orphan, kalau diaktifkan pun akan gagal/percuma di production.
+`remoteLogger.ts` — pola adapter (`setAdapter()`) tapi TIDAK ADA satupun adapter yang pernah diimplementasikan. Nol pemanggilan `fetch`/`http` di seluruh file — stub kosong secara fungsional.
+`logRotation.ts` — satu-satunya yang benar-benar dipanggil di dalam kode (`maintenance/cleanup.ts` → `logRotation.rotate()`), TAPI seluruh rantai pemanggilnya (`cleanupJob.ts`, `autoRecovery.ts`, `watchdog.ts`, sampai ke `bootstrap/serviceRegistry.ts`/`core/kernel.ts`) juga 100% orphan dari entry point. Juga pakai `fs.*` ke folder `logs/` lokal — masalah serverless yang sama seperti `fileLogger.ts`.
+
+Keputusan user (eksplisit)
+"Pertahankan dulu, siapa tahu masa depan kita butuhkan" — BERBEDA dari keputusan Session Log 13 (hapus `services/trading/{executor,history,...}`). File-file ini TIDAK dihapus, TIDAK diintegrasikan sesi ini. Ditandai jelas sebagai dead/orphan code yang sengaja dipertahankan sebagai referensi masa depan.
+
+Yang BELUM dikerjakan / catatan jujur
+BELUM di-`tsc`/build — sesi ini read-only (audit only, tidak ada kode diubah).
+Kalau suatu saat file-file ini benar-benar mau diaktifkan: `fileLogger.ts` dan `logRotation.ts` WAJIB ditulis ulang dulu (target Firestore atau layanan log eksternal, BUKAN filesystem lokal) sebelum bisa dipakai di Vercel — jangan asumsikan bisa langsung disambungkan apa adanya.
+Peringatan `ACCOUNT_ENCRYPTION_KEY` yang bocor MASIH belum dikonfirmasi user sudah di-rotate atau belum (dari sesi-sesi sebelumnya).
