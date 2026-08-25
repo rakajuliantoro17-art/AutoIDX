@@ -111,6 +111,9 @@ import { RISK_CONFIG } from "@/config/risk";
 import { getEffectiveTradingConfig } from "./effectiveConfig";
 import positionSizing from "@/services/execution/risk/positionSizing";
 import { TradingError } from "@/errors";
+import type { Candle } from "@/services/indodax/candles";
+import { getTrendVolumeAdvisory } from "@/services/strategy/trendVolumeAdvisor";
+import mlAdvisor from "@/services/intelligence/ml/mlAdvisor";
 
 export interface TradingEngineInput {
 
@@ -119,6 +122,15 @@ export interface TradingEngineInput {
   price: number;
 
   features: IndicatorFeatureVector;
+
+  /**
+   * Opsional -- candle mentah (limit 100, sama yang dipakai cron.ts
+   * untuk hitung features). Optional supaya non-breaking untuk
+   * caller lama. Dipakai HANYA oleh trendVolumeAdvisor (advisory,
+   * tidak memblokir eksekusi) untuk hitung SMA(20)/OBV real yang
+   * butuh candle penuh, bukan cuma scalar features.
+   */
+  candles?: Candle[];
 
 }
 
@@ -352,8 +364,41 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 async function logAIAdvisory(
   pair: string,
   price: number,
-  features: IndicatorFeatureVector
+  features: IndicatorFeatureVector,
+  candles?: Candle[]
 ): Promise<void> {
+
+  // Trend+Volume Advisory (observability only) -- lihat catatan
+  // lengkap di services/strategy/trendVolumeAdvisor.ts. Sengaja
+  // BUKAN gate/sanity-check tambahan: project ini pernah mencoba
+  // gerbang berlapis dan DIBATALKAN pemilik project sendiri karena
+  // BUY jadi terlalu jarang. Kalau dihapus total, tidak ada
+  // perilaku BUY/SELL yang berubah -- cuma log yang hilang.
+  try {
+    const trendVolumeResult = getTrendVolumeAdvisory(pair, price, features, candles);
+
+    if (trendVolumeResult) {
+      await recordLog("BOT", "info", trendVolumeResult.logLine);
+    }
+  } catch (tvError) {
+    console.error("[Trend+Volume Advisory]", tvError);
+  }
+
+  // ML Advisory (observability only) -- lihat catatan lengkap di
+  // services/intelligence/ml/mlAdvisor.ts. Sengaja TERPISAH dari
+  // blok AI provider di bawah (tidak butuh env key LLM apapun) dan
+  // dibungkus try/catch sendiri supaya kegagalan di sini (paling
+  // umum: belum ada model terlatih) TIDAK PERNAH mempengaruhi AI
+  // Advisory/Consensus di bawahnya maupun keputusan BUY/SELL/HOLD.
+  try {
+    const mlResult = await mlAdvisor.getMLAdvisory(pair, features);
+
+    if (mlResult) {
+      await recordLog("BOT", "info", mlResult.logLine);
+    }
+  } catch (mlError) {
+    console.error("[ML Advisory]", mlError);
+  }
 
   const availableCandidates = AI_PROVIDER_CANDIDATES.filter(
     (c) => !!process.env[c.envKey]
@@ -824,7 +869,7 @@ export class TradingEngine {
 
             // Lolos kedua sanity check -- AI dipanggil ADVISORY ONLY,
             // tidak menunggu/menggantungkan keputusan BUY padanya.
-            await logAIAdvisory(input.pair, input.price, input.features);
+            await logAIAdvisory(input.pair, input.price, input.features, input.candles);
 
           }
 
