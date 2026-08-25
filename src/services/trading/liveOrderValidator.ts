@@ -23,6 +23,7 @@ Dipanggil dari trading/live.ts SEBELUM client.trade().
 
 import { SchemaValidator } from "@/services/validation/schemaValidator";
 import type { Schema } from "@/services/validation/schema";
+import { ValidationError, type ValidationErrorCode } from "@/errors";
 
 /**
  * Minimum transaksi Indodax adalah Rp10.000. Catatan dari
@@ -88,8 +89,25 @@ export function validateLiveOrder(
     return { valid: true, message: "OK" };
   }
 
-  const message = result.issues
-    .map((issue) => `${issue.path}: ${issue.message}`)
+  const errors = result.issues.map((issue) => {
+
+    const code: ValidationErrorCode =
+      issue.path === "pair"
+        ? "INVALID_PAIR"
+        : issue.path === "tradeAmountIdr"
+        ? "OUT_OF_RANGE"
+        : "INVALID_PARAMETER";
+
+    return new ValidationError({
+      message: issue.message,
+      code,
+      field: issue.path,
+    });
+
+  });
+
+  const message = errors
+    .map((error) => `[${error.code}] ${error.field}: ${error.message}`)
     .join("; ");
 
   return { valid: false, message };
