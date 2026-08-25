@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS } from "./defaults";
 import { BotSettings } from "./types";
+import { validateSettingsInput } from "./validate";
 
 import {
   getBotSettings,
@@ -19,10 +20,16 @@ export async function getSettings(): Promise<BotSettings> {
 /**
  * Menyimpan perubahan settings ke Firestore. Hanya field yang
  * dikirim yang di-update (partial/merge), field lain tetap.
+ *
+ * v0.2.0 - Validasi input SEBELUM ditulis ke Firestore (lihat
+ * ./validate.ts) -- sebelumnya body dari client ditulis mentah
+ * tanpa pengecekan sama sekali.
  */
 export async function saveSettings(
   partial: Partial<BotSettings>
 ): Promise<BotSettings> {
+
+  validateSettingsInput(partial);
 
   await updateBotSettings(partial);
 
