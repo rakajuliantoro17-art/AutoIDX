@@ -23,10 +23,11 @@ benar.
 
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
+import { REFRESH_INTERVALS } from "@/utils/constants";
 
 type BotMode = "paper" | "live";
 
-const REFRESH_INTERVAL_MS = 5000;
+const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.TICKER_MS;
 
 export default function SystemStatusBadge() {
 
