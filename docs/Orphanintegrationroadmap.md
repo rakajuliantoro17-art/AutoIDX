@@ -94,7 +94,25 @@ skalanya besar, layanan queue eksternal) persis seperti pola yang sudah dipakai
    `services/pipeline/`, `services/plugins/`) — ini kemungkinan besar generic
    scaffolding yang bahkan belum ada use-case konkretnya di project Indodax ini.
 
-## 4. Isu terbuka dari audit sebelumnya yang lebih mendesak dari semua di atas
+## 4. `services/logger/` stack kedua — dipertahankan sengaja, JANGAN diintegrasikan
+
+Audit (Session Log 14, `docs/claude.md`) mengkonfirmasi 5 file
+(`logger.ts`, `consoleLogger.ts`, `fileLogger.ts`, `remoteLogger.ts`,
+`logRotation.ts`) adalah stack logger LAMA yang sudah digantikan
+`services/logger/index.ts` (aktif, console+Firestore, ~85 importer). Pola sama
+seperti `services/liveTrading/`.
+
+- `fileLogger.ts` & `logRotation.ts` pakai `fs.*` sinkron ke direktori lokal —
+  **tidak kompatibel Vercel serverless** (filesystem ephemeral) bahkan kalau
+  disambungkan.
+- `remoteLogger.ts` adalah stub adapter kosong — nol implementasi `fetch`/`http`.
+- Keputusan user: **dipertahankan** (bukan dihapus seperti cluster
+  `services/trading/{executor,...}` di Session Log 13), untuk kemungkinan
+  dipakai lagi di masa depan. Kalau nanti mau diaktifkan: `fileLogger.ts` dan
+  `logRotation.ts` WAJIB ditulis ulang dulu targetnya ke Firestore/layanan log
+  eksternal, bukan filesystem lokal.
+
+## 5. Isu terbuka dari audit sebelumnya yang lebih mendesak dari semua di atas
 
 Dicatat di `docs/claude.md`, belum diselesaikan:
 - 🔴 `ACCOUNT_ENCRYPTION_KEY` (dekripsi API key Indodax semua user) sempat
