@@ -41,6 +41,7 @@ import { TradingEngine } from "../trading/engine";
 import { recordLog } from "../firebase/logService";
 import { getOpenPositionPairs } from "../firebase/botState";
 import { TRADING_CONFIG } from "@/config/trading";
+import { latencyMonitor } from "@/services/monitor/latencyMonitor";
 
 const RSI_PERIOD = 14;
 const EMA_FAST_PERIOD = 9;
@@ -127,13 +128,6 @@ async function processPair(pair: string): Promise<CronPairResult> {
       macdHistogram: macdResult.histogram,
       atr: atrResult.atr,
       adx: adxResult.adx,
-      // plusDI/minusDI: sudah dihitung calculateADX() di atas tapi
-      // sebelumnya dibuang -- diisi di sini (tanpa fetch/hitung ulang
-      // apapun) supaya services/intelligence/ml/mlAdvisor.ts bisa
-      // kirim fitur yang persis sama dengan saat training model
-      // (lihat services/ml/dataset/collector.ts), bukan fallback 0.
-      plusDI: adxResult.plusDI,
-      minusDI: adxResult.minusDI,
       stochasticK: stochasticResult.k,
       stochasticD: stochasticResult.d,
       bollingerUpper: bollinger.upper,
@@ -145,7 +139,6 @@ async function processPair(pair: string): Promise<CronPairResult> {
       pair,
       price,
       features,
-      candles,
     });
 
     await recordLog(
@@ -228,6 +221,12 @@ export async function executeCron(
   }
 
   const finished = Date.now();
+
+  // Tulis SATU ringkasan latensi panggilan Indodax untuk siklus ini
+  // ke Firestore (lihat monitor/latencyMonitor.ts) -- membangun tren
+  // "Indodax makin lambat/cepat" lintas waktu, tanpa menulis per-call
+  // (yang boros write Firestore).
+  await latencyMonitor.flush("indodax_public");
 
   return {
     success: results.every((r) => r.success),
