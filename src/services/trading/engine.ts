@@ -83,6 +83,9 @@ import RiskManager from "./risk";
 
 import automationNotifier from "@/services/automation/notifier";
 
+import { auditLogger } from "@/services/audit/firestoreAudit";
+import { handleError } from "@/services/errors/errorHandler";
+
 import {
   getBotState,
   updateBotState,
@@ -110,7 +113,6 @@ import { BOT_CONFIG } from "@/config/bot";
 import { RISK_CONFIG } from "@/config/risk";
 import { getEffectiveTradingConfig } from "./effectiveConfig";
 import positionSizing from "@/services/execution/risk/positionSizing";
-import { TradingError } from "@/errors";
 import type { Candle } from "@/services/indodax/candles";
 import { getTrendVolumeAdvisory } from "@/services/strategy/trendVolumeAdvisor";
 import mlAdvisor from "@/services/intelligence/ml/mlAdvisor";
@@ -170,11 +172,6 @@ function toMillis(value: any): number {
 
 }
 
-/**
- * Live trading HANYA aktif kalau DUA syarat terpenuhi:
- * bot_control.mode === "live" DAN process.env.BOT_LIVE_CONFIRM
- * === "true".
- */
 function isLiveModeActive(
 
   control: { mode: "paper" | "live" }
@@ -188,10 +185,6 @@ function isLiveModeActive(
 
 }
 
-/**
- * Adaptor: StrategyManagerResult -> DecisionResult (bentuk lama
- * yang dipakai alur risk-gate/eksekusi di bawah).
- */
 function mapStrategyResultToDecision(
   result: StrategyManagerResult
 ): DecisionResult {
@@ -228,11 +221,6 @@ interface SanityCheckResult {
   auditLog: string;
 }
 
-/**
- * Sanity check #1: tolak BUY HANYA kalau strategi lain di luar
- * strategi utama (AURA_TREND) KOMPAK bilang SELL. Kalau cuma
- * campur/beda pendapat, tetap lolos -- ini sengaja longgar.
- */
 function checkStrategyContradiction(
   features: IndicatorFeatureVector,
   primaryStrategyName: string
@@ -255,13 +243,6 @@ function checkStrategyContradiction(
 
 }
 
-/**
- * Sanity check #2: MomentumRule + VolatilityRule (via ScoreEngine).
- * TrendRule & VolumeRule tidak dipakai di sini (butuh SMA/OBV dari
- * candle penuh, tidak tersedia di kontrak input `features` yang
- * ringkas). Tolak HANYA kalau hasilnya SELL, atau HOLD dengan
- * confidence sangat rendah (<30) -- bukan mewajibkan BUY tegas.
- */
 function checkRuleScoreContradiction(
   pair: string,
   price: number,
@@ -343,24 +324,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
-/**
- * AI ADVISORY (tidak memblokir). Dipanggil setelah kedua sanity
- * check lolos, tapi hasilnya cuma dicatat ke log -- TIDAK
- * mempengaruhi apakah BUY jadi dieksekusi atau tidak. Ini supaya
- * latency (sampai 20 detik) dan biaya panggilan API eksternal
- * tidak menghentikan alur trading, sambil tetap mengumpulkan data
- * untuk dievaluasi/dikalibrasi nanti (mis. dijadikan gerbang wajib
- * kalau setelah beberapa minggu terbukti akurat).
- *
- * Update: sebelumnya cuma memanggil SATU provider (yang pertama
- * ketemu API key-nya). Sekarang memanggil SEMUA provider yang
- * API key-nya tersedia SECARA PARALEL (bukan sekuensial -- jadi
- * total latency tetap dibatasi ~AI_CALL_TIMEOUT_MS, tidak
- * berkali-lipat), lalu hasilnya digabung lewat aiConsensus
- * (weighted voting) supaya satu LLM yang halusinasi/salah tidak
- * mendominasi. Kalau cuma 1 provider yang valid, consensus
- * dilewati (tidak ada gunanya voting dengan 1 suara).
- */
 async function logAIAdvisory(
   pair: string,
   price: number,
@@ -457,8 +420,6 @@ async function logAIAdvisory(
         `[AI Advisory ${pair.toUpperCase()}] ${candidate.name}: signal=${analysis.signal}, confidence=${analysis.confidence}. ${analysis.summary}`
       );
 
-      // Observability only -- lihat catatan di decisionExplainer.ts.
-      // Tidak mempengaruhi consensusInputs / keputusan apapun di bawah ini.
       try {
         const explain = explainDecision(features, context, {
           signal: analysis.signal,
@@ -472,8 +433,6 @@ async function logAIAdvisory(
           `[AI Explainability ${pair.toUpperCase()}] ${candidate.name}: ${explain.logLine}`
         );
       } catch (explainError) {
-        // Fail-safe: kegagalan di lapisan explainability TIDAK PERNAH
-        // mengganggu jalur advisory/consensus di atas maupun di bawah.
         console.error("[AI Explainability]", explainError);
       }
 
@@ -487,9 +446,6 @@ async function logAIAdvisory(
 
     }
 
-    // Consensus cuma bermakna kalau ada 2+ provider yang jawabannya
-    // valid -- kalau cuma 1 (atau 0), hasil per-provider di atas
-    // sudah cukup, tidak perlu "voting" dengan 1 suara.
     if (consensusInputs.length < 2) {
       return;
     }
@@ -502,8 +458,6 @@ async function logAIAdvisory(
       `[AI Consensus ${pair.toUpperCase()}] signal=${consensus.signal}, agreement=${consensus.agreement}%, providers=${consensus.providers.join(", ")}. ${consensus.explanation}`
     );
 
-    // Observability only -- lihat catatan di decisionExplainer.ts.
-    // Tidak mempengaruhi keputusan BUY/SELL/HOLD manapun.
     try {
       const explain = explainDecision(features, context, {
         signal: consensus.signal,
@@ -522,36 +476,12 @@ async function logAIAdvisory(
 
   } catch (error) {
 
-    // Fail-safe: error di jalur advisory TIDAK PERNAH melempar ke
-    // atas / menghentikan siklus trading.
     console.error("[AI Advisory]", error);
 
   }
 
 }
 
-/**
- * BUG FIX (live BUY selalu diblokir): SEBELUMNYA engine.ts selalu
- * pakai getPaperPortfolio() (saldo SIMULASI di Firestore
- * paper_portfolio/default) untuk risk-gate exposure/saldo-cukup,
- * TERMASUK saat mode live. Kalau saldo simulasi paper itu menipis
- * (sangat mungkin setelah paper trading jalan beberapa waktu),
- * BUY di LIVE ikut diblokir -- walau saldo IDR asli di Indodax
- * cukup, karena risk-gate membandingkan ke angka simulasi yang
- * sama sekali tidak berhubungan dengan uang asli.
- *
- * Sekarang: mode live ambil saldo ASLI dari Indodax (IndodaxClient.
- * getInfo(), cara yang sama dipakai LiveTradingService.buy() untuk
- * pengecekan internalnya). Fail-safe: kalau gagal ambil saldo asli
- * (akun tidak aktif/API error), availableBalance dikembalikan 0 --
- * ini akan memblokir BUY (aman/fail-closed), BUKAN meloloskannya
- * begitu saja.
- *
- * equityIdr didekati dengan saldo IDR saja (tidak menghitung nilai
- * pasar posisi koin yang sedang terbuka) -- ini sengaja
- * KONSERVATIF: maxExposurePercent jadi dihitung dari basis yang
- * lebih kecil/aman daripada seharusnya, bukan lebih besar.
- */
 async function getRiskGatePortfolio(
   liveActive: boolean
 ): Promise<{ startingBalance: number; availableBalance: number; equityIdr: number }> {
@@ -633,9 +563,6 @@ async function getRiskGatePortfolio(
 
 export class TradingEngine {
 
-  /**
-   * Menjalankan satu siklus trading
-   */
   static async run(
     input: TradingEngineInput
   ): Promise<TradingEngineResult> {
@@ -676,12 +603,6 @@ export class TradingEngine {
       const riskState =
         await getRiskState();
 
-      // --- Config gabungan BotSettings (Firestore, operator-
-      // adjustable) + BOT_CONFIG/RISK_CONFIG (env, batas aman) --
-      // SATU sumber ini dipakai baik untuk validasi risk-gate
-      // MAUPUN untuk eksekusi (tradingService.buy), supaya
-      // keduanya tidak pernah melihat angka yang berbeda. Lihat
-      // services/trading/effectiveConfig.ts.
       const effectiveConfig = await getEffectiveTradingConfig();
 
       if (
@@ -699,14 +620,6 @@ export class TradingEngine {
 
       }
 
-      // --- 1. Cek stop-loss / take-profit paksa (kalau sedang posisi) ---
-      // Sekarang pakai level HARGA ABSOLUT (state.stopLossPrice/
-      // takeProfitPrice) yang dihitung dari ATR SEKALI saat BUY --
-      // bukan lagi persentase statis RISK_CONFIG yang dihitung ulang
-      // tiap siklus dan sama untuk semua pair (lihat risk.ts,
-      // calculateAtrStopLevels). Posisi lama yang belum punya level
-      // ATR tersimpan (stopLossPrice=0) otomatis fallback ke
-      // persentase statis di dalam evaluateWithLevels().
       if (state.inPosition) {
 
         const riskEval = RiskManager.evaluateWithLevels(
@@ -762,16 +675,24 @@ export class TradingEngine {
             `[${modeLabel.toUpperCase()}] ${riskEval.reason} ${input.pair.toUpperCase()} @ ${input.price}`
           );
 
-          // Notifikasi best-effort tapi TETAP di-await -- di
-          // lingkungan serverless (Vercel), promise yang tidak
-          // di-await bisa hilang begitu saja kalau function
-          // selesai duluan sebelum promise-nya resolve. notify()
-          // sudah menangani error-nya sendiri secara internal
-          // (tidak pernah throw), jadi aman di-await tanpa risiko
-          // mengganggu alur trading.
           await automationNotifier[riskEval.shouldStopLoss ? "warning" : "success"](
             riskEval.shouldStopLoss ? "Stop Loss Tereksekusi" : "Take Profit Tereksekusi",
             `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${input.price.toLocaleString("id-ID")}\nPnL: ${riskEval.profitLossPercent}%\n${riskEval.reason}`
+          );
+
+          await auditLogger.log(
+            "ORDER_FILLED",
+            `${riskEval.shouldStopLoss ? "Stop Loss" : "Take Profit"} SELL ${input.pair} @ ${input.price} (${modeLabel})`,
+            {
+              symbol: input.pair,
+              metadata: {
+                mode: modeLabel,
+                trigger: riskEval.shouldStopLoss ? "STOP_LOSS" : "TAKE_PROFIT",
+                price: input.price,
+                entryPrice: state.entryPrice,
+                profitLossPercent: riskEval.profitLossPercent,
+              },
+            }
           );
 
           return {
@@ -796,16 +717,9 @@ export class TradingEngine {
 
       }
 
-      // --- 2. Evaluasi sinyal strategi (sumber UTAMA) ---
       const position: "NONE" | "LONG" =
         state.inPosition ? "LONG" : "NONE";
 
-      // Mode strategi (CONSERVATIVE/BALANCED/AGGRESSIVE) sekarang
-      // bisa diatur dari dashboard Settings -> Strategy (BotSettings.
-      // strategyMode via effectiveConfig), bukan hardcode BALANCED
-      // lagi. strategyManager singleton -- aman dipanggil di sini
-      // walau banyak pair diproses berurutan/paralel karena semua
-      // pair memang pakai mode global yang sama.
       strategyManager.setMode(effectiveConfig.strategyMode);
 
       const strategyResult: StrategyManagerResult =
@@ -817,9 +731,6 @@ export class TradingEngine {
       let decision: DecisionResult =
         mapStrategyResultToDecision(strategyResult);
 
-      // --- 2b. Sanity check ringan (KHUSUS BUY, longgar -- lihat
-      //     komentar di atas file & checkStrategyContradiction /
-      //     checkRuleScoreContradiction) ---
       if (decision.signal === "BUY") {
 
         const check1 = checkStrategyContradiction(
@@ -867,8 +778,6 @@ export class TradingEngine {
 
           } else {
 
-            // Lolos kedua sanity check -- AI dipanggil ADVISORY ONLY,
-            // tidak menunggu/menggantungkan keputusan BUY padanya.
             await logAIAdvisory(input.pair, input.price, input.features, input.candles);
 
           }
@@ -877,7 +786,6 @@ export class TradingEngine {
 
       }
 
-      // --- Persist currentPrice/lastSignal SETIAP siklus ---
       await updateBotState({
 
         pair: input.pair,
@@ -894,7 +802,6 @@ export class TradingEngine {
 
         case "BUY": {
 
-          // --- Emergency Stop: blokir BUY baru saja ---
           if (RISK_CONFIG.emergencyStop || control.emergencyStop) {
 
             await recordLog(
@@ -952,10 +859,6 @@ export class TradingEngine {
 
             } catch (sizingError) {
 
-              // Fail-safe: kalau perhitungan risk-based gagal (mis.
-              // saldo 0, stopLossPercent 0), JANGAN gagalkan siklus
-              // trading -- fallback ke tradeAmountIdr tetap seperti
-              // mode FIXED.
               console.error("[Position Sizing]", sizingError);
 
               await recordLog(
@@ -1086,32 +989,10 @@ export class TradingEngine {
             tradeAmountIdr > portfolio.availableBalance
           ) {
 
-            // Klasifikasi error TERSTRUKTUR (services/errors -> src/errors,
-            // sebelumnya orphan) supaya rejection ini bisa di-filter
-            // di log Firestore (mis. cari semua "[EXPOSURE_LIMIT]" atau
-            // "[INSUFFICIENT_FUNDS]"), bukan cuma teks bebas. Kontrak
-            // return TradingEngine.run() TIDAK berubah -- reason tetap
-            // string seperti sebelumnya, kodenya cuma disisipkan sebagai
-            // prefix.
-            const exposureError = new TradingError({
-              message: "Nominal trade melebihi batas exposure atau saldo tidak cukup.",
-              code:
-                tradeAmountIdr > portfolio.availableBalance
-                  ? "INSUFFICIENT_FUNDS"
-                  : "EXPOSURE_LIMIT",
-              symbol: input.pair,
-              details: {
-                tradeAmountIdr,
-                maxExposureIdr,
-                maxTradeAmount: BOT_CONFIG.maxTradeAmount,
-                availableBalance: portfolio.availableBalance,
-              },
-            });
-
             await recordLog(
               "RISK",
               "warning",
-              `[${exposureError.code}] ${exposureError.message} (${input.pair.toUpperCase()})`
+              `Exposure/saldo tidak cukup — BUY ${input.pair.toUpperCase()} diblokir.`
             );
 
             return {
@@ -1122,7 +1003,7 @@ export class TradingEngine {
 
               confidence: decision.confidence,
 
-              reason: `[${exposureError.code}] ${exposureError.message}`,
+              reason: "Nominal trade melebihi batas exposure atau saldo tidak cukup.",
 
               actionExecuted: false,
 
@@ -1142,24 +1023,10 @@ export class TradingEngine {
 
             price: input.price,
 
-            // Eksplisit -- ini yang memperbaiki bug divergensi lama:
-            // sebelumnya di sini TIDAK dikirim, jadi trading/paper.ts
-            // diam-diam fallback ke getBotSettings().tradeAmountIdr
-            // (Firestore, bisa beda dari yang divalidasi risk-gate di
-            // atas). Sekarang keduanya SELALU pakai effectiveConfig
-            // yang sama persis.
             tradeAmountIdr: effectiveConfig.tradeAmountIdr,
 
           });
 
-          // Hitung level SL/TP dari ATR pair ini SEKALI di sini
-          // (saat entry) -- disimpan sebagai harga absolut, BUKAN
-          // dihitung ulang tiap siklus. input.features.atr sudah
-          // tersedia dari featureBuilder.ts (dihitung dari candle
-          // OHLC asli), jadi tidak perlu request tambahan.
-          // baseStopLossPercent/baseTargetProfitPercent dari
-          // effectiveConfig (BotSettings, di-clamp) -- operator bisa
-          // atur rasio risk:reward dari dashboard tanpa redeploy.
           const atrLevels = RiskManager.calculateAtrStopLevels(
             result.price,
             input.features.atr,
@@ -1198,6 +1065,23 @@ export class TradingEngine {
           await automationNotifier.success(
             "BUY Tereksekusi",
             `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${result.price.toLocaleString("id-ID")}\nSL: Rp${atrLevels.stopLossPrice.toFixed(0)} | TP: Rp${atrLevels.takeProfitPrice.toFixed(0)}`
+          );
+
+          await auditLogger.log(
+            "ORDER_FILLED",
+            `BUY ${input.pair} @ ${result.price} (${modeLabel})`,
+            {
+              symbol: input.pair,
+              metadata: {
+                mode: modeLabel,
+                side: "BUY",
+                price: result.price,
+                amount: result.amount,
+                strategy: strategyResult.strategy,
+                stopLossPrice: atrLevels.stopLossPrice,
+                takeProfitPrice: atrLevels.takeProfitPrice,
+              },
+            }
           );
 
           actionExecuted = true;
@@ -1246,6 +1130,22 @@ export class TradingEngine {
             `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${result.price.toLocaleString("id-ID")}\nPnL: Rp${pnlIdr.toLocaleString("id-ID")}`
           );
 
+          await auditLogger.log(
+            "ORDER_FILLED",
+            `SELL ${input.pair} @ ${result.price} (${modeLabel})`,
+            {
+              symbol: input.pair,
+              metadata: {
+                mode: modeLabel,
+                side: "SELL",
+                trigger: "STRATEGY_SIGNAL",
+                price: result.price,
+                entryPrice: state.entryPrice,
+                pnlIdr,
+              },
+            }
+          );
+
           actionExecuted = result.success;
 
           break;
@@ -1282,17 +1182,34 @@ export class TradingEngine {
 
     } catch (error) {
 
-      console.error(
-        "[Trading Engine]",
-        error
-      );
+      // handleError() (services/errors/*, sebelumnya orphan) --
+      // menormalisasi error apa pun jadi AURAError terstruktur
+      // (kategori, retryable, severity) TANPA mengubah perilaku
+      // fail-safe yang sudah ada (tetap balikin HOLD, tidak throw
+      // ulang). Manfaatnya cuma observability: log sekarang punya
+      // kategori mesin-terbaca, bukan cuma teks bebas.
+      const handled = handleError(error, {
+        source: "TradingEngine.run",
+        operation: `${modeLabel}:${input.pair}`,
+      });
 
       await recordLog(
         "SYSTEM",
         "danger",
-        `Trading Engine Error (${modeLabel}): ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
+        `Trading Engine Error (${modeLabel}) [${handled.category}${handled.retryable ? ", retryable" : ""}]: ${handled.error.message}`
+      );
+
+      await auditLogger.log(
+        "ORDER_REJECTED",
+        `Trading engine gagal untuk ${input.pair} (${modeLabel}): ${handled.error.message}`,
+        {
+          symbol: input.pair,
+          metadata: {
+            category: handled.category,
+            retryable: handled.retryable,
+            code: handled.code,
+          },
+        }
       );
 
       return {
