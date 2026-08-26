@@ -32,14 +32,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "Server misconfigured: CRON_SECRET not set" });
   }
 
-  const authHeader = req.headers.authorization?.trim();
+  const rawAuthHeader = req.headers.authorization;
+  const authHeader = rawAuthHeader?.trim();
   const expectedToken = `Bearer ${cronSecret}`;
 
   if (authHeader !== expectedToken) {
     console.error(
-      "[CRON SCAN] Unauthorized: token dari pemanggil tidak cocok dengan CRON_SECRET. " +
+      "[CRON SCAN] Unauthorized. " +
+      `Panjang header diterima: ${rawAuthHeader?.length ?? 0} (setelah trim: ${authHeader?.length ?? 0}). ` +
+      `Panjang token diharapkan: ${expectedToken.length}. ` +
       "Cek apakah GitHub Actions secret CRON_SECRET persis sama dengan env var CRON_SECRET di Vercel " +
-      "(case-sensitive, tanpa spasi/tanda kutip ekstra)."
+      "(case-sensitive, tanpa spasi/newline ekstra), dan environment scope-nya mencakup Production."
     );
     return res.status(401).json({ error: "Unauthorized" });
   }
