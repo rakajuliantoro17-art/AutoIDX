@@ -238,11 +238,34 @@ export default async function handler(
   res: NextApiResponse
 ) {
 
-  const authHeader = req.headers.authorization;
-  const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
+  const cronSecret = process.env.CRON_SECRET?.trim();
+
+  if (!cronSecret) {
+    console.error("[CRON RECONCILE] CRON_SECRET belum di-set di environment Vercel.");
+    return res.status(500).json({ error: "Server misconfigured: CRON_SECRET not set" });
+  }
+
+  const rawAuthHeader = req.headers.authorization;
+  const authHeader = rawAuthHeader?.trim();
+  const expectedToken = `Bearer ${cronSecret}`;
 
   if (authHeader !== expectedToken) {
+
+    // Diagnostic AMAN (tidak membocorkan isi secret) -- cuma
+    // membandingkan PANJANG string mentah vs yang di-trim, supaya
+    // kelihatan di Vercel function logs kalau penyebabnya trailing
+    // whitespace/newline (panjang beda) vs benar-benar salah isi
+    // (panjang sama tapi tetap tidak cocok).
+    console.error(
+      "[CRON RECONCILE] Unauthorized. " +
+      `Panjang header diterima: ${rawAuthHeader?.length ?? 0} (setelah trim: ${authHeader?.length ?? 0}). ` +
+      `Panjang token diharapkan: ${expectedToken.length}. ` +
+      "Cek apakah GitHub Actions secret CRON_SECRET persis sama dengan env var CRON_SECRET di Vercel " +
+      "(case-sensitive, tanpa spasi/newline ekstra), dan environment scope-nya mencakup Production."
+    );
+
     return res.status(401).json({ error: "Unauthorized" });
+
   }
 
   if (req.method !== "GET" && req.method !== "POST") {
