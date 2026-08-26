@@ -302,7 +302,25 @@ function checkRuleScoreContradiction(
 
 }
 
-const AI_CALL_TIMEOUT_MS = 20_000;
+/**
+ * PENTING (root cause cron/scan.ts sempat DEAD): sebelumnya 20
+ * detik -- terlalu besar untuk panggilan yang PURNA ADVISORY
+ * (logAIAdvisory dipanggil setelah keputusan BUY sudah final,
+ * hasilnya cuma dicatat ke log, TIDAK PERNAH mempengaruhi
+ * keputusan trading). Kalau provider AI lambat/timeout (pernah
+ * terjadi di production -- log "[AI Advisory BTC_IDR] Panggilan
+ * gemini gagal/timeout"), 20 detik dikali beberapa pair yang
+ * qualified BUY di siklus yang sama bisa gampang melebihi
+ * maxDuration:60 di pages/api/cron/scan.ts -- Vercel membunuh
+ * function SEBELUM recordHeartbeat() di akhir siklus sempat
+ * jalan, bikin cronHeartbeat.ts mendeteksi status DEAD walau
+ * sebenarnya bukan scan.ts yang "berhenti", cuma kehabisan waktu
+ * nunggu AI yang hasilnya toh tidak dipakai. Diturunkan ke 6
+ * detik -- cukup untuk provider yang responsif, tidak
+ * mempertaruhkan budget waktu cron untuk fitur yang murni
+ * informational.
+ */
+const AI_CALL_TIMEOUT_MS = 6_000;
 
 interface AIProviderCandidate {
   name: string;
