@@ -1,35 +1,25 @@
 name: CI
-
 on:
   push:
     branches:
       - main
       - develop
-
   pull_request:
     branches:
       - main
       - develop
-
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-
       - name: Install Dependencies
         run: npm install
-
       - name: Type Check
         run: npm run type-check
         env:
@@ -39,7 +29,6 @@ jobs:
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-
       - name: Build Project
         run: npm run build
         env:
