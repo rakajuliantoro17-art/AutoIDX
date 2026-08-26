@@ -17,37 +17,30 @@ import marketScanner from "@/services/scanner";
 import { adminDb } from "@/services/firebase/admin";
 import { executeCron } from "@/services/scheduler/cron";
 import { acquireCronLock } from "@/services/scheduler/cronLock";
-import {
-  recordCalibrationSnapshots,
-  evaluateDueCalibrations,
-} from "@/services/analytics/aiCalibration";
-import { reconcileUncertainOrders } from "@/services/liveTrading/reconciliation/uncertainOrderReconciler";
-import { recordHeartbeat } from "@/services/scheduler/cronHeartbeat";
-
-/**
- * Naikkan batas waktu eksekusi function di Vercel (default Hobby
- * cuma 10 detik -- terukti mepet, siklus scan 493 pair Indodax
- * pernah butuh ~12 detik). 60 detik dipilih supaya ada ruang aman
- * kalau network Indodax sedang lambat, tapi TIDAK sampai bikin
- * cron-job.org (interval 1 menit) menembak siklus baru sebelum
- * yang lama selesai -- acquireCronLock() di bawah tetap jadi
- * pengaman utama kalau itu terjadi.
- *
- * CATATAN: di paket Vercel Hobby, maxDuration di atas 60 mungkin
- * ditolak/di-clamp saat deploy -- kalau butuh lebih dari 60 detik
- * (mis. kalau nanti scan lebih dari 493 pair), perlu upgrade ke
- * paket Pro.
- */
-export const config = {
-  maxDuration: 60,
-};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
-  const authHeader = req.headers.authorization;
-  const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
+  const cronSecret = process.env.CRON_SECRET?.trim();
+
+  // Kalau CRON_SECRET belum di-set di Vercel, ini KESALAHAN KONFIGURASI
+  // server -- balas 500, JANGAN 401. Sebelumnya `Bearer ${undefined}`
+  // dibandingkan sebagai string literal "Bearer undefined", yang
+  // membuat kegagalan config tidak terbedakan dari token yang salah
+  // di GitHub Actions -- keduanya sama-sama 401 tanpa penjelasan.
+  if (!cronSecret) {
+    console.error("[CRON SCAN] CRON_SECRET belum di-set di environment Vercel.");
+    return res.status(500).json({ error: "Server misconfigured: CRON_SECRET not set" });
+  }
+
+  const authHeader = req.headers.authorization?.trim();
+  const expectedToken = `Bearer ${cronSecret}`;
 
   if (authHeader !== expectedToken) {
+    console.error(
+      "[CRON SCAN] Unauthorized: token dari pemanggil tidak cocok dengan CRON_SECRET. " +
+      "Cek apakah GitHub Actions secret CRON_SECRET persis sama dengan env var CRON_SECRET di Vercel " +
+      "(case-sensitive, tanpa spasi/tanda kutip ekstra)."
+    );
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -89,40 +82,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `avg ${summary.scoreStats.avgScore}, threshold ${summary.scoreStats.thresholdUsed})`
     );
 
-    // --- AI Score Calibration Tracker ---------------------------
-    // Menjawab "apakah AI Score siap dipromosikan jadi filter
-    // BUY/SELL?" dengan DATA, bukan tebakan. Fail-safe sepenuhnya
-    // di dalam aiCalibration.ts -- kalau gagal, tidak pernah
-    // mengganggu scan/trading di atas (sudah selesai duluan).
-    const calibrationEvaluation = await evaluateDueCalibrations();
-    const calibrationRecording = await recordCalibrationSnapshots(
-      summary.topOpportunities
-    );
-
-    if (calibrationEvaluation.evaluated > 0) {
-      console.log(
-        `[CRON] Kalibrasi AI Score: ${calibrationEvaluation.evaluated} snapshot dievaluasi, ${calibrationEvaluation.correct} benar.`
-      );
-    }
-
-    // --- Uncertain Order Reconciler ------------------------------
-    // Menutup celah "requireReconciliation belum ditegakkan":
-    // lock live_order_locks berstatus UNCERTAIN (order gagal
-    // lewat exception network, status di Indodax tidak diketahui)
-    // dicek ulang terhadap riwayat trade asli Indodax tiap siklus
-    // -- auto-resolve kalau terbukti gagal, escalate untuk review
-    // manual kalau terbukti tereksekusi tapi tidak tercatat. Fail-
-    // safe sepenuhnya di dalam reconciler-nya sendiri.
-    const reconciliation = await reconcileUncertainOrders();
-
-    if (reconciliation.checked > 0) {
-      console.log(
-        `[CRON] Reconciliation: ${reconciliation.checked} lock UNCERTAIN dicek, ` +
-        `${reconciliation.autoResolved} auto-resolved, ` +
-        `${reconciliation.escalatedForReview} di-escalate untuk review manual.`
-      );
-    }
-
     // SEMUA pair yang lolos filter opportunityScore (bukan cuma top 10
     // topOpportunities yang dipakai dashboard) -- inilah yang
     // menyambungkan scanner ke eksekusi live trading. executeCron()
@@ -137,27 +96,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log("[CRON] Trading engine:", tradingResult);
 
-    // --- Cron Heartbeat -------------------------------------------
-    // Menandai "scan.ts berhasil selesai jam segini" ke Firestore
-    // supaya cron/reconcile.ts (dan dashboard) bisa tahu kalau
-    // trigger eksternal (cron-job.org) berhenti menembak. Best-
-    // effort, tidak pernah menggagalkan response di bawah ini.
-    await recordHeartbeat({
-      durationMs: Date.now() - startedAt,
-      qualifiedCount: summary.qualifiedCount,
-    });
-
     return res.status(200).json({
       success: true,
       executedAt: new Date().toISOString(),
       summary,
       trading: tradingResult,
-      aiCalibration: {
-        evaluated: calibrationEvaluation.evaluated,
-        correctThisCycle: calibrationEvaluation.correct,
-        newSnapshots: calibrationRecording.written,
-      },
-      orderReconciliation: reconciliation,
     });
 
   } catch (error) {
