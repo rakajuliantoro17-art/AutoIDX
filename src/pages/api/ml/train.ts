@@ -37,6 +37,19 @@ import { collectDataset } from "@/services/ml/dataset/collector";
 import modelTrainer from "@/services/ml/models/trainer";
 import { saveActiveModel } from "@/services/ml/storage/modelStore";
 
+/**
+ * CATATAN: sama seperti cron/scan.ts & cron/reconcile.ts -- proses
+ * ini benar-benar menarik candle historis dari Indodax untuk
+ * beberapa pair SEKALIGUS lalu menjalankan gradient descent, bisa
+ * makan waktu puluhan detik (lihat catatan di kepala file). Tanpa
+ * ini, berisiko kena default timeout Vercel (10 detik di paket
+ * Hobby) sebelum training sempat selesai -- gagal diam-diam
+ * dengan 504, bukan error yang jelas.
+ */
+export const config = {
+  maxDuration: 60,
+};
+
 const DEFAULT_PAIRS = ["btc_idr", "eth_idr", "sol_idr", "usdt_idr", "xrp_idr"];
 
 // Training = beberapa request ke Indodax (candle historis) + tulis
