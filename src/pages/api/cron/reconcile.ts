@@ -69,6 +69,11 @@ import { recordLog } from "@/services/firebase/logService";
 import { recordReconciliationStatus } from "@/services/firebase/reconciliationStatus";
 import { getCronHeartbeatStatus } from "@/services/scheduler/cronHeartbeat";
 import automationNotifier from "@/services/automation/notifier";
+import { auditLogger } from "@/services/audit/firestoreAudit";
+import { handleError } from "@/services/errors/errorHandler";
+import { SafetyGate } from "@/services/safety/safetyGate";
+import { createSafetyConfig } from "@/services/safety/safetyConfig";
+import type { SafetyContext } from "@/services/safety/safetyContext";
 
 /**
  * Sama seperti cron/scan.ts -- default timeout Vercel Hobby (10
@@ -90,6 +95,65 @@ function isLiveModeActive(control: { mode: "paper" | "live" }): boolean {
     control.mode === "live" &&
     process.env.BOT_LIVE_CONFIRM === "true"
   );
+}
+
+/**
+ * Bangun SafetyContext dari hasil ReconciliationEngine -- dipakai
+ * SafetyGate (services/safety/safetyGate.ts, murni stateless) untuk
+ * memutuskan ALLOW/HALT/MANUAL_RECOVERY yang lebih bernuansa
+ * daripada logika lama ("ada mismatch apa saja -> langsung
+ * emergency stop").
+ *
+ * CATATAN JUJUR soal cakupan: dailyPnlPct dan
+ * consecutiveExecutionErrors belum ada sumber data real-time yang
+ * terhubung di titik ini (dailyPnlPct sudah dicek terpisah di
+ * risk-gate BUY engine.ts; consecutiveExecutionErrors belum
+ * dilacak di mana pun) -- keduanya sengaja diisi 0 (netral, tidak
+ * memicu HALT) daripada dikarang. staleOrders juga 0 karena bot
+ * ini SELALU pakai market order (fill instan, tidak pernah
+ * "menggantung").
+ */
+function buildSafetyContext(
+  mismatches: readonly { type: "BALANCE" | "POSITION" | "ORDER"; local?: number; exchange?: number }[],
+  unknownOrderCount: number
+): SafetyContext {
+
+  const percentDeviation = (local?: number, exchange?: number): number => {
+
+    if (local === undefined || exchange === undefined) {
+      return 0;
+    }
+
+    const base = Math.max(Math.abs(exchange), 1e-8);
+
+    return Math.abs(local - exchange) / base;
+
+  };
+
+  const balanceMismatchPct = Math.max(
+    0,
+    ...mismatches
+      .filter((m) => m.type === "BALANCE")
+      .map((m) => percentDeviation(m.local, m.exchange))
+  );
+
+  const positionMismatchPct = Math.max(
+    0,
+    ...mismatches
+      .filter((m) => m.type === "POSITION")
+      .map((m) => percentDeviation(m.local, m.exchange))
+  );
+
+  return {
+    timestamp: Date.now(),
+    dailyPnlPct: 0,
+    unknownOrders: unknownOrderCount,
+    consecutiveExecutionErrors: 0,
+    balanceMismatchPct,
+    positionMismatchPct,
+    staleOrders: 0,
+  };
+
 }
 
 async function buildLiveReconciliationContext(): Promise<ReconciliationContext> {
@@ -279,16 +343,83 @@ export default async function handler(
       `[Reconciliation] MISMATCH ditemukan: ${mismatchSummary}`
     );
 
+    for (const mismatch of result.mismatches) {
+
+      const auditType =
+        mismatch.type === "BALANCE"
+          ? "BALANCE_MISMATCH"
+          : mismatch.type === "POSITION"
+            ? "POSITION_MISMATCH"
+            : "ORDER_UNKNOWN";
+
+      await auditLogger.log(
+        auditType,
+        `${mismatch.type} mismatch ${mismatch.key}: local=${mismatch.local ?? "-"} exchange=${mismatch.exchange ?? "-"}`,
+        {
+          symbol: mismatch.type !== "BALANCE" ? mismatch.key : undefined,
+          orderId: mismatch.type === "ORDER" ? mismatch.key : undefined,
+          metadata: {
+            local: mismatch.local,
+            exchange: mismatch.exchange,
+            message: mismatch.message,
+          },
+        }
+      );
+
+    }
+
     await automationNotifier.error(
       "Reconciliation Mismatch",
-      `Posisi bot_state TIDAK cocok dengan saldo Indodax asli:\n${mismatchSummary}\n\nEmergency stop diaktifkan otomatis -- BUY baru diblokir sampai diperiksa manual.`
+      `Posisi bot_state TIDAK cocok dengan saldo Indodax asli:\n${mismatchSummary}`
     );
 
-    if (config.haltOnMismatch) {
+    // --- SafetyGate: keputusan ALLOW/HALT/MANUAL_RECOVERY yang
+    // lebih bernuansa, menggantikan logika lama "ada mismatch apa
+    // saja -> langsung emergency stop". SafetyGate murni stateless
+    // (aman dipanggil fresh tiap request serverless) -- BEDA
+    // dengan SafetyManager pembungkusnya yang simpan status di
+    // memori instance (tidak dipakai di sini karena tidak akan
+    // bertahan antar-invocation Vercel).
+    const safetyGate = new SafetyGate(createSafetyConfig());
+
+    const safetyContext = buildSafetyContext(
+      result.mismatches,
+      context.unknownOrderIds.length
+    );
+
+    const safetyDecision = safetyGate.evaluate(safetyContext);
+
+    const shouldHalt =
+      config.haltOnMismatch && safetyDecision.action !== "ALLOW";
+
+    if (shouldHalt) {
 
       await updateBotControl(
         { emergencyStop: true },
         "reconciliation-guard"
+      );
+
+      const recoveryNote =
+        safetyDecision.action === "MANUAL_RECOVERY"
+          ? "Butuh RECOVERY MANUAL oleh operator (bukan sekadar tunggu siklus berikutnya) -- lihat detail mismatch di atas sebelum menonaktifkan emergency stop."
+          : "Emergency stop diaktifkan otomatis -- BUY baru diblokir sampai diperiksa manual.";
+
+      await automationNotifier.error(
+        `Safety Gate: ${safetyDecision.action}`,
+        `${recoveryNote}\nAlasan: ${safetyDecision.reasons.join(", ")}`
+      );
+
+      await auditLogger.log(
+        "SAFETY_HALT",
+        `Safety gate memutuskan ${safetyDecision.action} -- ${safetyDecision.reasons.join(", ")}`,
+        {
+          metadata: {
+            action: safetyDecision.action,
+            reasons: safetyDecision.reasons,
+            context: safetyContext,
+            mismatchCount: result.mismatches.length,
+          },
+        }
       );
 
     }
@@ -303,22 +434,27 @@ export default async function handler(
       success: true,
       consistent: false,
       mismatches: result.mismatches,
-      emergencyStopActivated: config.haltOnMismatch,
+      safetyDecision,
+      emergencyStopActivated: shouldHalt,
       executedAt: new Date().toISOString(),
     });
 
   } catch (error) {
 
-    console.error("[RECONCILIATION CRON ERROR]", error);
+    const handled = handleError(error, {
+      source: "cron/reconcile",
+    });
 
     await recordLog(
       "SYSTEM",
       "danger",
-      `[Reconciliation] Gagal jalan: ${error instanceof Error ? error.message : "Unknown error"}`
+      `[Reconciliation] Gagal jalan [${handled.category}${handled.retryable ? ", retryable" : ""}]: ${handled.error.message}`
     );
 
     return res.status(500).json({
-      error: error instanceof Error ? error.message : "Reconciliation failed.",
+      error: handled.error.message,
+      category: handled.category,
+      retryable: handled.retryable,
     });
 
   }
