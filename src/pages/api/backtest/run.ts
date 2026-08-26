@@ -2,33 +2,11 @@
 ==========================================================
 AURA Trade OS
 Backtest Run Endpoint
-Version : 0.1.2 Alpha
+Version : 0.1.0 Alpha
 ==========================================================
 Fetches historical candles from Indodax and runs them
 through the BacktestRunner engine, returning a full
 BacktestReport.
-
-Perubahan dari 0.1.1: input body sekarang divalidasi
-menyeluruh sebelum dipakai (sebelumnya HANYA timeframe yang
-divalidasi lewat lookup RESOLUTION_BY_TIMEFRAME):
-- `pair` -- format divalidasi (validateTradingPair, sudah
-  reachable & dipakai /api/settings) sebelum dikirim ke
-  Indodax lewat getCandles(). Sebelumnya string apa pun
-  langsung diteruskan.
-- `strategy` -- diverifikasi terhadap VALID_STRATEGIES
-  (AURA_TREND/EMA_CROSSOVER/MOMENTUM). Menerapkan draft yang
-  sebelumnya sempat dibuat di services/backtest/run.ts (v0.1.1,
-  tidak reachable dari Next.js -- file salah lokasi, tidak
-  pernah jadi API route) tapi TIDAK PERNAH diterapkan ke file
-  aktif ini.
-- `days`, `initialCapital`, `feeRate`, `slippage` -- divalidasi
-  numerik (NumberValidator, sudah reachable & dipakai
-  /api/settings). Sebelumnya `Number(days)` yang NaN (mis. body
-  kosong/string sampah) mengalir diam-diam ke Math.max/Math.min
-  jadi NaN, lalu `limit` NaN diteruskan ke getCandles() tanpa
-  error yang jelas.
-Ini backtest (paper/simulasi historis) -- TIDAK menyentuh
-eksekusi order live sama sekali.
 ==========================================================
 */
 
@@ -43,8 +21,29 @@ import type {
   BacktestConfig,
   BacktestResult,
 } from "@/services/backtest/types";
-import { validateTradingPair } from "@/lib/validators/market";
-import NumberValidator from "@/lib/validators/number";
+import { createSchemaValidator } from "@/services/validation/schemaValidator";
+import type { Schema } from "@/services/validation/schema";
+
+/**
+ * Validasi body request sebelum dipakai -- sebelumnya cuma
+ * destructuring + default value TANPA validasi tipe/range sama
+ * sekali (mis. initialCapital negatif, feeRate > 100%, days
+ * negatif semua akan lolos begitu saja ke backtestRunner).
+ * Mengaktifkan services/validation/* yang sebelumnya orphan.
+ */
+const BACKTEST_REQUEST_SCHEMA: Schema = {
+  fields: [
+    { name: "pair", rules: ["string"] },
+    { name: "timeframe", rules: ["string"] },
+    { name: "days", rules: ["number", "min", "max"], options: { min: 1, max: 365 } },
+    { name: "initialCapital", rules: ["number", "min"], options: { min: 10_000 } },
+    { name: "strategy", rules: ["string"] },
+    { name: "feeRate", rules: ["number", "min", "max"], options: { min: 0, max: 0.1 } },
+    { name: "slippage", rules: ["number", "min", "max"], options: { min: 0, max: 0.1 } },
+  ],
+};
+
+const backtestRequestValidator = createSchemaValidator(BACKTEST_REQUEST_SCHEMA);
 
 const RESOLUTION_BY_TIMEFRAME: Record<string, string> = {
   "1h": "60",
@@ -71,39 +70,28 @@ export default async function handler(
   }
 
   try {
-    const {
-      pair: rawPair = "btc_idr",
-      timeframe = "1h",
-      days: rawDays = 30,
-      initialCapital: rawInitialCapital = 1000000,
-      strategy = "EMA_CROSSOVER",
-      feeRate: rawFeeRate = 0.003,
-      slippage: rawSlippage = 0.001,
-    } = req.body ?? {};
+    const rawBody = req.body ?? {};
 
-    let pair: string;
-    let days: number;
-    let initialCapital: number;
-    let feeRate: number;
-    let slippage: number;
+    const validation = backtestRequestValidator.validate(rawBody);
 
-    try {
-      pair = validateTradingPair(rawPair);
-      days = NumberValidator.positive(rawDays, "Days");
-      initialCapital = NumberValidator.positive(
-        rawInitialCapital,
-        "Initial Capital"
-      );
-      feeRate = NumberValidator.between(rawFeeRate, 0, 1, "Fee Rate");
-      slippage = NumberValidator.between(rawSlippage, 0, 1, "Slippage");
-    } catch (validationError) {
+    if (!validation.valid) {
+
       return res.status(400).json({
-        error:
-          validationError instanceof Error
-            ? validationError.message
-            : "Input backtest tidak valid.",
+        error: "Parameter backtest tidak valid.",
+        issues: validation.issues,
       });
+
     }
+
+    const {
+      pair = "btc_idr",
+      timeframe = "1h",
+      days = 30,
+      initialCapital = 1000000,
+      strategy = "EMA_CROSSOVER",
+      feeRate = 0.003,
+      slippage = 0.001,
+    } = rawBody;
 
     if (!VALID_STRATEGIES.includes(strategy)) {
       return res.status(400).json({
@@ -122,7 +110,7 @@ export default async function handler(
     const perDay = CANDLES_PER_DAY[timeframe];
     const limit = Math.min(
       MAX_CANDLES,
-      Math.max(perDay * days, perDay)
+      Math.max(perDay * Number(days), perDay)
     );
 
     const rawCandles = await getCandles({
@@ -153,9 +141,9 @@ export default async function handler(
       timeframe,
       startTime: candles[0].timestamp,
       endTime: candles[candles.length - 1].timestamp,
-      initialCapital,
-      feeRate,
-      slippage,
+      initialCapital: Number(initialCapital),
+      feeRate: Number(feeRate),
+      slippage: Number(slippage),
       strategy,
     };
 
