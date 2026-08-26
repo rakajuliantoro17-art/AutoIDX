@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import querystring from 'querystring';
-import indodaxLimiter from './limiter';
+import indodaxLimiter, { IndodaxRateLimitError } from './limiter';
 import IndodaxCache from './cache';
 import RetryExecutor from '@/services/resilience/retryExecutor';
 import { latencyMonitor } from '@/services/monitor/latencyMonitor';
@@ -27,9 +27,21 @@ const retryExecutor = new RetryExecutor();
  * ada) TIDAK di-retry -- mengulang tidak akan pernah mengubah hasil.
  */
 function isRetryablePublicError(error) {
+  // PENTING: kalau kegagalan berasal dari rate limiter kita SENDIRI
+  // (antrean penuh/timeout menunggu slot), JANGAN di-retry. Scanner
+  // memproses puluhan pair BERSAMAAN (mapWithConcurrency) -- kalau
+  // limiter sudah menahan/menolak karena antrean penuh, retry di sini
+  // cuma menambah beban antrean yang SUDAH penuh, memperparah
+  // storm-nya alih-alih membantu. Biarkan gagal sekali seperti
+  // perilaku sebelum retry ditambahkan (fail-safe skip di scanner).
+  if (error instanceof IndodaxRateLimitError) {
+    return false;
+  }
+
   if (error && typeof error.status === 'number') {
     return error.status === 429 || error.status >= 500;
   }
+
   return true;
 }
 
@@ -62,7 +74,11 @@ async function fetchPublicWithRetry(url, options = {}) {
         return response;
       },
       {
-        policy: { maxAttempts: 3 },
+        // maxAttempts sengaja dikecilkan (bukan default library) --
+        // scanner memanggil ini untuk puluhan pair BERSAMAAN, jadi
+        // tiap percobaan tambahan mengalikan beban ke rate limiter
+        // yang sama.
+        policy: { maxAttempts: 2 },
         shouldRetry: isRetryablePublicError,
       }
     );
