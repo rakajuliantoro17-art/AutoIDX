@@ -86,6 +86,86 @@ export default function MlLabPage() {
   const [trainErrorRaw, setTrainErrorRaw] = useState<string | null>(null);
   const [predictErrorRaw, setPredictErrorRaw] = useState<string | null>(null);
 
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const [importContent, setImportContent] = useState("");
+  const [importFormat, setImportFormat] = useState<"JSON" | "CSV">("JSON");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<any>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importAndTrain, setImportAndTrain] = useState(false);
+
+  async function handleExport(format: "json" | "csv") {
+    if (!user) return;
+
+    setExporting(true);
+    setExportError(null);
+
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch(`/api/ml/dataset/export?pairs=${encodeURIComponent(pairs)}&format=${format}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setExportError(data.error ?? `HTTP ${res.status}`);
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `aura_dataset.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setExportError(err?.message ?? "Gagal export dataset");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleImport() {
+    if (!user) return;
+
+    setImporting(true);
+    setImportError(null);
+    setImportResult(null);
+
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/ml/dataset/import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          content: importContent,
+          format: importFormat,
+          trainAfterImport: importAndTrain,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setImportError(data.error ?? `HTTP ${res.status}`);
+      } else {
+        setImportResult(data);
+      }
+    } catch (err: any) {
+      setImportError(err?.message ?? "Gagal import dataset");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function handleTrain() {
     if (!user) return;
 
@@ -310,6 +390,107 @@ export default function MlLabPage() {
               )}
             </div>
           )}
+        </div>
+
+        {/* ============ DATASET EXPORT/IMPORT ============ */}
+        <div className="card space-y-3">
+          <h2 className="font-bold">1b. Export / Import Dataset (Opsional)</h2>
+          <p className="text-xs text-slate-400">
+            Export untuk inspeksi manual offline (spreadsheet/audit). Import
+            untuk melatih ulang dari dataset yang sudah diedit manual - HARUS
+            format JSON kalau mau langsung dipakai training (CSV cuma simpan
+            metadata, bukan nilai fitur).
+          </p>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleExport("json")}
+              disabled={exporting}
+              className="rounded bg-slate-700 px-3 py-2 text-sm disabled:opacity-50"
+            >
+              {exporting ? "..." : "Export JSON"}
+            </button>
+            <button
+              onClick={() => handleExport("csv")}
+              disabled={exporting}
+              className="rounded bg-slate-700 px-3 py-2 text-sm disabled:opacity-50"
+            >
+              {exporting ? "..." : "Export CSV"}
+            </button>
+          </div>
+
+          {exportError && (
+            <div className="rounded bg-red-950 border border-red-800 p-3 text-sm text-red-300">
+              Gagal: {exportError}
+            </div>
+          )}
+
+          <details>
+            <summary className="cursor-pointer text-slate-400 text-sm">
+              Import dataset
+            </summary>
+
+            <div className="mt-2 space-y-2">
+              <textarea
+                className="w-full rounded bg-slate-800 px-3 py-2 text-xs font-mono h-32"
+                placeholder="Paste isi file JSON hasil export di sini..."
+                value={importContent}
+                onChange={(e) => setImportContent(e.target.value)}
+                disabled={importing}
+              />
+
+              <div className="flex items-center gap-3 text-sm">
+                <select
+                  className="rounded bg-slate-800 px-2 py-1"
+                  value={importFormat}
+                  onChange={(e) => setImportFormat(e.target.value as "JSON" | "CSV")}
+                  disabled={importing}
+                >
+                  <option value="JSON">JSON</option>
+                  <option value="CSV">CSV</option>
+                </select>
+
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={importAndTrain}
+                    onChange={(e) => setImportAndTrain(e.target.checked)}
+                    disabled={importing || importFormat === "CSV"}
+                  />
+                  Langsung latih model dari dataset ini
+                </label>
+
+                <button
+                  onClick={handleImport}
+                  disabled={importing || !importContent}
+                  className="rounded bg-sky-700 px-3 py-2 disabled:opacity-50"
+                >
+                  {importing ? "..." : "Import"}
+                </button>
+              </div>
+
+              {importError && (
+                <div className="rounded bg-red-950 border border-red-800 p-3 text-sm text-red-300">
+                  Gagal: {importError}
+                </div>
+              )}
+
+              {importResult && (
+                <div className="rounded bg-slate-800 p-3 text-xs space-y-1">
+                  <p>Total diparse: {importResult.totalParsed}</p>
+                  <p>Sample valid: {importResult.validSamples}</p>
+                  <p>Sample dibuang: {importResult.droppedInvalidSamples}</p>
+                  {importResult.modelId && (
+                    <p className="text-emerald-400">
+                      Model baru terlatih: {importResult.modelId} - akurasi{" "}
+                      {(importResult.validationMetrics?.accuracy * 100).toFixed(1)}%
+                    </p>
+                  )}
+                  {importResult.message && <p>{importResult.message}</p>}
+                </div>
+              )}
+            </div>
+          </details>
         </div>
 
         {/* ============ PREDICT ============ */}
