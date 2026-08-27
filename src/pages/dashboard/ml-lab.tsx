@@ -29,6 +29,11 @@ interface TrainResponse {
   modelId?: string;
   datasetSize?: number;
   labeledSamples?: number;
+  validSamples?: number;
+  droppedInvalidSamples?: number;
+  balanceApplied?: boolean;
+  classCountsBeforeBalance?: Record<string, number>;
+  classCountsAfterBalance?: Record<string, number>;
   failedPairs?: string[];
   trainedSamples?: number;
   validationSamples?: number;
@@ -222,6 +227,27 @@ export default function MlLabPage() {
                 Sample training: {trainResult.trainedSamples} / validasi:{" "}
                 {trainResult.validationSamples}
               </p>
+              {trainResult.droppedInvalidSamples !== undefined && trainResult.droppedInvalidSamples > 0 && (
+                <p className="text-amber-400 text-xs">
+                  ⚠️ {trainResult.droppedInvalidSamples} sample dibuang (tidak valid/korup).
+                </p>
+              )}
+              {trainResult.classCountsBeforeBalance && (
+                <p className="text-xs text-slate-400">
+                  Distribusi label sebelum balancing:{" "}
+                  {Object.entries(trainResult.classCountsBeforeBalance)
+                    .map(([k, v]) => `${k}=${v}`)
+                    .join(", ")}
+                  {trainResult.balanceApplied && trainResult.classCountsAfterBalance && (
+                    <>
+                      {" "}→ sesudah:{" "}
+                      {Object.entries(trainResult.classCountsAfterBalance)
+                        .map(([k, v]) => `${k}=${v}`)
+                        .join(", ")}
+                    </>
+                  )}
+                </p>
+              )}
               <p className="text-base">
                 Akurasi validasi:{" "}
                 <span
