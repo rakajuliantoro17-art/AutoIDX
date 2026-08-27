@@ -50,6 +50,34 @@ export {
 
 
 /**
+ * Dataset Sampler
+ */
+
+export {
+
+  default as datasetSampler,
+
+  DatasetSampler
+
+} from "./sampler";
+
+
+
+/**
+ * Dataset Validator
+ */
+
+export {
+
+  default as datasetValidator,
+
+  DatasetValidator
+
+} from "./validator";
+
+
+
+/**
  * Dataset Types
  */
 
@@ -65,3 +93,19 @@ export type {
   ImportFormat
 
 } from "./importer";
+
+
+export type {
+
+  SamplingStrategy,
+  SamplingOptions,
+  SamplingResult
+
+} from "./sampler";
+
+
+export type {
+
+  ValidationReport
+
+} from "./validator";
