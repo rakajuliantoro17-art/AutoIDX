@@ -36,19 +36,8 @@ import { checkRateLimit } from "@/services/security/rateLimitStore";
 import { collectDataset } from "@/services/ml/dataset/collector";
 import modelTrainer from "@/services/ml/models/trainer";
 import { saveActiveModel } from "@/services/ml/storage/modelStore";
-
-/**
- * CATATAN: sama seperti cron/scan.ts & cron/reconcile.ts -- proses
- * ini benar-benar menarik candle historis dari Indodax untuk
- * beberapa pair SEKALIGUS lalu menjalankan gradient descent, bisa
- * makan waktu puluhan detik (lihat catatan di kepala file). Tanpa
- * ini, berisiko kena default timeout Vercel (10 detik di paket
- * Hobby) sebelum training sempat selesai -- gagal diam-diam
- * dengan 504, bukan error yang jelas.
- */
-export const config = {
-  maxDuration: 60,
-};
+import datasetValidator from "@/services/ml/dataset/validator";
+import datasetSampler from "@/services/ml/dataset/sampler";
 
 const DEFAULT_PAIRS = ["btc_idr", "eth_idr", "sol_idr", "usdt_idr", "xrp_idr"];
 
@@ -89,6 +78,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const futureWindow: number = Number(body.futureWindow) || 10;
   const profitThreshold: number = Number(body.profitThreshold) || 2;
   const lossThreshold: number = Number(body.lossThreshold) || -2;
+  // Default true (aman) - undersampling ke kelas paling sedikit
+  // supaya model tidak bias ke HOLD kalau distribusinya timpang
+  // (biasanya HOLD jauh lebih banyak dari BUY/SELL). Bisa dimatikan
+  // eksplisit lewat body.balance=false kalau operator mau lihat
+  // hasil training dari distribusi asli.
+  const balance: boolean = body.balance !== false;
+
+  function classCounts(samples: { label: string }[]): Record<string, number> {
+    return samples.reduce((acc: Record<string, number>, s) => {
+      acc[s.label] = (acc[s.label] ?? 0) + 1;
+      return acc;
+    }, {});
+  }
 
   try {
     // 1. Ambil data historis ASLI + hitung fitur teknikal
@@ -113,8 +115,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const builder = new DatasetBuilder({ futureWindow, profitThreshold, lossThreshold });
     const built = builder.build(features);
 
+    // 2b. Deteksi feature leakage (kolom yang secara nama
+    // kelihatan "mengintip masa depan", mis. futurePrice/nextClose) -
+    // kalau kedeteksi, training DITOLAK. Ini bug metodologi serius:
+    // kalau lolos, model akan kelihatan "akurat" padahal cuma
+    // menghafal jawaban dari fitur yang tidak akan tersedia saat
+    // prediksi sungguhan (live).
+    const featureKeys = built.samples.length > 0 ? Object.keys(built.samples[0].features.values) : [];
+    const leakage = datasetValidator.detectLeakage(featureKeys);
+
+    if (leakage.length > 0) {
+      return res.status(422).json({
+        error: `Feature leakage terdeteksi: ${leakage.join(", ")}. Training dibatalkan - model akan "menghafal" jawaban, bukan belajar pola nyata.`,
+      });
+    }
+
+    // 2c. Validasi tiap sample (feature/label lengkap & valid) -
+    // sample yang gagal DIBUANG (bukan menggagalkan seluruh
+    // training), supaya beberapa data korup tidak menghentikan
+    // training kalau mayoritas sample-nya sehat. Validasi per-sample
+    // (bukan batch) supaya filtering-nya akurat 1:1, bukan menebak
+    // index dari laporan agregat.
+    const validation = datasetValidator.validate(built.samples);
+    const cleanSamples = built.samples.filter((s) => datasetValidator.validate([s]).valid);
+
+    if (cleanSamples.length < built.samples.length) {
+      console.warn(
+        `[ML Train API] ${built.samples.length - cleanSamples.length} sample dibuang karena tidak valid.`
+      );
+    }
+
+    if (cleanSamples.length < 30) {
+      return res.status(422).json({
+        error: `Sample valid tersisa cuma ${cleanSamples.length} (dari ${built.samples.length}) setelah validasi - terlalu sedikit untuk training.`,
+        validationErrors: validation.errors.slice(0, 10),
+      });
+    }
+
+    // 2d. Balanced sampling (default aktif) - cegah model bias ke
+    // kelas yang paling banyak (biasanya HOLD).
+    const countsBeforeBalance = classCounts(cleanSamples);
+
+    const finalSamples = balance
+      ? datasetSampler.sample(cleanSamples, { strategy: "BALANCED" }).samples
+      : cleanSamples;
+
+    const countsAfterBalance = classCounts(finalSamples);
+
     // 3. Latih model logistic regression sungguhan + evaluasi di validation split
-    const trainingResult = await modelTrainer.train(built.samples, { epochs });
+    const trainingResult = await modelTrainer.train(finalSamples, { epochs });
 
     // 4. Simpan sebagai model aktif (persisten - Firestore)
     const modelId = `lr_${Date.now()}`;
@@ -138,6 +187,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       modelId,
       datasetSize: features.length,
       labeledSamples: built.total,
+      validSamples: cleanSamples.length,
+      droppedInvalidSamples: built.samples.length - cleanSamples.length,
+      balanceApplied: balance,
+      classCountsBeforeBalance: countsBeforeBalance,
+      classCountsAfterBalance: countsAfterBalance,
       failedPairs,
       trainedSamples: trainingResult.trainedSamples,
       validationSamples: trainingResult.validationSamples,
