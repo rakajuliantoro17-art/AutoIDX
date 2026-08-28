@@ -2,7 +2,14 @@
 ==========================================================
 AURA Trade OS
 ML Model Predictor
-Version : 0.2.0 Alpha
+Version : 0.3.0 Alpha
+
+Perubahan dari 0.2.0: cabang inverse-transform sesuai
+`weights.scalingMethod` (STANDARD/MIN_MAX) alih-alih selalu
+z-score. Model lama di Firestore yang belum punya field
+scalingMethod (dilatih sebelum trainer.ts 0.3.0) DEFAULT ke
+STANDARD - rumus IDENTIK dengan versi sebelumnya, jadi tidak
+perlu dilatih ulang paksa.
 
 GANTI TOTAL dari versi sebelumnya (komentarnya sendiri jujur:
 "Placeholder inference... akan diganti dengan adapter
@@ -101,7 +108,21 @@ export class ModelPredictor {
       return raw ?? 0;
     });
 
-    const normalizedX = x.map((v, j) => (v - w.featureMean[j]) / (w.featureStd[j] || 1));
+    // Model lama (dilatih sebelum field scalingMethod ada) tidak punya
+    // field ini sama sekali di Firestore -> default STANDARD, SAMA
+    // dengan satu-satunya rumus yang pernah dipakai sebelumnya. Ini
+    // membuat model lama tetap bisa dipakai tanpa perlu dilatih ulang
+    // paksa cuma karena field baru ditambahkan.
+    const scalingMethod = w.scalingMethod ?? "STANDARD";
+
+    const normalizedX =
+      scalingMethod === "MIN_MAX"
+        ? x.map((v, j) => {
+            const min = w.featureMin?.[j] ?? 0;
+            const max = w.featureMax?.[j] ?? 1;
+            return max === min ? 0 : (v - min) / (max - min);
+          })
+        : x.map((v, j) => (v - w.featureMean[j]) / (w.featureStd[j] || 1));
 
     const logits = w.weights.map(
       (wk, k) => wk.reduce((s, wj, j) => s + wj * normalizedX[j], 0) + w.bias[k]
