@@ -198,6 +198,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       durationMs: trainingResult.durationMs,
       finalTrainLoss: trainingResult.finalTrainLoss,
       validationMetrics: trainingResult.validationMetrics,
+      featureWarnings: trainingResult.featureWarnings,
     });
   } catch (error: any) {
     console.error("[ML Train API]", error);
