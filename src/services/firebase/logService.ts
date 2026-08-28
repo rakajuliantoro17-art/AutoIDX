@@ -53,6 +53,13 @@ aiConfidence?:number;
 
 reason:string;
 
+/**
+ * Nama strategi yang bertanggung jawab atas trade ini (untuk
+ * atribusi profit->strategi, strategyAnalytics.ts). Opsional -
+ * trade lama sebelum field ini ada tidak akan punya nilai ini.
+ */
+strategy?:string;
+
 mode:
 
 "paper"
