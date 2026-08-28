@@ -2,13 +2,35 @@
 ==========================================================
 AURA Trade OS
 Cron: Market Scanner + Trading Engine Trigger
-Version : 0.1.0
+Version : 0.1.1
 
 Dilengkapi distributed lock (Firestore) supaya kalau
 trigger eksternal (cron-job.org, interval 30 detik)
 menembak request baru sebelum siklus sebelumnya selesai,
 request baru itu di-skip dengan aman (bukan dijalankan
 dobel).
+
+FIX v0.1.1 (regresi dari commit 8b6c9de1 "Refactor cron scan
+handler by removing unused code"): commit itu MENGHAPUS
+`export const config = { maxDuration: 60 }` karena dikira kode
+tidak terpakai - PADAHAL ini bukan dead code, ini konfigurasi
+Vercel yang menaikkan batas waktu function dari default (10
+detik di paket Hobby). Akibatnya nyata di production (dilaporkan
+lewat cron-job.org log): sebelum ~12:25 request timeout 30 detik
+(batas cron-job.org sendiri, function masih jalan di background
+sampai default limit Vercel), sesudah ~12:25 berubah jadi 500
+cepat (2-12 detik) karena Vercel langsung membunuh function di
+batas default yang jauh lebih pendek dari 60 detik.
+
+Cap candidatePairs (dihapus di commit yang sama, sempat ada di
+versi sebelumnya) DIKEMBALIKAN juga - ini akar masalah SEBENARNYA
+(bukan cuma maxDuration): executeCron() memproses candidate
+SEKUENSIAL (1 network call asli per pair), jadi durasi total
+sebanding lurus dengan qualifiedCount. Tanpa cap, siklus scan
+yang qualifiedCount-nya besar (market ramai) akan SELALU berisiko
+timeout terlepas dari berapapun maxDuration di-set - menaikkan
+maxDuration cuma menggeser titik gagalnya, bukan menghilangkan
+akar masalahnya.
 ==========================================================
 */
 
@@ -17,6 +39,10 @@ import marketScanner from "@/services/scanner";
 import { adminDb } from "@/services/firebase/admin";
 import { executeCron } from "@/services/scheduler/cron";
 import { acquireCronLock } from "@/services/scheduler/cronLock";
+
+export const config = {
+  maxDuration: 60,
+};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
@@ -85,15 +111,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `avg ${summary.scoreStats.avgScore}, threshold ${summary.scoreStats.thresholdUsed})`
     );
 
-    // SEMUA pair yang lolos filter opportunityScore (bukan cuma top 10
-    // topOpportunities yang dipakai dashboard) -- inilah yang
-    // menyambungkan scanner ke eksekusi live trading. executeCron()
-    // sendiri yang menggabungkannya dengan pair yang sedang open
-    // position + watchlist manual, jadi tidak ada posisi yang
-    // "ditinggalkan". RISK_CONFIG.maxOpenPosition di TradingEngine
-    // tetap jadi batas jumlah posisi terbuka meskipun candidatePairs
-    // di sini tidak dibatasi.
-    const candidatePairs = summary.qualifiedPairs;
+    // SEMUA pair yang lolos filter opportunityScore, DIBATASI ke
+    // top-N (array sudah terurut skor tertinggi dulu di
+    // scanner/index.ts) -- executeCron() memproses candidate SATU
+    // PER SATU dengan network call asli per pair, jadi durasi
+    // total sebanding lurus dengan jumlah candidate. Tanpa cap ini,
+    // siklus scan yang qualifiedCount-nya besar (market ramai)
+    // SELALU berisiko timeout, terlepas dari maxDuration di atas.
+    // executeCron() sendiri menggabungkan cap ini dengan pair yang
+    // SEDANG open position + watchlist manual (TIDAK ikut dibatasi
+    // cap ini), jadi tidak ada posisi terbuka yang "ditinggalkan"
+    // walau tidak lagi masuk top candidate.
+    const MAX_CANDIDATE_PAIRS_PER_CYCLE = 15;
+
+    const candidatePairs = summary.qualifiedPairs.slice(0, MAX_CANDIDATE_PAIRS_PER_CYCLE);
+
+    if (summary.qualifiedPairs.length > MAX_CANDIDATE_PAIRS_PER_CYCLE) {
+      console.log(
+        `[CRON] ${summary.qualifiedPairs.length} pair qualified, dibatasi ke ${MAX_CANDIDATE_PAIRS_PER_CYCLE} teratas siklus ini (cegah timeout).`
+      );
+    }
 
     const tradingResult = await executeCron(candidatePairs);
 
