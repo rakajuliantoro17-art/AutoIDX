@@ -13,7 +13,8 @@ Body (semua opsional):
     "epochs": 300,
     "futureWindow": 10,        // berapa candle ke depan untuk label
     "profitThreshold": 2,      // % kenaikan minimal supaya dilabel BUY
-    "lossThreshold": -2        // % penurunan minimal supaya dilabel SELL
+    "lossThreshold": -2,       // % penurunan minimal supaya dilabel SELL
+    "scalingMethod": "STANDARD" // "STANDARD" (default) | "MIN_MAX" - "ROBUST" ditolak (belum didukung)
   }
 
 Proses ini NYATA menarik data historis dari Indodax dan
@@ -38,6 +39,7 @@ import modelTrainer from "@/services/ml/models/trainer";
 import { saveActiveModel } from "@/services/ml/storage/modelStore";
 import datasetValidator from "@/services/ml/dataset/validator";
 import datasetSampler from "@/services/ml/dataset/sampler";
+import type { ScalingMethod } from "@/services/ml/features/scaler";
 
 const DEFAULT_PAIRS = ["btc_idr", "eth_idr", "sol_idr", "usdt_idr", "xrp_idr"];
 
@@ -84,6 +86,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // eksplisit lewat body.balance=false kalau operator mau lihat
   // hasil training dari distribusi asli.
   const balance: boolean = body.balance !== false;
+  // Opsional - default STANDARD (z-score) kalau tidak dikirim, SAMA
+  // seperti perilaku sebelum field ini ada. "ROBUST" ditolak eksplisit
+  // di trainer.ts (belum didukung), jadi diteruskan apa adanya di sini
+  // supaya pesan error yang jelas itu yang sampai ke caller, bukan
+  // divalidasi diam-diam jadi STANDARD.
+  const scalingMethod: ScalingMethod | undefined =
+    body.scalingMethod === "MIN_MAX" || body.scalingMethod === "STANDARD" || body.scalingMethod === "ROBUST"
+      ? body.scalingMethod
+      : undefined;
 
   function classCounts(samples: { label: string }[]): Record<string, number> {
     return samples.reduce((acc: Record<string, number>, s) => {
@@ -163,7 +174,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const countsAfterBalance = classCounts(finalSamples);
 
     // 3. Latih model logistic regression sungguhan + evaluasi di validation split
-    const trainingResult = await modelTrainer.train(finalSamples, { epochs });
+    const trainingResult = await modelTrainer.train(finalSamples, { epochs, scalingMethod });
 
     // 4. Simpan sebagai model aktif (persisten - Firestore)
     const modelId = `lr_${Date.now()}`;
@@ -199,6 +210,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       finalTrainLoss: trainingResult.finalTrainLoss,
       validationMetrics: trainingResult.validationMetrics,
       featureWarnings: trainingResult.featureWarnings,
+      scalingMethod: trainingResult.modelWeights.scalingMethod,
     });
   } catch (error: any) {
     console.error("[ML Train API]", error);
