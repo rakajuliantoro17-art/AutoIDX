@@ -761,7 +761,6 @@ Belum ditegakkan / catatan jujur
 `requireReconciliation` disimpan di config tapi TIDAK ditegakkan kode manapun - butuh bandingkan posisi tercatat vs saldo/posisi asli Indodax, belum ada.
 `maxDailyLossIdr` (canary) juga belum ditegakkan di `live.ts` - RISK_CONFIG.maxDailyLossPercent (existing, di engine.ts) sudah menutupi kasus serupa dengan basis persentase, jadi belum genting, tapi kalau mau presisi sesuai desain asli file ini, perlu ditambahkan.
 Diverifikasi via clone langsung (`git clone https://github.com/rakajuliantoro17-art/AutoIDX.git`) - `tsc --noEmit` + `npm run build` PENUH sukses terhadap kode asli, semua route (termasuk `/dashboard/canary-monitor`, `/api/canary/status`, `/api/ml/*`) ter-generate benar.
----
 Session Log 8 — Rate Limiter Diaktifkan (Firestore-backed)
 `services/security/rateLimiter.ts` (class `RateLimiter`) sebelumnya orphan total, in-memory (Map biasa) - percuma di serverless Vercel karena tiap invocation baru = memory kosong lagi.
 Yang dikerjakan
@@ -772,7 +771,6 @@ Yang dikerjakan
 Catatan jujur
 Belum disambungkan ke endpoint lain yang berpotensi disalahgunakan (`indodax-accounts` POST, `bot/control`) - baru 2 endpoint paling jelas butuh (training mahal, reset destruktif). Bisa diperluas kalau ada indikasi penyalahgunaan nyata.
 Diverifikasi via clone langsung, `tsc --noEmit` + `npm run build` PENUH sukses, 0 error.
----
 Catatan retroaktif — dokumentasi yang bolong dari sesi sebelumnya (ditemukan lewat diff kode langsung, BUKAN dari log manapun, jadi mohon verifikasi ulang detailnya kalau relevan): `services/resilience/circuitBreaker.ts` disambungkan ke `scanner/index.ts` (satu instance per siklus `scanMarket()`, fail-fast kalau Indodax down total di tengah scan). `services/resilience/retryExecutor.ts` disambungkan ke `services/indodax/api.js` - HANYA endpoint publik (ticker/depth/trades/pairs), sengaja TIDAK dipasang di private/trade karena risiko retry order yang sebenarnya sudah sukses. `services/analytics/riskAnalytics.ts` diaktifkan lewat endpoint baru `pages/api/analytics/risk.ts` + `dashboard/analytics.tsx` ditulis ulang total (versi lama statis hardcode, tidak pernah berubah apapun kondisinya) + link Sidebar baru "Risk Analytics". `services/health/checks/exchangeHealth.ts` yang tadinya `TODO` stub sekarang benar-benar ping Indodax lewat `indodaxClient.ping()`. `services/health/readiness.ts` diperbaiki - `schedulerHealth.isHealthy()` sebelumnya dipanggil di luar `Promise.all()` (sekuensial, bukan bug fatal tapi tidak konsisten), sekarang ikut di-parallel-kan.
 Session Log 9 — Live Order Lock (Idempotency Guard) Disambungkan
 File `services/firebase/liveOrderLock.ts` sudah ada dari sesi sebelumnya (well-designed: Firestore transaction, status PENDING/COMPLETED/FAILED/UNCERTAIN, window 60 detik) TAPI belum pernah dipanggil dari manapun - ditemukan lewat grep menyeluruh, bukan diklaim dari log manapun.
@@ -785,50 +783,39 @@ Belum ditegakkan / catatan jujur
 Order yang ter-mark UNCERTAIN akan memblokir SEMUA order pair+side yang sama tanpa batas waktu sampai di-resolve manual lewat `resolveLiveOrderLock()` - BELUM ada UI/endpoint untuk operator melakukan ini, saat ini hanya bisa lewat panggilan fungsi langsung/Firestore console. Kalau order live pertama kebetulan UNCERTAIN, bot akan diam tidak BUY/SELL pair itu lagi sampai user sadar dan resolve manual - PERLU diberi tahu ke user, dan idealnya dibuatkan tombol resolve di dashboard sebelum benar-benar live nominal besar.
 BELUM diverifikasi via `tsc --noEmit`/`npm run build` sungguhan - sesi ini dikerjakan di sandbox tanpa akses internet/`node_modules`, jadi TIDAK bisa clone atau install dependency. Verifikasi HANYA lewat baca ulang manual + cek brace/paren seimbang. WAJIB jalankan build asli (clone repo atau lihat log Vercel) sebelum menganggap ini aman di-deploy.
 Belum pernah dicoba dengan live trading sungguhan.
-
 Session Log 10 — ML Advisory Disambungkan ke Live Trading (Advisory-Only)
 (Sesi ini dikerjakan dari zip upload user, BUKAN clone langsung -- sama seperti Session Log 4 dan sebelumnya, verifikasi tsc/build TIDAK bisa dijalankan, lihat "Yang BELUM dikerjakan" di bawah. Ikuti rekomendasi Session Log 5: sesi berikutnya sebaiknya clone langsung dari GitHub kalau memungkinkan.)
-
 Konteks: user eksplisit minta "integrasi file orphan agar optimal auto live trading". Diverifikasi dulu ke kode (bukan percaya klaim orphan lama di dokumen ini) -- ditemukan beberapa status orphan di dokumen SUDAH BASI (services/validation/, services/strategy/rules/{momentumRule,volatilityRule}, sebagian services/intelligence/ai/* ternyata SUDAH disambungkan sesi-sesi sebelumnya tanpa tercatat di sini). Yang benar-benar masih orphan dari live path: services/ml/* (predictor.ts sudah bukan placeholder, trainer.ts sudah bukan fake sleep(), disambungkan ke /api/ml/train dan /api/ml/predict -- TAPI hasilnya tidak pernah dibaca engine.ts), trendRule/volumeRule, ai/orchestrator.ts+analyzer.ts (sengaja ditinggalkan, lihat catatan lama), dan api/bot/execute.ts (jalur eksekusi terpisah dari cron, belum diaudit sesi ini -- BELUM diverifikasi aktif/tidak).
-
 Scope yang dikonfirmasi user sebelum eksekusi: HANYA sambungkan prediksi ML, sebagai ADVISORY-ONLY (dicatat log, tidak pernah memblokir/mengubah keputusan) -- persis pola AI Advisory (OpenAI/Gemini/Claude/DeepSeek) yang sudah ada. TIDAK diminta jadi sanity-check/gate. trendRule/volumeRule dan audit api/bot/execute.ts SENGAJA tidak disentuh sesi ini (user pilih fokus ML saja).
-
 Yang dikerjakan
 `services/indicators/index.ts` -- `IndicatorFeatureVector` ditambah 2 field OPSIONAL (`plusDI?`, `minusDI?`). Non-breaking (optional, semua consumer lama tetap valid). Alasan: model ML dilatih pakai plusDI/minusDI (lihat services/ml/dataset/collector.ts) tapi feature vector jalur live sebelumnya membuang field ini walau calculateADX() sudah menghitungnya.
 `services/scheduler/cron.ts` -- 2 baris ditambahkan (`plusDI: adxResult.plusDI, minusDI: adxResult.minusDI`) di konstruksi `features`. TIDAK ada fetch/hitung ulang candle tambahan -- adxResult sudah dihitung baris sebelumnya, cuma sebelumnya dibuang.
 `services/intelligence/ml/mlAdvisor.ts` (BARU) -- adapter tipis, pola PERSIS SAMA seperti decisionExplainer.ts (observability-only, fail-safe total, kalau dihapus tidak ada perilaku trading yang berubah). `getMLAdvisory(pair, features)` -> mapping IndicatorFeatureVector ke Record<string,number> dengan key PERSIS SAMA seperti dataset/collector.ts (price, rsi14, emaFast, emaSlow, emaSpreadPct, macd, macdSignal, macdHistogram, adx, plusDI, minusDI, stochK, stochD, volume) -> panggil modelPredictor.predict() -> format satu baris log, atau return null kalau gagal (paling umum: belum ada model terlatih -- ini kondisi NORMAL, bukan bug). TIDAK ada folder index.ts barrel (sengaja konsisten dengan services/intelligence/ai/ yang juga tidak punya barrel, diimpor by path langsung).
 `services/trading/engine.ts` -- 2 perubahan kecil di `logAIAdvisory()` (pola sama seperti integrasi decisionExplainer.ts sebelumnya): 1 baris import baru (`mlAdvisor`), 1 blok try/catch baru di AWAL fungsi (SEBELUM early-return `availableCandidates.length===0` -- sengaja diletakkan sebelum situ karena ML advisory tidak butuh env key LLM apapun, harus tetap jalan walau tidak ada API key OpenAI/Gemini/dst). Log ditulis lewat `recordLog("BOT","info", ...)` yang sudah ada, tidak ada helper baru.
-
 Yang BELUM dikerjakan / catatan jujur
 BELUM diverifikasi via `tsc --noEmit`/`npm run build` sungguhan -- sandbox sesi ini tanpa akses internet/`node_modules`. Verifikasi HANYA baca ulang manual + cek brace/paren seimbang (dikonfirmasi imbalance 1 paren di engine.ts adalah PRE-EXISTING di file asli sebelum sesi ini, bukan dari perubahan sesi ini -- dicek dengan diff terhadap zip asli). WAJIB jalankan build asli (clone repo atau minta log Vercel) sebelum deploy.
 Belum ada model ML yang terlatih di production (asumsi) -- kalau `POST /api/ml/train` belum pernah dijalankan sukses, `getMLAdvisory()` akan selalu return null (fail-safe), log "[ML Advisory ...]" tidak akan muncul sampai training pertama dilakukan lewat dashboard/API.
 Belum ada indikator UI di dashboard yang menunjukkan status ML advisory (kapan terakhir prediksi, berapa confidence rata-rata, dst) -- saat ini cuma muncul di Activity Log seperti AI Advisory lainnya.
 trendRule/volumeRule (orphan) dan audit api/bot/execute.ts (jalur eksekusi ganda, status aktif/tidak belum jelas) SENGAJA tidak disentuh sesi ini -- di luar scope yang dikonfirmasi user. Lihat "Audit Detail" di atas untuk detail masing-masing kalau mau dilanjutkan sesi berikutnya.
 Peringatan keamanan `ACCOUNT_ENCRYPTION_KEY` yang bocor (lihat paling atas dokumen ini) -- BELUM dikonfirmasi user sudah di-rotate atau belum saat sesi ini dimulai. Sesi berikutnya WAJIB tanya ulang kalau belum ada jawaban eksplisit.
-
 Session Log 11 — Audit api/bot/execute.ts + Perbaikan Keamanan Kritis (Endpoint Trading Tanpa Auth)
 (Lanjutan Session Log 10, item yang sengaja di-defer. User minta "lanjut" tanpa spesifikasi lebih lanjut -- diprioritaskan audit ini dulu dari 2 opsi tersisa (trendRule/volumeRule vs audit execute.ts) karena berkaitan langsung dengan keamanan uang, sesuai aturan wajib dokumen ini: "Kalau menemukan isu keamanan: laporkan dulu ke user secara eksplisit sebelum lanjut kerja lain".)
-
 Temuan
 `src/api/bot/execute.ts` TERNYATA BUKAN jalur eksekusi paralel yang berbahaya seperti dikhawatirkan Session Log 4/9 -- sudah memanggil `executeCron()` (pipeline yang SAMA persis dipakai cron terjadwal), bukan logika terpisah. Ini kabar baik, klaim lama "belum diverifikasi apakah aktif" di dokumen ini SEKARANG terjawab: aktif, dan sudah delegasi ke jalur kanonik.
 TAPI ditemukan bug keamanan serius yang belum pernah tercatat di manapun: `api/bot/route.ts` (dipanggil publik lewat `/api/bot`, App Router GET handler) TIDAK PUNYA autentikasi sama sekali, DAN tidak memakai `cronLock` yang sudah ada. Dibandingkan `/api/cron/scan.ts` yang sudah benar (cek `CRON_SECRET` Bearer token + `acquireCronLock()`), `/api/bot` API benar-benar terbuka ke publik.
 Dampak: (1) siapapun yang tahu URL bisa memicu siklus trading (bisa BUY/SELL sungguhan kalau `BOT_MODE=live`) kapan saja tanpa login. (2) Kalau tertembak bersamaan dengan cron terjadwal, `executeCron()` bisa jalan 2x paralel tanpa proteksi -- race condition di Firestore (baca posisi/saldo stale), berpotensi double BUY/SELL.
 Dicek juga: tidak ada pemanggil dari frontend (`grep` menyeluruh ke semua `.tsx`) -- endpoint ini genuinely tidak dipakai UI manapun saat ini, tapi tetap reachable publik karena route App Router aktif (`export const dynamic = "force-dynamic"`).
-
 Yang diperbaiki
 `src/api/bot/route.ts` (v0.0.2) -- ditambah 2 lapis proteksi, pola PERSIS SAMA seperti `/api/cron/scan.ts`:
 Auth: header `Authorization: Bearer <CRON_SECRET>` wajib cocok (reuse env var `CRON_SECRET` yang sudah ada, BUKAN secret baru -- endpoint ini secara fungsi trigger manual untuk pipeline yang sama dengan cron, bukan API end-user).
 Lock: `acquireCronLock()` dipanggil sebelum `executeBot()`, `release()` di `finally` -- kalau lock sedang dipegang siklus lain, request di-skip aman (response 200, `{skipped:true}`), BUKAN dijalankan dobel.
 `docs/environment-variables.md` -- baris `CRON_SECRET` diperbarui, sekarang dicocokkan di 2 tempat.
-
 Keputusan TERBUKA -- belum diputuskan, jangan asumsikan
 Karena endpoint ini sekarang butuh `CRON_SECRET` (server-side secret), TIDAK BISA dipanggil langsung dari client browser (kalau mau tombol "Run Now" di dashboard, JANGAN expose `CRON_SECRET` ke client -- butuh API route perantara yang auth-nya `verifyApiAuth`/Firebase ID Token, lalu route itu yang menyimpan `CRON_SECRET` server-side dan memanggil `/api/bot` secara internal, ATAU ganti langsung auth `/api/bot` ke `verifyApiAuth`). Belum dikerjakan sesi ini karena tidak ada permintaan UI eksplisit untuk fitur ini -- tanya user dulu kalau mau dibuatkan.
-
 Yang BELUM dikerjakan / catatan jujur
 BELUM diverifikasi `tsc`/`npm run build` sungguhan -- sandbox sesi ini masih tanpa akses internet, sama seperti Session Log 10. Verifikasi manual: brace/paren seimbang, signature `successResponse`/`errorResponse` dicocokkan ke `response.ts` langsung.
 `trendRule`/`volumeRule` (orphan strategy rules) BELUM dikerjakan -- masih di antrian kalau user mau lanjutkan.
 Belum dicek apakah ada endpoint App Router lain dengan pola serupa (dynamic route publik tanpa auth) -- audit ini hanya fokus ke `/api/bot` sesuai scope temuan. Kalau mau menyeluruh, perlu audit semua `app/api/*/route.ts` satu-satu.
----
 Session Log 12 — Audit Sinkronisasi Sesi Paralel + Cleanup Dead Code (Session Log 11 DIGANTIKAN)
 User meng-update repo lewat sesi Claude lain secara paralel setelah Session Log 11 (CanaryGate) dikirim tapi SEBELUM di-commit user. Audit diff penuh (bukan asumsi) menemukan sesi lain membangun solusi requireReconciliation yang BERBEDA dan SUDAH DI-COMMIT ke live.ts: `assertReconciliationFresh()` + `services/firebase/reconciliationStatus.ts` (koleksi Firestore `system_status/reconciliation`) -- BUKAN `CanaryGate`/`canaryContextBuilder.ts` dari Session Log 11.
 Keputusan
@@ -838,28 +825,22 @@ Temuan lain dari sesi paralel itu (BUKAN dikerjakan sesi ini, cuma diverifikasi 
 Belum ditegakkan / catatan jujur
 Env var reconciliation freshness BERNAMA `BOT_CANARY_RECONCILIATION_MAX_AGE_MINUTES` (menit, default 15) di solusi sesi lain -- BUKAN `BOT_CANARY_MAX_RECONCILIATION_AGE_MS` (milidetik) yang sempat didaftarkan Session Log 11. `docs/environment-variables.md` SUDAH diperbarui sesi ini: 3 env var CanaryGate yang tidak lagi berpengaruh (`BOT_CANARY_MAX_ORDERS_PER_DAY` dkk) TIDAK PERNAH sempat masuk ke file ini (user belum commit versi Session Log 11), jadi tidak perlu dibersihkan -- baris `BOT_CANARY_REQUIRE_RECONCILIATION` diperbarui mencerminkan mekanisme asli (`assertReconciliationFresh`), dan `BOT_CANARY_RECONCILIATION_MAX_AGE_MINUTES`/`BOT_SIZING_MODE`/`BOT_RISK_PERCENT_PER_TRADE` (sebelumnya tidak terdaftar sama sekali) ditambahkan.
 BELUM diverifikasi via build asli sama sekali sesi ini (audit read-only + hapus 2 file, tidak ada kode baru ditulis) -- TAPI perubahan sesi lain (yang jauh lebih besar) juga belum dikonfirmasi status build-nya di sisi Claude manapun. WAJIB cek log Vercel/jalankan build asli sebelum menganggap state ini aman di-deploy.
-
 Session Log 13 — Reconciliation ML+TrendVolume Advisory ke Base Session Log 12, Integrasi lib/error/*, Cleanup Legacy Trading Layer
 Dikerjakan dari zip upload user (bukan clone langsung), setelah user meng-upload repo terbaru yang sudah mencakup Session Log 12 (sesi Claude lain: reconciliation → assertReconciliationFresh, uncertainOrderReconciler, cronHeartbeat, RISK_BASED sizing, dll). Session Log 10/11 (ML Advisory, Trend+Volume Advisory, auth+lock api/bot/route.ts) TIDAK ada lagi di trading/engine.ts & scheduler/cron.ts versi ini -- kemungkinan overwrite antar sesi paralel. Diverifikasi lewat grep (bukan asumsi), lalu di-reapply di atas base v Session Log 12 tanpa mengubah/menghapus perubahan sesi lain:
 `services/trading/engine.ts`: tambah import Candle/getTrendVolumeAdvisory/mlAdvisor, field opsional `candles?: Candle[]` di TradingEngineInput, 2 blok try/catch (Trend+Volume + ML Advisory) di awal logAIAdvisory(), parameter `candles` diteruskan ke pemanggilan logAIAdvisory(). TradingError (fitur Session Log 12 lain, klasifikasi error EXPOSURE_LIMIT/INSUFFICIENT_FUNDS) TIDAK disentuh.
 `services/scheduler/cron.ts`: tambah `plusDI`/`minusDI` ke object `features` (dari adxResult yang sudah dihitung, tanpa fetch ulang) dan `candles` ke pemanggilan `TradingEngine.run()`.
-
 Integrasi lib/error/* (AppError.ts, ApiError.ts, Logger.ts, Response.ts) -- sebelumnya 100% orphan (Response.ts/Logger.ts nol importer; AppError.ts/ApiError.ts cuma dipakai lib/validators/* yang JUGA orphan, tidak reachable dari live path manapun). SENGAJA TIDAK migrasi massal ke seluruh API routes (risiko tabrakan sesi paralel + scope besar) -- integrasi dibatasi ke 3 file yang dikuasai penuh sesi ini:
 `api/bot/route.ts`: `./response.ts` (successResponse/errorResponse lokal) diganti ResponseHelper + ApiError dari @/lib/error, perilaku JSON identik. `./response.ts` TIDAK dihapus, cuma tidak dipakai lagi di sini.
 `services/intelligence/ml/mlAdvisor.ts` & `services/strategy/trendVolumeAdvisor.ts`: `console.error` diganti `logger.error()` (lib/error/Logger.ts) dengan context terstruktur, error dibungkus `AppError.ai()`/`AppError.trading()` dulu sebelum di-log (code AI_SERVICE_ERROR/TRADING_ENGINE_ERROR). Semua tetap fail-safe total -- tidak pernah dilempar ke atas, tidak mempengaruhi keputusan BUY/SELL/HOLD.
 Status akhir ke-4 file: SEMUA sekarang reachable dari live path (bukan orphan lagi). lib/validators/* sendiri MASIH orphan (belum disambungkan ke validasi input API manapun -- di luar scope sesi ini, akan mengubah perilaku live trading kalau dipasang di paper.ts/live.ts, sengaja tidak dieksekusi sepihak).
-
 CLEANUP -- DIHAPUS atas persetujuan eksplisit user: `services/trading/{executor,history,index,portfolio,position,strategy}.ts` (6 file). Diverifikasi lewat grep relative-path-aware menyeluruh: SEMUA cuma direferensikan lewat `services/trading/index.ts` (barrel), yang sendiri NOL importer di seluruh codebase (bukan cuma live path -- backtest juga tidak memakainya, sempat salah kira reachable karena grep longgar match ke `services/portfolio/position.ts`/`services/exchange/models/position.ts` yang BEDA file, sudah dikoreksi). Cluster ini adalah lapisan trading service LAMA dibangun di atas `DecisionEngine` (services/trading/decision.ts) -- class `DecisionEngine.evaluate()` TIDAK pernah dipanggil di live path manapun (cuma disebut di 1 komentar string, ai-calibration-api.ts), kemungkinan besar ini SISTEM LAMA yang digantikan strategyManager/AURA_TREND (histori "BUY nyaris tidak pernah muncul" karena gerbang berlapis, lihat catatan lama di atas). `services/trading/decision.ts` SENDIRI TIDAK dihapus -- type `DecisionResult`-nya masih dipakai `engine.ts` (`mapStrategyResultToDecision()`), cuma class `DecisionEngine`-nya yang genuinely dead.
 User EKSPLISIT memilih hapus (bukan simpan-tandai-legacy) dengan alasan: kalau suatu saat dibutuhkan sesuai arah pengembangan berikutnya, bisa dibangun ulang sesuai kebutuhan saat itu -- bukan dipertahankan sebagai referensi kode lama yang mungkin sudah tidak relevan.
-
 Yang BELUM dikerjakan / catatan jujur
 BELUM di-`tsc`/build sungguhan (sandbox tanpa internet, konsisten seluruh sesi sebelumnya).
 Penghapusan 6 file dieksekusi USER SENDIRI lewat GitHub browser UI (bukan lewat sandbox ini) -- sesi berikutnya WAJIB verifikasi lewat grep bahwa memang sudah terhapus & tidak ada dangling import baru sebelum asumsi bersih.
 Peringatan `ACCOUNT_ENCRYPTION_KEY` yang bocor (dari awal chat sesi-sesi sebelumnya) MASIH belum pernah dikonfirmasi user sudah di-rotate atau belum.
-
 Session Log 14 — Audit `services/logger/` Stack Kedua (logger.ts/consoleLogger.ts/fileLogger.ts/remoteLogger.ts/logRotation.ts)
 User minta lanjutkan integrasi 5 file ini. Dibaca isi asli tiap file (bukan asumsi dari nama), lalu dijalankan BFS reachability analysis penuh dari seluruh entry point Next.js (`src/app/**/page.tsx`, `layout.tsx`, `route.ts`, `src/pages/**`) terhadap 1037 file TS/TSX di repo.
-
 Temuan
 `services/logger/index.ts` (+ `formatter.ts`, `types.ts`) TERKONFIRMASI AKTIF — logger produksi asli (console + Firestore via `recordLog()`), di-import ~85 file lintas domain (jobs, cache, middleware, security, analytics, bootstrap, recovery, dll).
 5 file yang diminta user (`logger.ts`, `consoleLogger.ts`, `fileLogger.ts`, `remoteLogger.ts`, `logRotation.ts`) SEMUA orphan — nol reachability dari entry point manapun. Pola sama persis dengan `services/liveTrading/` (Phase 38): stack lama yang sudah digantikan `index.ts`, bukan fitur "belum sempat disambungkan".
@@ -868,21 +849,16 @@ Temuan
 `fileLogger.ts` — pakai `fs.appendFileSync`/`fs.writeFileSync` ke direktori lokal. SECARA ARSITEKTUR TIDAK KOMPATIBEL dengan Vercel serverless (filesystem ephemeral, tidak persisten antar invocation) — bukan cuma orphan, kalau diaktifkan pun akan gagal/percuma di production.
 `remoteLogger.ts` — pola adapter (`setAdapter()`) tapi TIDAK ADA satupun adapter yang pernah diimplementasikan. Nol pemanggilan `fetch`/`http` di seluruh file — stub kosong secara fungsional.
 `logRotation.ts` — satu-satunya yang benar-benar dipanggil di dalam kode (`maintenance/cleanup.ts` → `logRotation.rotate()`), TAPI seluruh rantai pemanggilnya (`cleanupJob.ts`, `autoRecovery.ts`, `watchdog.ts`, sampai ke `bootstrap/serviceRegistry.ts`/`core/kernel.ts`) juga 100% orphan dari entry point. Juga pakai `fs.*` ke folder `logs/` lokal — masalah serverless yang sama seperti `fileLogger.ts`.
-
 Keputusan user (eksplisit)
 "Pertahankan dulu, siapa tahu masa depan kita butuhkan" — BERBEDA dari keputusan Session Log 13 (hapus `services/trading/{executor,history,...}`). File-file ini TIDAK dihapus, TIDAK diintegrasikan sesi ini. Ditandai jelas sebagai dead/orphan code yang sengaja dipertahankan sebagai referensi masa depan.
-
 Yang BELUM dikerjakan / catatan jujur
 BELUM di-`tsc`/build — sesi ini read-only (audit only, tidak ada kode diubah).
 Kalau suatu saat file-file ini benar-benar mau diaktifkan: `fileLogger.ts` dan `logRotation.ts` WAJIB ditulis ulang dulu (target Firestore atau layanan log eksternal, BUKAN filesystem lokal) sebelum bisa dipakai di Vercel — jangan asumsikan bisa langsung disambungkan apa adanya.
 Peringatan `ACCOUNT_ENCRYPTION_KEY` yang bocor MASIH belum dikonfirmasi user sudah di-rotate atau belum (dari sesi-sesi sebelumnya).
-
 Session Log 15 — Perkuat Validasi `api/backtest/run.ts` + Wire `lib/validators/env.ts` (Read-Only, Bukan Live Order)
 Lanjutan Session Log 14. User minta lanjutkan 5 file `lib/validators/*` yang sempat direkomendasikan diintegrasikan. Setelah dicek satu-satu ke endpoint aktif, ternyata TIDAK ADA 5 titik integrasi yang genuinely aman/bernilai (order.ts/pair.ts/trade.ts/scanner.ts/portfolio.ts/strategy.ts/trading.ts/config.ts/api.ts semua sudah ditolak dengan alasan tertulis di validate.ts, atau endpoint tujuannya ternyata read-only tanpa input klien). Dilaporkan jujur ke user, ditawarkan 2 kerjaan nyata sebagai gantinya, disetujui user.
-
 Temuan penting sebelum eksekusi
 Ditemukan `services/backtest/run.ts` (v0.1.1) -- draft duplikat PERSIS `pages/api/backtest/run.ts` (v0.1.0) plus 1 perbaikan (validasi `strategy` terhadap VALID_STRATEGIES), tapi diletakkan di lokasi yang BUKAN Next.js API route (services/, bukan pages/api/ atau app/api/) -- nol importer, TIDAK PERNAH benar-benar diterapkan ke endpoint aktif. Kemungkinan besar sisa sesi lain yang lupa memindahkan/menerapkan hasil editnya.
-
 Yang dikerjakan
 `src/pages/api/backtest/run.ts` (v0.1.0 -> v0.1.2): ditambah validasi input menyeluruh SEBELUM dipakai, semua pakai primitives yang SUDAH reachable (bukan file orphan baru):
 `pair` -- `validateTradingPair()` dari `lib/validators/market.ts` (format-only regex, BUKAN whitelist -- konsisten pola yang sudah dipakai `api/settings/validate.ts`, tidak bentrok scanner all-pair).
@@ -891,43 +867,55 @@ Yang dikerjakan
 Validation errors dikembalikan sebagai 400 dengan pesan jelas (bukan 500 generic).
 `services/backtest/run.ts` (draft yang sudah diterapkan) DIHAPUS -- dikonfirmasi nol importer sebelum hapus.
 Ini SEMUA backtest (simulasi historis, paper) -- TIDAK menyentuh jalur eksekusi order live (`live.ts`/`liveOrderValidator.ts`) sama sekali.
-
 `src/pages/api/settings/config.ts`: ditambah field `envStatus: {ok, message}` di response. Memanggil `EnvValidator.validate()` (`lib/validators/env.ts`, sebelumnya 100% orphan) TAPI dibungkus try/catch supaya TIDAK PERNAH melempar/mem-block response endpoint ini -- env yang tidak lengkap cuma jadi info tambahan (potensi banner peringatan di dashboard), bukan syarat endpoint bisa dipakai. Endpoint ini sudah di belakang Firebase ID Token (bukan publik) jadi aman menampilkan nama var yang hilang (bukan nilai/secret). SENGAJA TIDAK di-wire ke endpoint publik `health/status.ts` -- endpoint itu eksplisit menyatakan "tidak ada data sensitif di-expose", nama env var yang hilang berpotensi jadi info recon buat siapa pun tanpa login.
 Dikonfirmasi lewat BFS reachability analysis ulang (Python, bukan asumsi): `lib/validators/env.ts`, `market.ts`, `number.ts` sekarang REACHABLE dari entry point Next.js.
-
 Yang BELUM dikerjakan / catatan jujur
 BELUM di-`tsc`/`npm run build` sungguhan -- sandbox sesi ini (upload zip, bukan clone git, tanpa akses internet). Verifikasi manual: brace/paren balance dicek terpisah untuk kedua file yang diubah (hasil seimbang).
 9 file `lib/validators/*` sisanya (api/config/order/pair/portfolio/scanner/strategy/timeframe/trade) TETAP orphan sesuai keputusan Session Log 14 -- alasan penolakan masing-masing sudah tercatat di komentar `api/settings/validate.ts` & `docs/Orphanintegrationroadmap.md`, TIDAK diulang di sini.
 Peringatan `ACCOUNT_ENCRYPTION_KEY` yang bocor MASIH belum dikonfirmasi user sudah di-rotate atau belum.
-
 Session Log 16 — Konfirmasi Pra-Deploy (User)
 User mengkonfirmasi 2 hal yang sebelumnya berstatus "belum diverifikasi" di catatan sesi-sesi lalu:
 `npm run build`/`tsc --noEmit` SUDAH dijalankan user sendiri (lokal/CI, di luar sandbox ini) untuk perubahan Session Log 15 (`api/backtest/run.ts` v0.1.2, `api/settings/config.ts` envStatus) -- hasil 0 error, aman.
 `ACCOUNT_ENCRYPTION_KEY` yang sempat bocor (dicatat sejak sesi lama, berulang kali muncul sebagai item terbuka) SUDAH DI-ROTATE user. Peringatan berulang ini SEKARANG SELESAI -- sesi berikutnya TIDAK PERLU menanyakan ulang, kecuali ada indikasi baru kunci itu bocor lagi.
 Status: repo dianggap user siap deploy.
-
 Session Log 17 — Wiring FeatureVectorizer + FeatureScaler ke trainer.ts/predictor.ts (via upload zip, akun Claude berbeda)
 Lanjutan pekerjaan sesi lain (akun Claude berbeda, dikerjakan langsung di GitHub) yang sempat menyebut "5 dari 6 file selesai, `encoder.ts` butuh keputusan produk" tapi chat-nya terpotong sebelum pertanyaannya sendiri tersampaikan. User upload zip project ke sesi ini untuk lanjut -- setelah dicek ke kode (bukan percaya ringkasan chat), zip yang diupload ternyata masih versi SEBELUM perubahan vectorizer/scaler diterapkan (`trainer.ts`/`predictor.ts` masih z-score inline manual, `vectorizer.ts`/`scaler.ts` masih orphan). Kemungkinan besar sesi lain itu commit ke GitHub tapi zip diambil sebelum sempat sinkron -- dilaporkan jujur ke user, dikonfirmasi lanjut kerjakan ulang di sesi ini.
-
 Keputusan encoder.ts (diminta rekomendasi user)
 Direkomendasikan TETAP ORPHAN sesi ini, BUKAN dipaksa dipakai. Dicek `dataset/collector.ts` -- seluruh 13 fitur yang dihasilkan (price/rsi14/emaFast/emaSlow/emaSpreadPct/macd/macdSignal/macdHistogram/adx/plusDI/minusDI/stochK/stochD/volume) 100% numerik, `FeatureRecord.values` di `types.ts` juga `Record<string,number>` murni -- TIDAK ADA sumber fitur kategorikal/string di jalur data nyata manapun untuk `encoder.ts` (LABEL/ONE_HOT/BOOLEAN) mengolah apapun. Mengaktifkannya sekarang berarti mengarang fitur kategorikal baru (kandidat paling jelas: label AI-advisory dari `services/intelligence/ai/` sebagai input tambahan ML) -- itu keputusan produk lebih besar dengan risiko serius (feedback loop AI->ML->AI kalau tidak hati-hati) yang layak sesi audit terpisah, bukan diselipkan di tugas scaler ini. Status `encoder.ts`: orphan disengaja, sama pola-nya dengan beberapa cluster lain di "Known Duplication".
-
 Yang dikerjakan (3 file)
 `services/ml/models/trainer.ts` (0.2.0 -> 0.3.0): matrix fitur mentah dibangun lewat `FeatureVectorizer.build()` (sebelumnya orphan) alih-alih `featureOrder.map()` manual -- urutan/nilai IDENTIK, cuma dipindah ke primitive yang sudah ada. Normalisasi sekarang lewat `FeatureScaler.scale()` (sebelumnya orphan) per kolom fitur, bercabang lewat `TrainingConfig.scalingMethod` baru (opsional, default `"STANDARD"` -- hasil numerik untuk STANDARD IDENTIK dengan z-score manual versi lama, diverifikasi baca formula-nya sama persis). `"MIN_MAX"` didukung penuh. `"ROBUST"` DITOLAK eksplisit dengan error jelas (bukan diam-diam salah hasil) -- `TrainedModelWeights` belum menyimpan median/IQR per fitur yang dibutuhkan predictor.ts untuk inverse-transform yang benar saat inference, ditambahkan nanti kalau ada use-case konkret. `TrainedModelWeights` ditambah field `scalingMethod` (wajib diisi, bukan optional -- training baru SELALU set eksplisit) + `featureMin`/`featureMax` (selalu dihitung & disimpan, murah, dipakai predictor.ts hanya kalau scalingMethod=MIN_MAX).
 `services/ml/models/predictor.ts` (0.2.0 -> 0.3.0): cabang inverse-transform sesuai `weights.scalingMethod`. Model LAMA di Firestore (dilatih sebelum field ini ada) tidak akan punya field ini sama sekali -> `?? "STANDARD"` di predictor, rumus IDENTIK dengan satu-satunya yang pernah ada, jadi model lama tetap valid dipakai tanpa retrain paksa.
 `pages/api/ml/train.ts`: terima `scalingMethod` opsional di body (whitelist ketat "STANDARD"/"MIN_MAX"/"ROBUST", selain itu diabaikan jadi undefined -> default trainer), diteruskan ke `modelTrainer.train()`, dan diekspos balik di response JSON (`scalingMethod: trainingResult.modelWeights.scalingMethod`) supaya kelihatan di dashboard/log training. `storage/modelStore.ts` TIDAK perlu diubah -- `serializeWeights`/`deserializeWeights` sudah pakai `...weights` spread generik, field baru otomatis ikut tersimpan/terbaca.
-
 Verifikasi
 `tsc --noEmit` isolated (tsconfig sementara, path alias `@/*` di-resolve manual) khusus 6 file yang disentuh + `types.ts` + `modelStore.ts` -- 0 error di semuanya. Error yang muncul di luar itu (`firebase-admin/*`, `next`, `process`) murni karena `node_modules` tidak terpasang di sandbox upload-zip ini (bukan clone git+install), BUKAN regresi dari perubahan sesi ini -- sama seperti catatan jujur Session Log 15. `npm run build` sungguhan BELUM dijalankan sesi ini, perlu dikonfirmasi user (pola sama seperti Session Log 15 -> 16).
-
 Yang BELUM dikerjakan / catatan jujur
 Belum ada training run sungguhan yang menguji `scalingMethod="MIN_MAX"` end-to-end lewat `/api/ml/train` asli (hanya diverifikasi lewat pembacaan kode + type-check, dataset Indodax historis tidak bisa ditarik dari sandbox ini -- tidak ada akses jaringan).
 `ROBUST` scaling MASIH belum bisa dipakai training (lihat alasan di atas) -- kalau nanti mau diaktifkan, tambahkan `featureMedian`/`featureIQR` (atau `featureQ1`/`featureQ3`) ke `TrainedModelWeights`, hitung di trainer.ts, baca di predictor.ts.
 Perlu dikonfirmasi ke akun Claude/sesi lain yang commit langsung ke GitHub apakah perubahan mereka (yang disebut di chat log user) SUDAH ter-push -- kalau sudah, ada risiko dua versi berbeda dari perubahan yang sama perlu direkonsiliasi manual sebelum merge (pola sama seperti Session Log 13, "Reconciliation").
-
 Update (lanjutan langsung sesi sama) -- Barrel `features/index.ts` dilengkapi
 User bertanya status 6 file di `services/ml/features/` (encoder/index/normalizer/scaler/selector/vectorizer). Diverifikasi satu-satu ke kode: `vectorizer.ts` & `scaler.ts` AKTIF (dipakai trainer.ts/predictor.ts, lihat di atas). `statistics.ts` (folder sama, tidak disebut user tapi relevan) JUGA aktif, dipakai trainer.ts sejak sebelum sesi ini. `encoder.ts` orphan disengaja (lihat di atas). `normalizer.ts` (L2/Z-score/unit vector normalization) dan `selector.ts` (feature selection MANUAL/VARIANCE/CORRELATION/IMPORTANCE) -- BARU ditemukan keduanya JUGA orphan total, belum pernah dibahas sesi manapun sebelumnya.
-
 `features/index.ts` (0.1.0 -> 0.2.0): sebelumnya cuma re-export `encoder.ts` (padahal 5 file lain di folder sama sudah ada). Dilengkapi jadi re-export SEMUA 6 file (encoder/vectorizer/scaler/statistics/normalizer/selector) + tipe-tipenya masing-masing -- PERUBAHAN MURNI HOUSEKEEPING, TIDAK mengubah reachability/behavior apapun (trainer.ts/predictor.ts tetap impor langsung per-file seperti sebelumnya, bukan lewat barrel ini -- sengaja, supaya diff Session Log 17 sebelumnya tetap minimal). Diverifikasi tidak ada bentrok nama export lewat isolated tsc (barrel ml/index.ts yang `export *` dari features/dataset/labeling/models/storage sekaligus -- 0 konflik identifier).
-
 `normalizer.ts` & `selector.ts` SENGAJA TIDAK diintegrasikan ke jalur training sesi ini. `selector.ts` khususnya punya risiko SAMA PERSIS seperti `encoder.ts`: mengaktifkan `FeatureSelector.select()` di trainer.ts akan mengubah `featureOrder`/jumlah dimensi model (kalau fitur dibuang), bikin model lama tidak kompatibel -- keputusan produk terpisah, bukan sekadar "sambung kabel". `normalizer.ts` risikonya lebih rendah (menormalisasi SATU vector relatif terhadap dirinya sendiri, beda konsep dari `FeatureScaler` yang per-kolom lintas dataset) tapi tetap belum ada use-case konkret yang diverifikasi butuh ini -- dibiarkan orphan sampai ada alasan jelas.
+---
+Session Log 15 — Fee/Volume + Atribusi Profit->Strategi
+Melanjutkan audit `services/analytics/*` dari sesi Claude lain. Kesimpulan audit:
+`portfolioAnalytics.ts` - REDUNDAN dengan `/api/analytics/risk.ts` yang sudah ada, tidak diwire.
+`performanceAnalytics.ts` + `analyticsEngine.ts` - generic metric tracker tanpa target spesifik, tidak diwire.
+`tradingAnalytics.ts` - sebagian redundan, TAPI totalFees/totalVolume genuinely baru & berguna.
+`strategyAnalytics.ts` - SEBELUMNYA terblokir (nama strategi cuma tercatat di BUY, profit terealisasi di SELL, siklus berbeda). Prasyaratnya dikerjakan sesi ini.
+Perubahan skema (prasyarat strategyAnalytics)
+`BotState.strategyAtEntry?: string` (baru, `botState.ts`) - simpan nama strategi yang membuka posisi, supaya bisa dibaca lagi saat SELL (siklus/invocation berbeda).
+`TradeLog.strategy?: string` (baru, `logService.ts`) dan `PaperTradeLog` via field `strategy` (paper, sudah fleksibel lewat index signature).
+`LiveTradeRequest.strategy?` dan `PaperTradeRequest.strategy?` (baru) - diteruskan ke `recordTrade()`/`logPaperTrade()`.
+`engine.ts` disentuh MINIMAL (4 titik, semua cuma nambah satu field ke object literal yang sudah ada, TIDAK ada logika yang diubah):
+`tradingService.buy({...})` di case BUY: `+ strategy: strategyResult.strategy`
+`updateBotState({...inPosition:true...})` setelah BUY: `+ strategyAtEntry: strategyResult.strategy`
+Kedua `tradingService.sell({...})` (SL/TP paksa DAN sinyal SELL biasa): `+ strategy: state.strategyAtEntry`
+Kedua `updateBotState({...inPosition:false...})`: `+ strategyAtEntry: ""` (bersihkan)
+`/api/analytics/risk.ts` diperkaya
+`totalVolumeIdr`, `totalFeesIdr` (fee 0 untuk paper - JUJUR ditampilkan, bukan diestimasi, karena paper trading belum mensimulasikan fee).
+`strategyBreakdown[]` (trades/winRate/totalPnl/averagePnl per strategi) - trade LAMA (sebelum field `strategy` ada) otomatis masuk kelompok `"(tidak diketahui)"`, bukan ditebak/dihilangkan.
+`dashboard/analytics.tsx` - tambah 2 card (volume/fee) + tabel breakdown per strategi.
+Catatan penting
+Atribusi strategi baru berlaku untuk trade BARU sejak fitur ini di-deploy - riwayat lama tidak bisa direkonstruksi (data `strategy` memang tidak pernah dicatat sebelumnya). Ini expected & sudah ditangani (dikelompokkan "(tidak diketahui)"), bukan bug.
+Diverifikasi: reinstall node_modules bersih, `tsc --noEmit` + `npm run build` PENUH sukses, 0 error, 55 route ter-generate. Perubahan di `engine.ts` diverifikasi SANGAT hati-hati (cuma penambahan field ke object literal existing, tidak ada perubahan alur/kondisi) mengingat file ini aktif dikerjakan banyak sesi.
