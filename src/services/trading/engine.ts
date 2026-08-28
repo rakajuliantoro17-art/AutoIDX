@@ -664,6 +664,8 @@ export class TradingEngine {
 
             amount: state.coinAmount,
 
+            strategy: state.strategyAtEntry,
+
           });
 
           const pnlIdr =
@@ -684,6 +686,8 @@ export class TradingEngine {
             currentPrice: input.price,
 
             lastSignal: "SELL",
+
+            strategyAtEntry: "",
 
           });
 
@@ -1043,6 +1047,8 @@ export class TradingEngine {
 
             tradeAmountIdr: effectiveConfig.tradeAmountIdr,
 
+            strategy: strategyResult.strategy,
+
           });
 
           const atrLevels = RiskManager.calculateAtrStopLevels(
@@ -1065,6 +1071,8 @@ export class TradingEngine {
             stopLossPrice: atrLevels.stopLossPrice,
 
             takeProfitPrice: atrLevels.takeProfitPrice,
+
+            strategyAtEntry: strategyResult.strategy,
 
           });
 
@@ -1118,6 +1126,8 @@ export class TradingEngine {
 
             amount: state.coinAmount,
 
+            strategy: state.strategyAtEntry,
+
           });
 
           const pnlIdr =
@@ -1134,6 +1144,8 @@ export class TradingEngine {
             entryPrice: 0,
 
             coinAmount: 0,
+
+            strategyAtEntry: "",
 
           });
 
