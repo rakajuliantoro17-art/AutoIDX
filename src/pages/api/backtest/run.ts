@@ -23,6 +23,8 @@ import type {
 } from "@/services/backtest/types";
 import { createSchemaValidator } from "@/services/validation/schemaValidator";
 import type { Schema } from "@/services/validation/schema";
+import TimeframeValidator from "@/lib/validators/timeframe";
+import PairValidator from "@/lib/validators/pair";
 
 /**
  * Validasi body request sebelum dipakai -- sebelumnya cuma
@@ -84,14 +86,27 @@ export default async function handler(
     }
 
     const {
-      pair = "btc_idr",
-      timeframe = "1h",
+      pair: rawPair = "btc_idr",
+      timeframe: rawTimeframe = "1h",
       days = 30,
       initialCapital = 1000000,
       strategy = "EMA_CROSSOVER",
       feeRate = 0.003,
       slippage = 0.001,
     } = rawBody;
+
+    // Normalize SAJA (trim/lowercase/format) -- BUKAN
+    // PairValidator.validate()/TimeframeValidator.validate() yang
+    // masing-masing punya whitelist sendiri (10 pair / 13 timeframe)
+    // yang TIDAK cocok dengan kapabilitas endpoint backtest ini
+    // (cuma 3 timeframe: 1h/4h/1d, lihat RESOLUTION_BY_TIMEFRAME).
+    // Gerbang "didukung atau tidak" yang sesungguhnya tetap
+    // pengecekan RESOLUTION_BY_TIMEFRAME di bawah, seperti semula --
+    // normalize() di sini cuma supaya "1H"/" 1h "/"BTC-IDR" tidak
+    // salah ditolak gara-gara format, bukan menambah pair/timeframe
+    // yang benar-benar didukung.
+    const pair = PairValidator.normalize(rawPair);
+    const timeframe = TimeframeValidator.normalize(rawTimeframe);
 
     if (!VALID_STRATEGIES.includes(strategy)) {
       return res.status(400).json({
