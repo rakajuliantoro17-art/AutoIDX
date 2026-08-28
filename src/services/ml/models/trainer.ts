@@ -2,7 +2,17 @@
 ==========================================================
 AURA Trade OS
 ML Model Trainer
-Version : 0.2.0 Alpha
+Version : 0.3.0 Alpha
+
+Perubahan dari 0.2.0: fitur diskalakan lewat FeatureVectorizer +
+FeatureScaler (services/ml/features/vectorizer.ts + scaler.ts,
+sebelumnya orphan) alih-alih matrix mentah + z-score inline.
+scalingMethod (STANDARD/MIN_MAX) sekarang bisa dikonfigurasi lewat
+TrainingConfig, default STANDARD - hasil numerik IDENTIK dengan
+versi 0.2.0 untuk caller yang tidak set field ini. featureMin/
+featureMax ditambahkan ke TrainedModelWeights (selalu disimpan,
+dipakai predictor.ts hanya kalau scalingMethod=MIN_MAX). ROBUST
+SENGAJA ditolak eksplisit di level ini - lihat catatan di train().
 
 GANTI TOTAL dari versi sebelumnya, yang cuma `sleep(300ms)`
 lalu return objek sukses palsu (lihat docs/claude.md, Audit
@@ -28,6 +38,8 @@ selain LOGISTIC_REGRESSION, training akan gagal eksplisit
 
 import { PredictionLabel, TrainingSample } from "../types";
 import featureStatistics from "../features/statistics";
+import featureVectorizer from "../features/vectorizer";
+import featureScaler, { ScalingMethod } from "../features/scaler";
 
 export type TrainingAlgorithm = "LOGISTIC_REGRESSION";
 
@@ -38,6 +50,16 @@ export interface TrainingConfig {
   l2?: number;
   validationSplit?: number;
   randomSeed?: number;
+
+  /**
+   * Metode penskalaan fitur. Default "STANDARD" (z-score) - SAMA
+   * seperti perilaku sebelum field ini ada, jadi model lama yang
+   * dilatih ulang tanpa opsi ini eksplisit tetap dapat hasil identik.
+   * "MIN_MAX" dan "ROBUST" tersedia lewat FeatureScaler untuk operator
+   * yang mau bereksperimen (mis. dataset dengan outlier ekstrem cocok
+   * pakai ROBUST, bukan STANDARD).
+   */
+  scalingMethod?: ScalingMethod;
 }
 
 export interface TrainedModelWeights {
@@ -48,11 +70,32 @@ export interface TrainedModelWeights {
   featureOrder: string[];
 
   /**
+   * Metode penskalaan yang dipakai training ini - predictor.ts WAJIB
+   * baca field ini untuk tahu formula inverse-transform yang benar
+   * saat inference. Model lama (sebelum field ini ada) tidak akan
+   * punya field ini sama sekali di Firestore - predictor.ts default
+   * ke STANDARD kalau field-nya undefined, supaya model lama tetap
+   * bisa dipakai tanpa perlu dilatih ulang paksa.
+   */
+  scalingMethod: ScalingMethod;
+
+  /**
    * Rata-rata & std-dev per fitur dari data TRAINING SAJA (dipakai
    * untuk normalisasi input saat inference juga, supaya konsisten).
+   * SELALU dihitung & disimpan terlepas dari scalingMethod yang aktif
+   * (murah, dan berguna sebagai diagnostik/fallback).
    */
   featureMean: number[];
   featureStd: number[];
+
+  /**
+   * Min/max per fitur dari data TRAINING SAJA - HANYA relevan dipakai
+   * predictor.ts kalau scalingMethod === "MIN_MAX". Tetap dihitung &
+   * disimpan selalu (murah) supaya operator bisa switch scalingMethod
+   * di training berikutnya tanpa kejutan field hilang.
+   */
+  featureMin: number[];
+  featureMax: number[];
 
   /**
    * Label kelas dalam urutan yang dipakai softmax.
@@ -156,11 +199,38 @@ export class ModelTrainer {
     const validationSplit = config.validationSplit ?? 0.2;
     const rng = createRng(config.randomSeed ?? 42);
 
+    // Default STANDARD (z-score) - IDENTIK dengan satu-satunya perilaku
+    // yang ada sebelum field ini ditambahkan, jadi caller lama (yang
+    // tidak pernah tahu soal scalingMethod) dapat hasil training persis
+    // sama. ROBUST BELUM didukung di level trainer - FeatureScaler
+    // sendiri sudah bisa robust-scale satu array, tapi TrainedModelWeights
+    // belum menyimpan median/IQR per fitur yang dibutuhkan predictor.ts
+    // untuk mereproduksi transform yang sama saat inference. Gagal
+    // eksplisit (bukan diam-diam salah hasil) kalau diminta - pola yang
+    // sama seperti algorithm !== LOGISTIC_REGRESSION di atas.
+    const scalingMethod: ScalingMethod = config.scalingMethod ?? "STANDARD";
+
+    if (scalingMethod === "ROBUST") {
+      throw new Error(
+        `ModelTrainer: scalingMethod "ROBUST" belum didukung - TrainedModelWeights ` +
+          `belum menyimpan median/IQR per fitur yang dibutuhkan untuk inference yang benar. ` +
+          `Pakai "STANDARD" (default) atau "MIN_MAX" untuk sekarang.`
+      );
+    }
+
     const startedAt = new Date();
 
     // --- Susun urutan fitur dari sample pertama (semua sample HARUS
     // punya key values yang sama, dijamin oleh dataset/collector.ts) ---
-    const featureOrder = Object.keys(dataset[0].features.values).sort();
+    // Dibangun lewat FeatureVectorizer (services/ml/features/vectorizer.ts,
+    // sebelumnya orphan) supaya urutan schema konsisten dengan cara
+    // predictor.ts/tempat lain membangun vector dari objek fitur bernama -
+    // TIDAK mengubah urutan (masih sorted keys dari sample pertama, sama
+    // persis seperti sebelumnya) atau nilai yang dihasilkan.
+    const { schema: featureOrder } = featureVectorizer.build(
+      dataset[0].features.values,
+      Object.keys(dataset[0].features.values).sort()
+    );
 
     const classOrder: PredictionLabel[] = ["STRONG_SELL", "SELL", "HOLD", "BUY", "STRONG_BUY"];
     const usedClasses = Array.from(new Set(dataset.map((s) => s.label)));
@@ -189,7 +259,9 @@ export class ModelTrainer {
     // standardDeviation===0 - fitur konstan, tidak membedakan apapun;
     // "WARNING" kalau volatility>1) dikumpulkan jadi featureWarnings,
     // diagnostik tambahan yang SEBELUMNYA tidak ada sama sekali. ---
-    const rawMatrix = dataset.map((s) => featureOrder.map((k) => s.features.values[k] ?? 0));
+    const rawMatrix = dataset.map(
+      (s) => featureVectorizer.build(s.features.values, featureOrder).vector
+    );
 
     const featureWarnings: string[] = [];
 
@@ -217,9 +289,22 @@ export class ModelTrainer {
     // ke 1 di sini supaya normalisasi tidak pernah divide-by-zero.
     const featureStd = featureStatsPerColumn.map((s) => s.standardDeviation || 1);
 
-    const normalizedX = rawMatrix.map((row) =>
-      row.map((v, j) => (v - featureMean[j]) / featureStd[j])
-    );
+    // min/max SELALU dihitung & disimpan (murah, dari statistik yang sama)
+    // terlepas dari scalingMethod aktif - supaya operator bisa ganti
+    // scalingMethod di training berikutnya tanpa field yang hilang.
+    const featureMin = featureStatsPerColumn.map((s) => s.min);
+    const featureMax = featureStatsPerColumn.map((s) => s.max);
+
+    // --- Normalisasi via FeatureScaler (services/ml/features/scaler.ts,
+    // sebelumnya orphan), per KOLOM fitur (bukan per baris) supaya tiap
+    // fitur diskalakan berdasar rentang/statistiknya sendiri - sama
+    // seperti perhitungan manual sebelumnya kalau scalingMethod=STANDARD
+    // (hasil numeriknya IDENTIK, cuma dipindah ke FeatureScaler.scale()
+    // yang sudah diaudit unit-nya terpisah). MIN_MAX pakai FeatureScaler
+    // apa adanya (output 0-1).
+    const columns = featureOrder.map((_, j) => rawMatrix.map((row) => row[j]));
+    const scaledColumns = columns.map((col) => featureScaler.scale(col, scalingMethod).values);
+    const normalizedX = rawMatrix.map((_, i) => scaledColumns.map((col) => col[i]));
 
     const y = dataset.map((s) => activeClasses.indexOf(s.label));
 
@@ -333,8 +418,11 @@ export class ModelTrainer {
       featureWarnings,
       modelWeights: {
         featureOrder,
+        scalingMethod,
         featureMean,
         featureStd,
+        featureMin,
+        featureMax,
         classes: activeClasses,
         weights,
         bias,
