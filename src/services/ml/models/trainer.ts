@@ -27,6 +27,7 @@ selain LOGISTIC_REGRESSION, training akan gagal eksplisit
 */
 
 import { PredictionLabel, TrainingSample } from "../types";
+import featureStatistics from "../features/statistics";
 
 export type TrainingAlgorithm = "LOGISTIC_REGRESSION";
 
@@ -86,6 +87,17 @@ export interface TrainingResult {
   finalTrainLoss: number;
   validationMetrics: EvaluationMetrics;
   modelWeights: TrainedModelWeights;
+  /**
+   * Peringatan kualitas fitur dari FeatureStatisticsEngine
+   * (services/ml/features/statistics.ts, SEBELUMNYA orphan) --
+   * fitur dengan standardDeviation===0 (konstan, tidak
+   * membedakan apapun) atau volatility>1 (skala jauh lebih liar
+   * dari rata-ratanya). TIDAK menggagalkan training (model tetap
+   * dilatih apa adanya, SAMA seperti sebelum field ini ada) --
+   * murni informasi diagnostik untuk operator, ditampilkan di
+   * dashboard/log training kalau ada.
+   */
+  featureWarnings: string[];
 }
 
 /**
@@ -166,19 +178,44 @@ export class ModelTrainer {
     // split, lalu split - standar praktik untuk dataset kecil seperti ini.
     // (Catatan jujur: idealnya normalisasi dihitung dari train split saja
     // untuk menghindari sedikit data leakage; untuk dataset kecil dampaknya
-    // minor, tapi didokumentasikan di sini supaya tidak dianggap "sempurna".) ---
+    // minor, tapi didokumentasikan di sini supaya tidak dianggap "sempurna".)
+    //
+    // Mean/std per fitur SEKARANG dihitung lewat FeatureStatisticsEngine
+    // (services/ml/features/statistics.ts, SEBELUMNYA 100% orphan) --
+    // formulanya IDENTIK dengan perhitungan manual yang sebelumnya ada di
+    // sini (population variance, divide by N), jadi angka featureMean/
+    // featureStd yang tersimpan ke model TIDAK BERUBAH sama sekali
+    // dibanding sebelumnya. Yang BARU: quality flag ("BAD" kalau
+    // standardDeviation===0 - fitur konstan, tidak membedakan apapun;
+    // "WARNING" kalau volatility>1) dikumpulkan jadi featureWarnings,
+    // diagnostik tambahan yang SEBELUMNYA tidak ada sama sekali. ---
     const rawMatrix = dataset.map((s) => featureOrder.map((k) => s.features.values[k] ?? 0));
 
-    const featureMean = featureOrder.map(
-      (_, j) => rawMatrix.reduce((sum, row) => sum + row[j], 0) / rawMatrix.length
-    );
+    const featureWarnings: string[] = [];
 
-    const featureStd = featureOrder.map((_, j) => {
-      const variance =
-        rawMatrix.reduce((sum, row) => sum + (row[j] - featureMean[j]) ** 2, 0) /
-        rawMatrix.length;
-      return Math.sqrt(variance) || 1;
+    const featureStatsPerColumn = featureOrder.map((name, j) => {
+      const columnValues = rawMatrix.map((row) => row[j]);
+      const report = featureStatistics.analyze(name, columnValues);
+
+      if (report.quality === "BAD") {
+        featureWarnings.push(
+          `Fitur "${name}" konstan (standard deviation 0) di seluruh dataset training - tidak membedakan apapun, pertimbangkan dihapus dari featureOrder.`
+        );
+      } else if (report.quality === "WARNING") {
+        featureWarnings.push(
+          `Fitur "${name}" punya volatilitas tinggi (${report.statistics.volatility.toFixed(2)}) relatif terhadap rata-ratanya - periksa apakah ini wajar atau indikasi data kotor.`
+        );
+      }
+
+      return report.statistics;
     });
+
+    const featureMean = featureStatsPerColumn.map((s) => s.mean);
+
+    // `|| 1` dipertahankan PERSIS seperti kode lama - FeatureStatisticsEngine
+    // sendiri mengembalikan standardDeviation apa adanya (bisa 0), fallback
+    // ke 1 di sini supaya normalisasi tidak pernah divide-by-zero.
+    const featureStd = featureStatsPerColumn.map((s) => s.standardDeviation || 1);
 
     const normalizedX = rawMatrix.map((row) =>
       row.map((v, j) => (v - featureMean[j]) / featureStd[j])
@@ -293,6 +330,7 @@ export class ModelTrainer {
       epochs,
       finalTrainLoss,
       validationMetrics: { accuracy, perClass, confusionMatrix },
+      featureWarnings,
       modelWeights: {
         featureOrder,
         featureMean,
