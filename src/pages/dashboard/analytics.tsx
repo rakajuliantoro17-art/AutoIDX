@@ -38,6 +38,16 @@ interface RiskAnalyticsResponse {
   winningTrades?: number;
   losingTrades?: number;
   winRate?: number;
+  totalVolumeIdr?: number;
+  totalFeesIdr?: number;
+  strategyBreakdown?: {
+    strategy: string;
+    trades: number;
+    totalPnlIdr: number;
+    averagePnlIdr: number;
+    winRate: number;
+  }[];
+  strategyBreakdownNote?: string;
 }
 
 function riskScoreStyle(score: number): string {
@@ -191,7 +201,52 @@ export default function AnalyticsPage() {
                 <p className="text-xs text-slate-400">Total Trade Dianalisis</p>
                 <p className="text-xl font-bold">{data.totalClosedTrades}</p>
               </div>
+              <div className="card">
+                <p className="text-xs text-slate-400">Total Volume</p>
+                <p className="text-xl font-bold">{idr(data.totalVolumeIdr)}</p>
+              </div>
+              <div className="card">
+                <p className="text-xs text-slate-400">Total Fee</p>
+                <p className="text-xl font-bold">{idr(data.totalFeesIdr)}</p>
+              </div>
             </div>
+
+            {data.strategyBreakdown && data.strategyBreakdown.length > 0 && (
+              <div className="glass p-4">
+                <p className="text-sm font-bold mb-2">Breakdown per Strategi</p>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-slate-500 text-left">
+                      <th>Strategi</th>
+                      <th className="text-center">Trade</th>
+                      <th className="text-center">Win Rate</th>
+                      <th className="text-right">Total PnL</th>
+                      <th className="text-right">Rata-rata PnL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.strategyBreakdown.map((s) => (
+                      <tr key={s.strategy}>
+                        <td>{s.strategy}</td>
+                        <td className="text-center">{s.trades}</td>
+                        <td className="text-center">{s.winRate}%</td>
+                        <td
+                          className={`text-right ${
+                            s.totalPnlIdr >= 0 ? "text-emerald-400" : "text-red-400"
+                          }`}
+                        >
+                          {idr(s.totalPnlIdr)}
+                        </td>
+                        <td className="text-right">{idr(s.averagePnlIdr)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {data.strategyBreakdownNote && (
+                  <p className="text-xs text-slate-500 mt-2">{data.strategyBreakdownNote}</p>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
