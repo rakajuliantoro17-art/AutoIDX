@@ -13,13 +13,18 @@ operator bisa tidak sengaja menyimpan stopLossPercent negatif,
 tradeAmountIdr NaN, atau takeProfitPercent < stopLossPercent
 lewat dashboard tanpa ada error yang jelas.
 
-Kenapa CUMA 3 dari 15 file lib/validators/* yang dipakai di sini
-(number.ts, risk.ts, dan validateTradingPair dari market.ts):
-- pair.ts/trade.ts/scanner.ts/portfolio.ts SENGAJA TIDAK dipakai:
-  PairValidator.validate() menolak pair di luar whitelist 10 pair
-  hardcode -- bertentangan langsung dengan scanner yang sekarang
-  scan SEMUA pair Indodax. market.ts.validateTradingPair() dipakai
-  sebagai gantinya karena cuma cek FORMAT (regex), tanpa whitelist.
+Kenapa CUMA 4 dari 15 file lib/validators/* yang dipakai di sini
+(number.ts, risk.ts, validateTradingPair dari market.ts, dan
+PairValidator.normalize() SAJA dari pair.ts):
+- PairValidator.validate()/trade.ts/scanner.ts/portfolio.ts SENGAJA
+  TIDAK dipakai: PairValidator.validate() menolak pair di luar
+  whitelist 10 pair hardcode -- bertentangan langsung dengan scanner
+  yang sekarang scan SEMUA pair Indodax. market.ts.validateTradingPair()
+  dipakai sebagai gerbang FORMAT (regex), tanpa whitelist.
+  PairValidator.normalize() (BUKAN .validate()) dipakai SEBELUM itu
+  murni untuk reformat string (BTC-IDR/btcidr -> btc_idr) -- method
+  ini tidak menyentuh whitelist sama sekali, aman dipakai bersama
+  full-market scanner.
 - trading.ts & strategy.ts SENGAJA TIDAK dipakai: isinya duplikat/
   bersaing dengan risk.ts (trading.ts) dan services/strategy/*
   (strategy.ts) yang sudah jadi sumber kebenaran live -- memakainya
@@ -41,6 +46,7 @@ import { AppError } from "@/lib/error/AppError";
 import NumberValidator from "@/lib/validators/number";
 import RiskValidator from "@/lib/validators/risk";
 import { validateTradingPair } from "@/lib/validators/market";
+import PairValidator from "@/lib/validators/pair";
 import type { BotSettings } from "./types";
 
 const VALID_MODES = ["paper", "live"] as const;
@@ -121,11 +127,16 @@ export function validateSettingsInput(
       throw AppError.validation("pairs harus berupa array string.");
     }
 
-    // Format-only (regex xxx_xxx) -- SENGAJA TIDAK memakai
-    // PairValidator.validate() yang membatasi ke whitelist 10 pair.
-    // Lihat catatan integrasi di atas.
-    for (const pair of partial.pairs) {
-      validateTradingPair(pair);
+    // PairValidator.normalize() dipakai HANYA untuk reformat string
+    // (BTC-IDR / btcidr / "  Btc_Idr  " -> btc_idr) -- BUKAN
+    // PairValidator.validate() yang membatasi ke whitelist 10 pair
+    // (lihat catatan integrasi di atas). Hasil normalisasi ditulis
+    // BALIK ke partial.pairs[i] (mutasi in-place) supaya yang benar-
+    // benar tersimpan ke Firestore adalah bentuk konsisten
+    // "btc_idr", bukan variasi format apa pun yang dikirim client.
+    for (let i = 0; i < partial.pairs.length; i++) {
+      const normalized = PairValidator.normalize(partial.pairs[i]);
+      partial.pairs[i] = validateTradingPair(normalized);
     }
   }
 }
