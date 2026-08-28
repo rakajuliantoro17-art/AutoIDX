@@ -48,6 +48,15 @@ export interface LiveTradeRequest {
    * Kalau tidak diisi, fallback ke BOT_CONFIG.defaultTradeAmount.
    */
   tradeAmountIdr?: number;
+  /**
+   * Nama strategi yang menghasilkan sinyal ini - dicatat ke
+   * TradeLog untuk atribusi profit->strategi (strategyAnalytics.ts).
+   * BUY: strategi yang menghasilkan sinyal BUY saat ini. SELL:
+   * strategi yang MEMBUKA posisi ini (dari state.strategyAtEntry),
+   * bukan strategi aktif saat SELL - supaya profit/loss teratribusi
+   * ke strategi yang bertanggung jawab atas keputusan masuk.
+   */
+  strategy?: string;
 }
 
 export interface LiveTradeResult {
@@ -578,6 +587,8 @@ class LiveTradingService {
 
         mode: "live",
 
+        strategy: request.strategy,
+
       });
 
       await recordLog(
@@ -861,6 +872,8 @@ class LiveTradingService {
         reason: "Live Trading SELL",
 
         mode: "live",
+
+        strategy: request.strategy,
 
       });
 
