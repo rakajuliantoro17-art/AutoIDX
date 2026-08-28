@@ -51,6 +51,11 @@ export interface PaperTradeRequest {
    * validasi risk-gate yang sudah dilakukan caller.
    */
   tradeAmountIdr?: number;
+  /**
+   * Nama strategi yang menghasilkan sinyal ini - lihat komentar
+   * yang sama di trading/live.ts LiveTradeRequest.strategy.
+   */
+  strategy?: string;
 }
 
 export interface PaperTradeResult {
@@ -203,6 +208,8 @@ class PaperTradingService {
         timestamp: entryTime,
 
         executedAt: entryTime,
+
+        strategy: request.strategy,
 
       });
 
@@ -374,6 +381,8 @@ class PaperTradingService {
         timestamp: closedAt,
 
         executedAt: closedAt,
+
+        strategy: request.strategy,
 
       });
 
