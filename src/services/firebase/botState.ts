@@ -97,6 +97,19 @@ stopLossPrice:number;
 
 takeProfitPrice:number;
 
+/**
+ * Nama strategi (AURA_TREND/EMA_CROSSOVER/MOMENTUM) yang
+ * menghasilkan sinyal BUY untuk posisi yang SEDANG terbuka ini -
+ * disimpan di sini karena nama strategi cuma diketahui saat BUY,
+ * sedangkan profit baru terealisasi saat SELL (siklus/invocation
+ * yang beda). Dipakai untuk atribusi profit->strategi di
+ * services/analytics/strategyAnalytics.ts (sebelumnya tidak
+ * mungkin dilakukan secara andal). "" berarti tidak sedang posisi
+ * atau posisi lama dari sebelum field ini ada.
+ */
+
+strategyAtEntry?:string;
+
 
 
 lastSignal:
