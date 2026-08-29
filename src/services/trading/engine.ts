@@ -85,6 +85,7 @@ import automationNotifier from "@/services/automation/notifier";
 
 import { auditLogger } from "@/services/audit/firestoreAudit";
 import { handleError } from "@/services/errors/errorHandler";
+import { RiskError } from "@/services/errors/riskError";
 
 import {
   getBotState,
@@ -1011,10 +1012,31 @@ export class TradingEngine {
             tradeAmountIdr > portfolio.availableBalance
           ) {
 
+            // RiskError.exposureExceeded() (services/errors/riskError.ts,
+            // sekarang jadi sistem error kanonik project ini -- lihat
+            // handleError() di catch block bawah) -- factory method
+            // ini SUDAH tersedia persis untuk kasus ini, jadi dipakai
+            // langsung alih-alih menulis klasifikasi manual sendiri.
+            // insufficientFunds dibedakan dari exposureLimit murni
+            // lewat metric, TIDAK mengubah kontrak return (reason
+            // tetap string, riskBlocked tetap ada).
+            const isInsufficientFunds =
+              tradeAmountIdr > portfolio.availableBalance;
+
+            const riskError = RiskError.exposureExceeded(
+              tradeAmountIdr,
+              Math.min(maxExposureIdr, portfolio.availableBalance, BOT_CONFIG.maxTradeAmount),
+              {
+                pair: input.pair,
+                operation: "reject",
+                metric: isInsufficientFunds ? "balance" : "exposure",
+              }
+            );
+
             await recordLog(
               "RISK",
               "warning",
-              `Exposure/saldo tidak cukup — BUY ${input.pair.toUpperCase()} diblokir.`
+              `[${riskError.metric?.toUpperCase()}] ${riskError.message} (${input.pair.toUpperCase()})`
             );
 
             return {
@@ -1025,7 +1047,7 @@ export class TradingEngine {
 
               confidence: decision.confidence,
 
-              reason: "Nominal trade melebihi batas exposure atau saldo tidak cukup.",
+              reason: `[${riskError.metric?.toUpperCase()}] Nominal trade melebihi batas exposure atau saldo tidak cukup.`,
 
               actionExecuted: false,
 
