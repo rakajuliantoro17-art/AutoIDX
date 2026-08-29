@@ -15,7 +15,7 @@ Indodax, dan menampilkan hasil simulasi sesungguhnya.
 "use client";
 
 import { useState } from "react";
-import { formatIDR } from "@/utils";
+import { formatIDR, POPULAR_PAIRS } from "@/utils";
 
 interface BacktestReport {
   title: string;
@@ -70,7 +70,6 @@ interface RunResponse {
   trades?: BacktestTradeRow[];
 }
 
-const PAIR_OPTIONS = ["btc_idr", "eth_idr", "sol_idr"];
 const TIMEFRAME_OPTIONS = [
   { value: "1h", label: "1 Jam" },
   { value: "4h", label: "4 Jam" },
@@ -96,7 +95,7 @@ function formatDate(ts: number): string {
 }
 
 export default function BacktestPage() {
-  const [pair, setPair] = useState(PAIR_OPTIONS[0]);
+  const [pair, setPair] = useState(POPULAR_PAIRS[0].pair);
   const [timeframe, setTimeframe] = useState(TIMEFRAME_OPTIONS[0].value);
   const [days, setDays] = useState(30);
   const [strategy, setStrategy] = useState(STRATEGY_OPTIONS[0].value);
@@ -164,9 +163,9 @@ export default function BacktestPage() {
               onChange={(e) => setPair(e.target.value)}
               disabled={loading}
             >
-              {PAIR_OPTIONS.map((p) => (
-                <option key={p} value={p}>
-                  {p.replace("_", "/").toUpperCase()}
+              {POPULAR_PAIRS.map((p) => (
+                <option key={p.pair} value={p.pair}>
+                  {p.name} ({p.symbol}/IDR)
                 </option>
               ))}
             </select>
