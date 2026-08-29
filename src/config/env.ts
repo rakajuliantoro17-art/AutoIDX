@@ -29,6 +29,15 @@ Perubahan dari 0.1.0:
    pengembangan ML ke depan (belum ada implementasi ML
    sungguhan di project ini per audit sesi ini), pola sama
    dengan aiEnabled/paperTrading/liveTrading yang sudah ada.
+4. FIX BUG KRITIS (audit sesi berikutnya): firebase.clientEmail/
+   privateKey SEBELUMNYA pakai required("FIREBASE_CLIENT_EMAIL")/
+   required("FIREBASE_PRIVATE_KEY") - env var itu TIDAK PERNAH
+   ADA di project ini. Nama yang benar-benar dipakai
+   services/firebase/admin.ts: FIREBASE_ADMIN_CLIENT_EMAIL,
+   FIREBASE_ADMIN_PRIVATE_KEY, FIREBASE_ADMIN_PROJECT_ID (field
+   terakhir bahkan belum ada di sini sebelumnya, ditambahkan
+   sekarang). Kalau file ini pernah di-import dari jalur reachable
+   manapun sebelum fix ini, app akan SELALU crash saat cold-start.
 
 CATATAN PENTING: file ini SENGAJA belum di-wire ke
 trading/engine.ts (hot path yang dipanggil tiap siklus cron).
@@ -177,12 +186,27 @@ export const env = {
             "NEXT_PUBLIC_FIREBASE_APP_ID"
         ),
 
+        // FIX (audit sesi ini): SEBELUMNYA pakai required("FIREBASE_
+        // CLIENT_EMAIL")/required("FIREBASE_PRIVATE_KEY") - env var
+        // itu TIDAK PERNAH ADA di project ini (cek
+        // services/firebase/admin.ts, sumber kebenaran yang genuinely
+        // dipakai). Nama yang benar: FIREBASE_ADMIN_CLIENT_EMAIL,
+        // FIREBASE_ADMIN_PRIVATE_KEY, FIREBASE_ADMIN_PROJECT_ID (yang
+        // terakhir bahkan belum ada field-nya sama sekali di sini,
+        // ditambahkan sekarang). Kalau file ini SEBELUMNYA sempat
+        // di-import dari jalur reachable manapun, app akan SELALU
+        // crash saat cold-start karena required() gagal menemukan
+        // env var yang memang tidak pernah di-set siapapun.
+        adminProjectId: required(
+            "FIREBASE_ADMIN_PROJECT_ID"
+        ),
+
         clientEmail: required(
-            "FIREBASE_CLIENT_EMAIL"
+            "FIREBASE_ADMIN_CLIENT_EMAIL"
         ),
 
         privateKey: required(
-            "FIREBASE_PRIVATE_KEY"
+            "FIREBASE_ADMIN_PRIVATE_KEY"
         ).replace(/\\n/g, "\n"),
 
     },
