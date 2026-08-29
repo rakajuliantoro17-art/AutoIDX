@@ -25,6 +25,7 @@ import { SchemaValidator } from "@/services/validation/schemaValidator";
 import type { Schema } from "@/services/validation/schema";
 import { validationManager } from "@/services/validation/validationManager";
 import { MIN_ORDER_VALUE } from "@/config/limits";
+import { ValidationError } from "@/services/errors/validationError";
 
 /**
  * Minimum transaksi Indodax adalah Rp10.000. Catatan dari
@@ -108,6 +109,20 @@ export function validateLiveOrder(
     .map((issue) => `${issue.path}: ${issue.message}`)
     .join("; ");
 
-  return { valid: false, message };
+  // ValidationError.schema() (services/errors/validationError.ts,
+  // sistem error kanonik project ini -- lihat RiskError di engine.ts
+  // untuk pola yang sama) dipakai murni untuk observability: log jadi
+  // punya struktur (nama schema, severity) yang bisa di-filter,
+  // TANPA mengubah LiveOrderValidationResult yang dikonsumsi
+  // trading/live.ts.
+  const validationError = ValidationError.schema(
+    "live.order.buy",
+    message
+  );
+
+  return {
+    valid: false,
+    message: `[${validationError.severity?.toUpperCase() ?? "VALIDATION"}] ${message}`,
+  };
 
 }
