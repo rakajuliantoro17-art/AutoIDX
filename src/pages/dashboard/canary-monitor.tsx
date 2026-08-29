@@ -16,7 +16,7 @@ otomatis memblokir BUY live baru (lihat services/trading/live.ts)
 import { useState, useEffect, useCallback } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/services/auth/AuthContext";
-import { formatIDR, formatFullDateTime } from "@/utils";
+import { formatIDR, formatFullDateTime, formatRelativeTime } from "@/utils";
 
 interface CanarySnapshot {
   status: "HEALTHY" | "WARNING" | "CRITICAL";
@@ -202,6 +202,11 @@ export default function CanaryMonitorPage() {
                     ? formatFullDateTime(new Date(snapshot.lastOrderAt).toISOString())
                     : "-"}
                 </p>
+                {snapshot.lastOrderAt && (
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {formatRelativeTime(new Date(snapshot.lastOrderAt).toISOString())}
+                  </p>
+                )}
               </div>
             </div>
 
