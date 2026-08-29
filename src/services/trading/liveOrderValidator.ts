@@ -24,6 +24,7 @@ Dipanggil dari trading/live.ts SEBELUM client.trade().
 import { SchemaValidator } from "@/services/validation/schemaValidator";
 import type { Schema } from "@/services/validation/schema";
 import { validationManager } from "@/services/validation/validationManager";
+import { MIN_ORDER_VALUE } from "@/config/limits";
 
 /**
  * Minimum transaksi Indodax adalah Rp10.000. Catatan dari
@@ -32,11 +33,14 @@ import { validationManager } from "@/services/validation/validationManager";
  * Pro" -- keduanya SAMA-SAMA valid/diproses, cuma beda jalur
  * internal (belum dipastikan apakah beda ini berlaku juga untuk
  * TAPI/private REST API, atau cuma di web/app UI konsumer).
- * Lihat catatan yang sama di config/bot.ts dan
- * services/trading/effectiveConfig.ts -- kalau berubah, update
- * di ketiga tempat itu.
+ *
+ * Diambil dari config/limits.ts (MIN_ORDER_VALUE) -- SEBELUMNYA
+ * angka ini di-hardcode ulang terpisah di sini, effectiveConfig.ts,
+ * DAN utils/constants.ts (3 tempat, gampang salah satu ketinggalan
+ * kalau diubah). effectiveConfig.ts sudah lebih dulu disambungkan
+ * ke config/limits.ts -- file ini menyusul supaya konsisten.
  */
-export const INDODAX_MIN_ORDER_IDR = 10_000;
+export const INDODAX_MIN_ORDER_IDR = MIN_ORDER_VALUE;
 
 /**
  * Format pair Indodax: huruf kecil, underscore sebelum "idr"
