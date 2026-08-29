@@ -29,7 +29,8 @@ Repository
 */
 
 export {
-  default as InMemoryRepository
+  default as InMemoryRepository,
+  FirestoreRepository
 } from "./repository";
 
 export type {
