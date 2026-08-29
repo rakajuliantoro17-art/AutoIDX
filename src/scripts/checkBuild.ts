@@ -124,9 +124,13 @@ console.log("\nChecking environment...\n");
 
 const requiredEnv = [
 
-    "INDODAX_API_KEY",
-
-    "INDODAX_SECRET_KEY",
+    // INDODAX_API_KEY/INDODAX_SECRET_KEY SENGAJA TIDAK dicek di sini --
+    // itu model kredensial tunggal lama. Sistem sekarang pakai
+    // kredensial per-akun dari Firestore (getActiveIndodaxAccount()),
+    // jadi deployment yang benar-benar terkonfigurasi dengan baik
+    // TIDAK PERLU set env var itu -- mengeceknya di sini cuma akan
+    // memunculkan warning palsu yang membingungkan operator.
+    "CRON_SECRET",
 
     "NEXT_PUBLIC_FIREBASE_API_KEY",
 
@@ -173,4 +177,3 @@ console.log("BUILD CHECK PASSED");
 console.log("====================================");
 
 process.exit(0);
-
