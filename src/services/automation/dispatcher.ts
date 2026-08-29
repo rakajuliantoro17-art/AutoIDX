@@ -2,19 +2,46 @@
 ==========================================================
 AURA Trade OS
 Automation Dispatcher
-Version : 0.0.8 Alpha
+Version : 0.1.0 Alpha
+==========================================================
+UPDATE (integrasi api/webhook -- sebelumnya orphan total, tidak
+diimpor dari mana pun): dipakai sebagai lapisan dispatch dari
+webhook eksternal (TradingView/Telegram/Discord/dst, lihat
+api/webhook/service.ts) ke aksi nyata di sistem.
+
+Perubahan:
+- SCAN_MARKET sekarang panggil runScanCycle() (scan + kalibrasi +
+  trading engine LENGKAP, jalur sama persis dengan cron), BUKAN
+  cuma marketScanner.scanMarket() (yang cuma scan tanpa eksekusi
+  apa pun). Alasan aman: runScanCycle() -> executeCron() tetap
+  melewati SEMUA risk gate yang sudah ada (emergency stop, max
+  open position, daily loss limit, cooldown, exposure) -- memicu
+  siklus ini lebih awal dari jadwal TIDAK melewati satu pun
+  proteksi itu.
+- RUN_CRON/RUN_ENGINE ikut disatukan ke runScanCycle() (sebelumnya
+  RUN_CRON manggil executeCron() TANPA candidatePairs dari scan,
+  jadi cuma memproses posisi terbuka + watchlist manual, tidak
+  dapat manfaat penuh dari scan seluruh market).
+- TAMBAH job type baru: PAUSE_TRADING & RESUME_TRADING -- toggle
+  emergencyStop lewat botControl.ts. SENGAJA TIDAK ADA job type
+  "BUY"/"SELL" langsung -- webhook eksternal TIDAK BOLEH memicu
+  order secara langsung (bypass scan/strategy/risk-gate), cuma
+  boleh memicu siklus yang SUDAH melewati semua proteksi itu, atau
+  membuat sistem LEBIH konservatif (pause), tidak pernah sebaliknya.
 ==========================================================
 */
 
-import marketScanner from "../scanner";
-import { executeCron } from "../scheduler/cron";
+import { runScanCycle } from "../scheduler/scanCycle";
 import { recordLog } from "../firebase/logService";
+import { updateBotControl } from "../firebase/botControl";
 
 export type DispatchJobType =
   | "SCAN_MARKET"
   | "RUN_ENGINE"
   | "RUN_CRON"
-  | "HEALTH_CHECK";
+  | "HEALTH_CHECK"
+  | "PAUSE_TRADING"
+  | "RESUME_TRADING";
 
 export interface DispatchJob {
 
@@ -65,37 +92,60 @@ export class AutomationDispatcher {
 
       switch (job.type) {
 
-        case "SCAN_MARKET": {
-
-          const pairs =
-            (job.payload?.pairs as string[]) ??
-            undefined;
-
-          result =
-            await marketScanner.scanMarket(
-              pairs
-            );
-
-          break;
-
-        }
-
-        case "RUN_ENGINE": {
-          // Catatan: TradingEngine butuh input (pair/price/rsi/ema),
-          // dan executeCron() sudah mengorkestrasi pengambilan data
-          // itu + panggil TradingEngine. Job ini alias ke situ
-          // sampai ada kebutuhan spesifik yang berbeda dari RUN_CRON.
-          result =
-            await executeCron();
-
-          break;
-
-        }
-
+        case "SCAN_MARKET":
+        case "RUN_ENGINE":
         case "RUN_CRON": {
 
-          result =
-            await executeCron();
+          // Ketiga tipe job ini sekarang alias ke siklus yang sama
+          // (scan seluruh market -> kalibrasi -> trading engine
+          // dengan risk gate penuh). Dipertahankan sebagai 3 nama
+          // job berbeda supaya pemanggil lama (kalau ada) tetap
+          // valid, bukan karena perilakunya benar-benar berbeda.
+          result = await runScanCycle();
+
+          break;
+
+        }
+
+        case "PAUSE_TRADING": {
+
+          const triggeredBy =
+            (job.payload?.triggeredBy as string) ?? "unknown";
+
+          const control = await updateBotControl(
+            { emergencyStop: true },
+            triggeredBy
+          );
+
+          await recordLog(
+            "RISK",
+            "warning",
+            `[Dispatcher] Emergency stop DIAKTIFKAN lewat ${triggeredBy} -- BUY baru diblokir, posisi terbuka tetap bisa SELL.`
+          );
+
+          result = control;
+
+          break;
+
+        }
+
+        case "RESUME_TRADING": {
+
+          const triggeredBy =
+            (job.payload?.triggeredBy as string) ?? "unknown";
+
+          const control = await updateBotControl(
+            { emergencyStop: false },
+            triggeredBy
+          );
+
+          await recordLog(
+            "RISK",
+            "warning",
+            `[Dispatcher] Emergency stop DIMATIKAN lewat ${triggeredBy} -- BUY baru diizinkan lagi.`
+          );
+
+          result = control;
 
           break;
 
@@ -108,8 +158,6 @@ export class AutomationDispatcher {
             status: "OK",
 
             timestamp: new Date().toISOString(),
-
-            uptime: process.uptime(),
 
           };
 
