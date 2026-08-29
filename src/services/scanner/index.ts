@@ -27,6 +27,7 @@ import indodaxMarketService from "../indodax/market";
 import {
   analyzeTechnicalIndicators,
 } from "../indicators";
+import { isValidSeries } from "../indicators/utils";
 
 import {
   calculateOpportunityScore,
@@ -236,6 +237,20 @@ export class MarketScanner {
         );
 
         if (prices.length < 25) {
+          return;
+        }
+
+        // Integrasi indicators/utils.ts (sebelumnya orphan): pastikan
+        // seluruh price series adalah angka valid (finite, >= 0)
+        // SEBELUM dipakai hitung RSI/EMA. Sebelumnya cuma dicek
+        // panjangnya -- kalau Indodax pernah mengembalikan data
+        // korup (NaN/negatif di satu titik), itu akan diam-diam ikut
+        // dihitung dan menghasilkan opportunityScore yang salah tanpa
+        // ada yang sadar.
+        if (!isValidSeries(prices)) {
+          console.error(
+            `[SCANNER] Price series tidak valid untuk ${ticker.pair}, dilewati.`
+          );
           return;
         }
 
