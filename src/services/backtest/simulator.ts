@@ -507,17 +507,45 @@ export class BacktestSimulator {
 
 
 
+    /**
+     * Berapa persen initialCapital yang dibelanjakan per order.
+     *
+     * SEBELUMNYA: hardcode 0.95 (buffer tetap 5%) -- gagal untuk
+     * modal kecil (mis. Rp10.000) begitu fee sungguhan + sedikit
+     * slippage eksekusi menggerus buffer itu, error "Insufficient
+     * balance" generic tanpa angka jelas.
+     *
+     * SEKARANG: dinamis dari this.config.feeRate (nilai form yang
+     * SESUNGGUHNYA dipakai VirtualPortfolio.buy() untuk hitung fee),
+     * plus buffer keamanan tetap kecil untuk slippage eksekusi.
+     * BUFFER_MIN memastikan tidak pernah mendekati 100% walau
+     * feeRate di-set 0 oleh user.
+     */
+    private static readonly SLIPPAGE_SAFETY_BUFFER = 0.01;
+
+    private static readonly BUFFER_MIN = 0.02;
+
     private calculateAmount(
 
         price:number
 
     ){
 
+        const safetyMargin =
+            Math.max(
+                this.config.feeRate +
+                BacktestSimulator.SLIPPAGE_SAFETY_BUFFER,
+                BacktestSimulator.BUFFER_MIN
+            );
+
+        const spendableFraction =
+            1 - safetyMargin;
+
         return (
 
             this.config.initialCapital *
 
-            0.95
+            spendableFraction
 
         )
 
