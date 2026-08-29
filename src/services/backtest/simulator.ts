@@ -508,12 +508,26 @@ export class BacktestSimulator {
 
 
     /**
-     * Berapa persen initialCapital yang dibelanjakan per order.
+     * Berapa persen SALDO KAS SAAT INI yang dibelanjakan per order.
      *
-     * SEBELUMNYA: hardcode 0.95 (buffer tetap 5%) -- gagal untuk
-     * modal kecil (mis. Rp10.000) begitu fee sungguhan + sedikit
-     * slippage eksekusi menggerus buffer itu, error "Insufficient
-     * balance" generic tanpa angka jelas.
+     * BUG SEBELUMNYA (ditemukan dari laporan user): dasar perhitungan
+     * pakai `this.config.initialCapital` (modal awal statis) alih-alih
+     * saldo kas yang SESUNGGUHNYA tersedia sekarang. Untuk trade
+     * PERTAMA keduanya sama, tapi trade KEDUA dst -- setelah kas
+     * berkurang oleh fee/rugi trade sebelumnya -- ukuran order tetap
+     * dihitung seolah modal awal masih penuh, jadi `totalCost` bisa
+     * melebihi kas yang tersisa (order mencoba belanja lebih dari
+     * yang benar-benar dipunya). Trace nyata dari user: modal habis
+     * ke Rp14.638 tapi order berikutnya minta Rp14.759 -- dihitung
+     * dari initialCapital, bukan dari sisa kas Rp14.638 itu.
+     *
+     * SEKARANG: dasar perhitungan `this.portfolio.getBalance().cash`
+     * (saldo kas real-time), bukan initialCapital.
+     *
+     * SEBELUMNYA (sesi lalu): hardcode 0.95 (buffer tetap 5%) --
+     * gagal untuk modal kecil begitu fee sungguhan + sedikit slippage
+     * eksekusi menggerus buffer itu, error "Insufficient balance"
+     * generic tanpa angka jelas.
      *
      * SEKARANG: dinamis dari this.config.feeRate (nilai form yang
      * SESUNGGUHNYA dipakai VirtualPortfolio.buy() untuk hitung fee),
@@ -541,9 +555,12 @@ export class BacktestSimulator {
         const spendableFraction =
             1 - safetyMargin;
 
+        const availableCash =
+            this.portfolio.getBalance().cash;
+
         return (
 
-            this.config.initialCapital *
+            availableCash *
 
             spendableFraction
 
