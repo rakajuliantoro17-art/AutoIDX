@@ -32,6 +32,26 @@ import {
   OHLC,
 } from "@/services/indicators";
 import modelPredictor from "@/services/ml/models/predictor";
+import { FirestoreRepository, RepositoryRecord } from "@/services/ml/storage/repository";
+
+/**
+ * Riwayat prediksi -- dicatat SETIAP kali endpoint ini dipanggil,
+ * supaya bisa dievaluasi belakangan: apakah label yang diprediksi
+ * model (BUY/SELL/HOLD) benar-benar cocok dengan pergerakan harga
+ * yang SUNGGUHAN terjadi setelahnya. Ini murni observasional --
+ * TIDAK mempengaruhi respons endpoint atau keputusan apa pun.
+ */
+interface PredictionLogEntry {
+  pair: string;
+  price: number;
+  candleTime: string;
+  label: string;
+  confidence: number;
+  modelId: string;
+  modelValidationAccuracy: number;
+}
+
+const predictionLog = new FirestoreRepository<PredictionLogEntry>("ml_predictions");
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
@@ -85,6 +105,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     };
 
     const prediction = await modelPredictor.predict({ features });
+
+    // Catat riwayat -- best-effort (tidak boleh menggagalkan respons
+    // endpoint kalau gagal, murni observasional).
+    const logEntry: RepositoryRecord<PredictionLogEntry> = {
+      id: `${pair}_${Date.now()}`,
+      data: {
+        pair,
+        price: last.close,
+        candleTime: new Date(last.time * 1000).toISOString(),
+        label: prediction.label,
+        confidence: prediction.confidence,
+        modelId: prediction.modelId,
+        modelValidationAccuracy: prediction.modelValidationAccuracy,
+      },
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    predictionLog.save(logEntry).catch((logError) => {
+      console.error("[ML Predict API] Gagal mencatat riwayat prediksi:", logError);
+    });
 
     return res.status(200).json({
       pair,
