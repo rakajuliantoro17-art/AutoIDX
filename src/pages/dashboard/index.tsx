@@ -26,24 +26,11 @@ menampilkannya sama sekali.
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { formatIDR } from "@/utils";
 import { REFRESH_INTERVALS } from "@/utils/constants";
 import DashboardLayout from "@/layouts/DashboardLayout";
-import StatusCard from "@/components/StatusCard";
-import RiskBadge from "@/components/RiskBadge";
-import PriceChart from "@/components/PriceChart";
-import ActivityLogs from "@/components/ActivityLogs";
+import DashboardOverview, { type DashboardOverviewData } from "@/components/DashboardOverview";
+import type { ActivityLog } from "@/components/RecentActivity";
 import { useAuth } from "@/services/auth/AuthContext";
-
-interface DashboardData {
-  price: number;
-  signal: "BUY" | "SELL" | "HOLD";
-  position: string;
-  stopLoss: number;
-  takeProfit: number;
-  loading: boolean;
-  error: string | null;
-}
 
 interface LogItem {
   id: string;
@@ -59,11 +46,32 @@ function formatClock(iso: string | null): string {
   return new Date(iso).toLocaleTimeString("id-ID", { hour12: false });
 }
 
+/**
+ * LogItem (bentuk lama, dipakai loadLogs di bawah) -> ActivityLog
+ * (bentuk yang diminta DashboardOverview/RecentActivity/ActivityView).
+ * Konversi murni di sini, TIDAK fetch ulang apapun.
+ */
+function toActivityLog(log: LogItem): ActivityLog {
+  return {
+    id: log.id,
+    time: log.timestamp,
+    message: log.message,
+    level:
+      log.type === "success"
+        ? "SUCCESS"
+        : log.type === "warning"
+          ? "WARNING"
+          : log.type === "danger"
+            ? "ERROR"
+            : "INFO",
+  };
+}
+
 export default function DashboardPage() {
 
   const { user } = useAuth();
 
-  const [data, setData] = useState<DashboardData>({
+  const [data, setData] = useState<DashboardOverviewData & { error: string | null }>({
     price: 0,
     signal: "HOLD",
     position: "OUT OF POSITION",
@@ -168,47 +176,17 @@ export default function DashboardPage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold">Bot Executive Overview</h1>
-            <p className="text-xs text-slate-400">Serverless Trading Monitoring</p>
-          </div>
-          <RiskBadge signal={data.signal} />
+      {data.error && (
+        <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-md px-3 py-2 mb-4">
+          {data.error} — menampilkan nilai default sementara.
         </div>
-
-        {/* Error banner (tampil kalau fetch gagal, tidak menutupi seluruh dashboard) */}
-        {data.error && (
-          <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-md px-3 py-2">
-            {data.error} — menampilkan nilai default sementara.
-          </div>
-        )}
-
-        {/* Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <StatusCard
-            title="BTC/IDR Price"
-            value={data.loading ? "..." : formatIDR(data.price ?? 0)}
-            subtext="bot_state (siklus terakhir)"
-            loading={data.loading}
-          />
-          <StatusCard title="Position" value={data.position} />
-          <StatusCard
-            title="Risk"
-            value={`${data.stopLoss}% / ${data.takeProfit}%`}
-            subtext="SL / TP"
-          />
-        </div>
-
-        {/* Main Area */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <PriceChart pair="btc_idr" />
-          </div>
-          <ActivityLogs logs={logs} />
-        </div>
-      </div>
+      )}
+      <DashboardOverview
+        data={data}
+        logs={logs.map(toActivityLog)}
+        logsLoading={data.loading}
+        pair="btc_idr"
+      />
     </DashboardLayout>
   );
 }
