@@ -1,10 +1,15 @@
+import { MIN_ORDER_VALUE } from '@/config/limits';
+
 export const APP_CONSTANTS = {
   APP_NAME: 'AutoIDX Bot',
   VERSION: '1.0.0',
   DEFAULT_PAIR: 'btc_idr',
   DEFAULT_SL_PERCENT: 2.0,
   DEFAULT_TP_PERCENT: 4.0,
-  MIN_INDODAX_ORDER_IDR: 10000, // Minimal pembelian di Indodax Rp 10.000
+  // Diambil dari config/limits.ts -- sebelumnya hardcode 10000
+  // terpisah di sini, sekarang satu sumber dengan
+  // liveOrderValidator.ts & effectiveConfig.ts.
+  MIN_INDODAX_ORDER_IDR: MIN_ORDER_VALUE,
 };
 
 export const POPULAR_PAIRS = [
