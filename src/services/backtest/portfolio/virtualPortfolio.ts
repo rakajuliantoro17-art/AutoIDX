@@ -188,10 +188,16 @@ export class VirtualPortfolio {
 
         ){
 
+            // Pesan diperjelas (sebelumnya generic "Insufficient
+            // balance" tanpa angka) -- termasuk figur asli supaya
+            // kelihatan jelas apakah ini modal awal yang kurang
+            // (mis. Rp10.000 untuk harga BTC ~Rp1 miliar/koin) atau
+            // memang bug sizing, tanpa perlu tambah logging terpisah.
             throw new Error(
-
-                "Insufficient balance"
-
+                `Insufficient balance: butuh Rp${Math.round(totalCost).toLocaleString("id-ID")} ` +
+                `(harga ${price.toLocaleString("id-ID")} x jumlah ${amount} + fee ${(this.feeRate * 100).toFixed(2)}%), ` +
+                `tersisa Rp${Math.round(this.cash).toLocaleString("id-ID")}. ` +
+                `Coba naikkan Modal Awal (initialCapital).`
             );
 
         }
