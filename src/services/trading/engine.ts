@@ -801,7 +801,29 @@ export class TradingEngine {
 
           } else {
 
-            await logAIAdvisory(input.pair, input.price, input.features, input.candles);
+            // FIRE-AND-FORGET (sengaja TIDAK di-await). logAIAdvisory
+            // sudah 100% advisory-only & fail-safe -- tidak ada kode
+            // setelah ini yang bergantung pada hasilnya.
+            //
+            // CATATAN JUJUR soal batasan di Vercel serverless: berbeda
+            // dari server yang hidup terus, function di sini BISA
+            // dibekukan begitu response HTTP utama terkirim -- promise
+            // ini TIDAK DIJAMIN selalu selesai sampai tuntas kalau ini
+            // pair TERAKHIR yang diproses dalam satu siklus cron. Ini
+            // trade-off yang disengaja: siklus cron yang RELIABLE
+            // selesai dalam budget waktu (termasuk SELL/stop-loss
+            // pair lain yang sedang open position) jauh lebih penting
+            // daripada AI Advisory (fitur observasional) yang kadang
+            // terpotong. Sebelumnya di-await penuh (sampai
+            // AI_CALL_TIMEOUT_MS ~20 detik PER PAIR) yang justru
+            // berkontribusi ke TIMEOUT SELURUH SIKLUS cron (lebih
+            // buruk -- bukan cuma AI Advisory yang gagal, SEMUA pair
+            // termasuk stop-loss/take-profit ikut tidak diproses).
+            void logAIAdvisory(input.pair, input.price, input.features, input.candles).catch(
+              (error) => {
+                console.error("[AI Advisory] Unhandled error (non-fatal)", error);
+              }
+            );
 
           }
 
