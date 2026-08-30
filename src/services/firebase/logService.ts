@@ -174,6 +174,35 @@ return null;
  * Record bot activity
  */
 
+/**
+ * FIX (timeout cron konsisten ~30s): recordLog() dipanggil di 93
+ * tempat di seluruh codebase, MINIMAL 3-4x per pair per siklus
+ * cron (cron start, hasil trading engine, confidence info, plus
+ * lebih banyak lagi kalau sinyalnya BUY -- sanity check 1, sanity
+ * check 2, config clamp, SL/TP, dst di engine.ts). SEBELUMNYA
+ * setiap panggilan di-`await` PENUH sampai Firestore write
+ * selesai -- dengan PAIR_CONCURRENCY=5 tapi tiap pair sendiri
+ * memproses SEKUENSIAL (bukan cuma network call, tapi banyak
+ * `await recordLog` berantai), ini kemungkinan kontributor besar
+ * ke total durasi, di luar 2 bug lain yang sudah diperbaiki
+ * (logAIAdvisory fire-and-forget, aiCalibration batched).
+ *
+ * Sekarang write ke Firestore TIDAK di-await di dalam sini --
+ * cuma "ditembak" (fire-and-forget) dan errornya ditangani lewat
+ * .catch() terpisah. Fungsi ini TETAP `async`/return Promise<void>
+ * supaya SEMUA 93 titik pakai `await recordLog(...)` yang sudah
+ * ada TETAP VALID (await atas promise yang sudah resolve itu
+ * instan, tidak error) -- TIDAK PERLU mengubah satu pun dari 93
+ * tempat itu.
+ *
+ * Trade-off yang SADAR diambil (sama seperti automationNotifier
+ * & logAIAdvisory yang lebih dulu diperbaiki dengan pola ini):
+ * kalau function keburu dibekukan/selesai SEBELUM write ini
+ * benar-benar sampai ke Firestore, log itu bisa hilang. Ini
+ * DITERIMA -- kehilangan satu baris log activity jauh lebih murah
+ * daripada SELURUH siklus scan+trading timeout (yang berarti
+ * stop-loss/take-profit juga tidak sempat dicek sama sekali).
+ */
 export async function recordLog(
 
 source:ActivityLog["source"],
@@ -184,9 +213,7 @@ message:string
 
 ):Promise<void>{
 
-try{
-
-await adminDb.collection(LOGS_COLLECTION).add(
+adminDb.collection(LOGS_COLLECTION).add(
 
 {
 
@@ -202,11 +229,7 @@ FieldValue.serverTimestamp()
 
 }
 
-);
-
-}
-
-catch(error){
+).catch((error) => {
 
 console.error(
 
@@ -216,7 +239,7 @@ error
 
 );
 
-}
+});
 
 }
 
