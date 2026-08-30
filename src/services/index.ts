@@ -21,7 +21,11 @@ export * from "./audit/auditLogger";
 export * from "./audit/auditRepository";
 export * from "./audit/auditSerializer";
 
-export * from "./recovery/recoveryState";
+// CATATAN: recovery/recoveryState.ts masih tidak ada (file
+// terhapus, belum dibuat ulang -- beda dari recoveryManager.ts
+// yang sudah di-stub ulang di bawah). Kalau modul recoveryState
+// genuinely dibutuhkan nanti, buat dulu filenya sebelum baris
+// export ini dikembalikan.
 export * from "./recovery/recoveryManager";
 
 export * from "./runtime/health";
