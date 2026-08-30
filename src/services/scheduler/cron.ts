@@ -59,6 +59,44 @@ const EMA_SLOW_PERIOD = 21;
  */
 const MIN_CANDLES_FOR_FEATURES = 30;
 
+/**
+ * Berapa banyak pair diproses BERSAMAAN dalam satu siklus cron.
+ * Sebelumnya sekuensial (satu-satu) -- untuk full-market scan
+ * dengan puluhan pair kandidat + open position, itu gampang
+ * melebihi timeout 30 detik cron-job.org/GitHub Actions walau
+ * Vercel sendiri diberi budget 60 detik (lihat maxDuration di
+ * scan.ts). Paralel dengan batas ini mengurangi wall-clock time
+ * drastis tanpa membanjiri rate limiter Indodax (yang sudah
+ * melindungi semua panggilan publik/private secara terpisah).
+ */
+const PAIR_CONCURRENCY = 5;
+
+/**
+ * Menjalankan `worker` untuk tiap item di `items`, maksimal `limit`
+ * proses berjalan bersamaan. Pola sama seperti scanner/index.ts.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+
+  async function run() {
+    while (cursor < items.length) {
+      const currentIndex = cursor;
+      cursor += 1;
+      results[currentIndex] = await worker(items[currentIndex]);
+    }
+  }
+
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: workerCount }, run));
+
+  return results;
+}
+
 export interface CronPairResult {
   pair: string;
   success: boolean;
@@ -269,12 +307,7 @@ export async function executeCron(
     );
   }
 
-  const results: CronPairResult[] = [];
-
-  for (const pair of pairs) {
-    const result = await processPair(pair);
-    results.push(result);
-  }
+  const results = await mapWithConcurrency(pairs, PAIR_CONCURRENCY, processPair);
 
   const finished = Date.now();
 
