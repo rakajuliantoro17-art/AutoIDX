@@ -18,6 +18,53 @@ import crypto from "crypto";
 
 import type { ExchangeResponse } from "../types";
 
+/**
+ * fetch() TIDAK PUNYA timeout bawaan -- kalau Indodax hang/sangat
+ * lambat, request bisa menggantung nyaris tanpa batas (jauh
+ * melebihi timeout cron-job.org/GitHub Actions 30 detik, bahkan
+ * bisa menahan seluruh function sampai Vercel paksa matikan).
+ * Helper ini membatasi setiap request individual dengan
+ * AbortController, supaya kegagalan Indodax gagal CEPAT dan jelas
+ * (masuk ke catch block yang sudah ada di publicRequest/
+ * privateRequest sebagai error biasa -- certainty: "UNCERTAIN"
+ * untuk privateRequest, konsisten dengan penanganan error network
+ * lain yang sudah ada).
+ */
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS,
+): Promise<Response> {
+
+  const controller = new AbortController();
+
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+
+  } catch (error) {
+
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(`Indodax request timed out after ${timeoutMs}ms: ${url}`);
+    }
+
+    throw error;
+
+  } finally {
+
+    clearTimeout(timeout);
+
+  }
+
+}
+
 export interface IndodaxBalance {
   [asset: string]: string;
 }
@@ -100,7 +147,7 @@ export class IndodaxClient {
 
     try {
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `https://indodax.com/api/${endpoint}`
       );
 
@@ -160,7 +207,7 @@ export class IndodaxClient {
         .update(body)
         .digest("hex");
 
-      const response = await fetch(this.baseURL, {
+      const response = await fetchWithTimeout(this.baseURL, {
         method: "POST",
         headers: {
           Key: this.apiKey,
