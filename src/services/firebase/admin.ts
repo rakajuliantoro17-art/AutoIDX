@@ -66,6 +66,21 @@ function lazy<T extends object>(factory: () => T): T {
     get(_target, prop, _receiver) {
       if (!instance) {
         instance = factory();
+
+        // Firestore MENOLAK field bernilai `undefined` secara default
+        // (beda dari field yang memang tidak ada) -- sudah dua kali
+        // ini bikin request 500 secara diam-diam (reconcile.ts:
+        // `symbol: mismatch.type !== "BALANCE" ? mismatch.key :
+        // undefined`, engine.ts: `code: handled.code` yang memang
+        // opsional). Daripada tambal tiap titik satu-satu (rawan
+        // kelewat di tempat lain), matikan pengecekan ini secara
+        // GLOBAL di sini -- field yang nilainya undefined otomatis
+        // dianggap "tidak ada", bukan error. Cara pakai .set()/.add()
+        // di semua 11+ pemanggil TIDAK PERLU DIUBAH.
+        if (instance instanceof Firestore) {
+          instance.settings({ ignoreUndefinedProperties: true });
+        }
+
       }
       const value = (instance as any)[prop];
       return typeof value === "function" ? value.bind(instance) : value;
