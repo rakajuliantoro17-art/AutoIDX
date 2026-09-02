@@ -9,6 +9,7 @@ Market Validation Helpers
 */
 
 import { ValidationError } from "@/errors";
+import { PairValidator } from "@/lib/validators/pair";
 
 
 
@@ -49,7 +50,15 @@ export function validateTradingPair(
     pair: string
 ): string {
 
-    const value = pair.trim().toLowerCase();
+    // PairValidator.normalize() (lib/validators/pair.ts) -- CUMA
+    // format string, TIDAK ada whitelist (beda dari
+    // PairValidator.validate()/isSupported() yang sengaja TIDAK
+    // dipakai di sini, lihat api/settings/validate.ts, karena
+    // whitelist 10 pair itu konflik dengan scanner full-market).
+    // Menerima "BTC-IDR"/"btcidr" dan mengubahnya ke "btc_idr",
+    // bukan cuma toLowerCase() polos yang menolak format apa pun
+    // selain underscore persis.
+    const value = PairValidator.normalize(pair);
 
     const regex = /^[a-z0-9]+_[a-z0-9]+$/;
 
