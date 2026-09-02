@@ -501,12 +501,48 @@ async function logAIAdvisory(
 
 }
 
+/**
+ * Cache 30 detik untuk hasil getRiskGatePortfolio() mode LIVE.
+ *
+ * BUG FIX (kontributor timeout cron/scan.ts): fungsi ini
+ * dipanggil TANPA SYARAT di awal setiap run() -- dan run()
+ * dipanggil SEKALI PER PAIR oleh cron.ts. Dengan ~15-20 pair per
+ * siklus (full-market scan + open position + watchlist), itu
+ * artinya client.getInfo() (API PRIVAT Indodax, perlu HMAC
+ * signing, lebih lambat dari endpoint publik) terpanggil 15-20x
+ * per siklus untuk DATA YANG SAMA PERSIS (saldo akun tidak
+ * berubah dalam hitungan detik antar pair). Redundansi ini
+ * kemungkinan kontributor signifikan ke timeout maxDuration:60
+ * yang terkonfirmasi terjadi di production.
+ *
+ * Cache 30 detik: cukup untuk menaungi satu siklus cron penuh
+ * (durasi umum jauh di bawah itu bahkan dengan concurrency),
+ * TAPI otomatis basi jauh sebelum siklus BERIKUTNYA (jarak antar
+ * siklus cron/GitHub Actions >= beberapa menit) -- tidak berisiko
+ * menyajikan saldo basi lintas siklus, cuma menghindari panggilan
+ * ulang REDUNDAN dalam satu siklus yang sama. Aman dari masalah
+ * "warm container reuse" Vercel karena TTL jauh lebih pendek dari
+ * jarak antar invocation cron manapun.
+ */
+let cachedLivePortfolio:
+  | { value: { startingBalance: number; availableBalance: number; equityIdr: number }; fetchedAt: number }
+  | null = null;
+
+const LIVE_PORTFOLIO_CACHE_TTL_MS = 30_000;
+
 async function getRiskGatePortfolio(
   liveActive: boolean
 ): Promise<{ startingBalance: number; availableBalance: number; equityIdr: number }> {
 
   if (!liveActive) {
     return getPaperPortfolio(BOT_CONFIG.startingBalance);
+  }
+
+  if (
+    cachedLivePortfolio &&
+    Date.now() - cachedLivePortfolio.fetchedAt < LIVE_PORTFOLIO_CACHE_TTL_MS
+  ) {
+    return cachedLivePortfolio.value;
   }
 
   try {
@@ -521,11 +557,17 @@ async function getRiskGatePortfolio(
         "Mode live: tidak ada akun Indodax aktif -- saldo dianggap 0 (fail-safe, BUY akan diblokir)."
       );
 
-      return {
+      const result = {
         startingBalance: BOT_CONFIG.startingBalance,
         availableBalance: 0,
         equityIdr: 0,
       };
+
+      // TIDAK di-cache -- kegagalan konfigurasi (akun tidak ada)
+      // sebaiknya dicek ulang tiap pair, bukan dianggap valid 30
+      // detik, supaya kalau akun baru diaktifkan di tengah siklus
+      // langsung terdeteksi pair berikutnya.
+      return result;
 
     }
 
@@ -544,6 +586,9 @@ async function getRiskGatePortfolio(
         `Mode live: gagal ambil saldo Indodax asli (${info.message}) -- saldo dianggap 0 (fail-safe, BUY akan diblokir).`
       );
 
+      // TIDAK di-cache juga -- sama alasannya, error transient
+      // (network blip) sebaiknya dicoba ulang pair berikutnya,
+      // bukan mengunci semua pair sisanya di siklus ini ke 0.
       return {
         startingBalance: BOT_CONFIG.startingBalance,
         availableBalance: 0,
@@ -554,11 +599,15 @@ async function getRiskGatePortfolio(
 
     const idrBalance = Number(info.data.balance?.idr ?? 0);
 
-    return {
+    const result = {
       startingBalance: BOT_CONFIG.startingBalance,
       availableBalance: idrBalance,
       equityIdr: idrBalance,
     };
+
+    cachedLivePortfolio = { value: result, fetchedAt: Date.now() };
+
+    return result;
 
   } catch (error) {
 
