@@ -316,12 +316,17 @@ function checkRuleScoreContradiction(
  * function SEBELUM recordHeartbeat() di akhir siklus sempat
  * jalan, bikin cronHeartbeat.ts mendeteksi status DEAD walau
  * sebenarnya bukan scan.ts yang "berhenti", cuma kehabisan waktu
- * nunggu AI yang hasilnya toh tidak dipakai. Diturunkan ke 6
- * detik -- cukup untuk provider yang responsif, tidak
- * mempertaruhkan budget waktu cron untuk fitur yang murni
- * informational.
+ * nunggu AI yang hasilnya toh tidak dipakai.
+ *
+ * Diturunkan LAGI dari 6 detik ke 4 detik: trigger UTAMA sekarang
+ * cron-job.org, yang punya batas keras request timeout 30 DETIK
+ * (tidak bisa dinaikkan lewat pengaturan mereka -- jauh lebih
+ * ketat dari maxDuration:60 Vercel yang jadi acuan sebelumnya).
+ * Lihat juga MAX_CANDIDATE_PAIRS_PER_CYCLE di
+ * services/scheduler/scanCycle.ts (diturunkan 15->8 bersamaan)
+ * untuk penjelasan lengkap perhitungan budget waktunya.
  */
-const AI_CALL_TIMEOUT_MS = 6_000;
+const AI_CALL_TIMEOUT_MS = 4_000;
 
 interface AIProviderCandidate {
   name: string;
