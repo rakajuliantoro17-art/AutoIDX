@@ -13,11 +13,12 @@ padahal bot scan & bisa BUY pair manapun (services/scanner/).
 import type { NextApiRequest, NextApiResponse } from "next";
 import { adminAuth } from "@/services/firebase/admin";
 import { getAllTrackedPairs } from "@/services/firebase/botState";
+import { TRADING_CONFIG } from "@/config/trading";
 
-// Sama dengan FALLBACK_PAIRS di services/scanner/index.ts --
-// dipakai kalau bot_state masih kosong total (instalasi baru,
-// belum pernah ada siklus scan sama sekali).
-const FALLBACK_PAIRS = ["btc_idr", "eth_idr", "sol_idr", "ada_idr", "xrp_idr"];
+// Sinkron dengan default watchlist di config/trading.ts -- dipakai
+// kalau bot_state masih kosong total (instalasi baru, belum pernah
+// ada siklus scan/cron sama sekali).
+const FALLBACK_PAIRS = TRADING_CONFIG.pairs;
 
 async function getUidFromRequest(
   req: NextApiRequest
