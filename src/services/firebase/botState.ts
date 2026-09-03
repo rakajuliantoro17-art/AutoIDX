@@ -97,19 +97,6 @@ stopLossPrice:number;
 
 takeProfitPrice:number;
 
-/**
- * Nama strategi (AURA_TREND/EMA_CROSSOVER/MOMENTUM) yang
- * menghasilkan sinyal BUY untuk posisi yang SEDANG terbuka ini -
- * disimpan di sini karena nama strategi cuma diketahui saat BUY,
- * sedangkan profit baru terealisasi saat SELL (siklus/invocation
- * yang beda). Dipakai untuk atribusi profit->strategi di
- * services/analytics/strategyAnalytics.ts (sebelumnya tidak
- * mungkin dilakukan secara andal). "" berarti tidak sedang posisi
- * atau posisi lama dari sebelum field ini ada.
- */
-
-strategyAtEntry?:string;
-
 
 
 lastSignal:
@@ -451,6 +438,39 @@ export async function getOpenPositionPairs(): Promise<string[]> {
     // (Beda dengan getOpenPositionsCount yang fail-safe ke angka
     // besar -- di sini kita tidak tahu PAIR mana yang open, jadi
     // tidak ada yang aman untuk "ditebak".)
+    return [];
+
+  }
+
+}
+
+/**
+ * Daftar SEMUA pair yang punya bot_state tersimpan (pernah
+ * disentuh bot minimal 1 siklus, TERLEPAS posisinya sedang
+ * terbuka atau tidak) -- dipakai dashboard untuk mengisi
+ * pilihan pair yang bisa ditampilkan (Overview sebelumnya
+ * hardcode "btc_idr" saja, padahal bot sudah scan & bisa BUY
+ * pair manapun lewat scanner/index.ts).
+ */
+export async function getAllTrackedPairs(): Promise<string[]> {
+
+  try {
+
+    const snapshot = await adminDb
+      .collection(STATE_COLLECTION)
+      .get();
+
+    return snapshot.docs.map((doc) => doc.id);
+
+  } catch (error) {
+
+    console.error(
+      "[BOT STATE ALL TRACKED PAIRS ERROR]",
+      error
+    );
+
+    // Fail-safe: array kosong -- pemanggil (dashboard) sudah
+    // punya fallback daftar pair statis untuk kasus ini.
     return [];
 
   }
