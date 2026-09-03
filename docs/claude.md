@@ -933,3 +933,15 @@ Temuan sampingan (BELUM ditindaklanjuti, di luar scope pertanyaan user)
 Belum ditegakkan / catatan jujur
 `PriceChart.tsx` masih placeholder statis ("Coming Soon", badge "LIVE" menyesatkan) - lihat diskusi sebelumnya di percakapan ini, BELUM diperbaiki sesi ini (pertanyaan user fokus ke pair selector, bukan grafiknya).
 BELUM diverifikasi via build asli - sandbox tanpa akses internet. WAJIB `npm run build`/cek log Vercel sebelum deploy.
+`strategyAnalytics.ts` (disebut di komentar live.ts terkait field `strategy`) BELUM diaudit sesi ini - FYI untuk audit berikutnya.
+---
+Session Log 21 — 10 Pair Watchlist Default (BOT_PAIRS)
+User minta 10 pair rekomendasi (5 low risk, 3 medium risk, 2 high risk/altcoin) dimasukkan LANGSUNG ke kode, bukan cuma disarankan lewat env var Vercel manual. Semua 10 pair diverifikasi via web search benar-benar terdaftar di Indodax (termasuk PEPE - dicek langsung indodax.com/market/PEPEIDR) sebelum dimasukkan, bukan ditebak.
+Yang dikerjakan
+`config/trading.ts` - `DEFAULT_WATCHLIST_PAIRS` (baru): btc/eth/bnb/xrp/sol (low), ada/dot/avax (medium), doge/pepe (high/altcoin) - dipakai `TRADING_CONFIG.pairs` sebagai fallback HANYA kalau `BOT_PAIRS` env var tidak diisi (behavior lama dipertahankan: kalau user isi BOT_PAIRS manual di Vercel, itu tetap menang, default 10 pair ini tidak dipaksakan menimpa).
+`pages/api/bot/pairs.ts` - fallback list dashboard SEKARANG baca langsung dari `TRADING_CONFIG.pairs` (bukan array hardcode terpisah lagi) - menghindari 2 sumber kebenaran yang bisa drift, konsisten otomatis dengan config/trading.ts ke depannya.
+Konteks (dari investigasi sebelumnya di percakapan ini)
+Ini watchlist FALLBACK - tetap digabung dengan hasil scan market (opportunity yang lolos threshold) dan pair yang sedang open position (lihat executeCron() di scheduler/cron.ts). 10 pair ini akan SELALU diproses tiap siklus cron TERLEPAS scanner menemukan peluang lain atau tidak - inilah yang akan mengisi dropdown dashboard dengan lebih dari cuma BTC/IDR.
+Belum ditegakkan / catatan jujur
+BELUM diverifikasi via build asli - sandbox tanpa akses internet. WAJIB `npm run build`/cek log Vercel sebelum deploy.
+Root cause ASLI kenapa dropdown cuma BTC/IDR (apakah cron-scan.yml gagal jalan, atau qualifiedPairs scanner selalu 0) BELUM terkonfirmasi - user diminta cek tab GitHub Actions + log Vercel `/api/cron/scan` untuk baris "[SCAN CYCLE] Scan selesai: X/Y pair qualified". Perubahan sesi ini adalah MITIGASI (watchlist floor terjamin), BUKAN perbaikan root cause kalau root cause-nya ternyata cron tidak jalan sama sekali.
