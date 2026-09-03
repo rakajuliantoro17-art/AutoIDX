@@ -113,6 +113,19 @@ lastSignal:
 
 
 
+/**
+ * Nama strategi yang menghasilkan sinyal BUY saat posisi ini
+ * dibuka (mis. "AURA_TREND") -- disimpan supaya SELL/stop-loss/
+ * take-profit paksa di siklus BERIKUTNYA (bisa jauh setelah BUY,
+ * strategyManager.evaluate() sudah lanjut ke sinyal terbaru) bisa
+ * tetap tahu strategi ASAL posisi ini dibuka, bukan strategi yang
+ * kebetulan aktif saat SELL terjadi. Optional -- posisi lama dari
+ * sebelum field ini ada tidak akan punya nilai ini tersimpan.
+ */
+strategyAtEntry?:string;
+
+
+
 lastOrderId?:string;
 
 
