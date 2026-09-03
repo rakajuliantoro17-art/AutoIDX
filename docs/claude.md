@@ -919,3 +919,17 @@ Kedua `updateBotState({...inPosition:false...})`: `+ strategyAtEntry: ""` (bersi
 Catatan penting
 Atribusi strategi baru berlaku untuk trade BARU sejak fitur ini di-deploy - riwayat lama tidak bisa direkonstruksi (data `strategy` memang tidak pernah dicatat sebelumnya). Ini expected & sudah ditangani (dikelompokkan "(tidak diketahui)"), bukan bug.
 Diverifikasi: reinstall node_modules bersih, `tsc --noEmit` + `npm run build` PENUH sukses, 0 error, 55 route ter-generate. Perubahan di `engine.ts` diverifikasi SANGAT hati-hati (cuma penambahan field ke object literal existing, tidak ada perubahan alur/kondisi) mengingat file ini aktif dikerjakan banyak sesi.
+BELUM diverifikasi via build asli - sandbox tanpa akses internet, sama seperti sesi-sesi sebelumnya. WAJIB jalankan `npm run build`/cek log Vercel sebelum deploy.
+Belum ada UI dashboard yang menampilkan `featureWarnings` dari response training - baru ada di JSON API, belum di `ml-lab.tsx`. Bisa ditambahkan kalau diminta.
+---
+Session Log 19 — Dashboard Overview: Pair Selector (Sebelumnya Hardcode btc_idr)
+User bertanya kenapa dashboard selalu tampil BTC/IDR - apakah BUY cuma bisa di pair itu. KLARIFIKASI PENTING: bot TIDAK PERNAH dibatasi ke BTC/IDR - scanner/index.ts sudah scan SELURUH pair Indodax (atau fallback 5 pair) dan BUY bisa terjadi ke pair manapun yang lolos opportunityScore. Keterbatasan MURNI di tampilan dashboard (pages/dashboard/index.tsx hardcode `pair=btc_idr` di fetch + PriceChart), bukan di bot.
+Yang dikerjakan
+`services/firebase/botState.ts` - fungsi baru `getAllTrackedPairs()` (list semua doc ID di koleksi `bot_state`, tanpa filter inPosition - beda dari `getOpenPositionPairs()` yang sudah ada, itu HANYA posisi yang lagi terbuka).
+`pages/api/bot/pairs.ts` (BARU) - expose `getAllTrackedPairs()`, fallback ke 5 pair statis (sama seperti FALLBACK_PAIRS di scanner/index.ts) kalau bot_state masih kosong total (instalasi baru).
+`pages/dashboard/index.tsx` - dropdown pemilih pair (state `selectedPair`, default tetap "btc_idr" untuk kompatibilitas), mengisi pilihan dari `/api/bot/pairs`. `loadBotState()` sekarang reactive ke `selectedPair` (refetch otomatis begitu pair diganti, bukan nunggu interval berikutnya). `PriceChart` dan label StatusCard "Price" ikut pair yang dipilih, bukan hardcode "BTC/IDR" lagi.
+Temuan sampingan (BELUM ditindaklanjuti, di luar scope pertanyaan user)
+`components/DashboardOverview.tsx` - komponen presentasional yang MENGKLAIM (lewat komentar header filenya sendiri, merujuk "Session Log 7" dari cabang sesi lain) sudah menggabungkan StatusCard/PriceChart/RiskBadge/RecentActivity/BacktestSummary/ActivityView jadi satu dashboard utuh - TAPI diverifikasi grep, TIDAK PERNAH diimpor halaman manapun. `pages/dashboard/index.tsx` (halaman yang SEBENARNYA aktif) punya JSX inline SENDIRI yang terpisah total dari komponen ini. Kemungkinan klaim "integrasi selesai" di sesi cabang lain itu keliru, atau memang untuk halaman lain yang belum dibuat. Perlu diklarifikasi/diputuskan user kalau mau ditindaklanjuti - JANGAN diasumsikan sudah aktif.
+Belum ditegakkan / catatan jujur
+`PriceChart.tsx` masih placeholder statis ("Coming Soon", badge "LIVE" menyesatkan) - lihat diskusi sebelumnya di percakapan ini, BELUM diperbaiki sesi ini (pertanyaan user fokus ke pair selector, bukan grafiknya).
+BELUM diverifikasi via build asli - sandbox tanpa akses internet. WAJIB `npm run build`/cek log Vercel sebelum deploy.
