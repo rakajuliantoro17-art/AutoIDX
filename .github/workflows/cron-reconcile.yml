@@ -15,10 +15,19 @@ name: AURA Trade OS - Position Reconciliation Cron
 # menunggu insiden ditemukan manual, tapi tidak perlu lebih rapat
 # dari siklus scan/trading itu sendiri.
 
+# BACKUP DARURAT SAJA -- cron-job.org sekarang jadi trigger UTAMA
+# untuk /api/cron/reconcile juga (terbukti sukses konsisten).
+# Jadwal otomatis di sini SENGAJA dinonaktifkan (schedule:
+# dikomentari) supaya tidak ada 2 sumber sekaligus memicu
+# endpoint yang sama tiap 5 menit.
+#
+# Kalau cron-job.org down/bermasalah, workflow ini tetap bisa
+# dipicu manual: tab Actions -> workflow ini -> "Run workflow".
+
 on:
-  schedule:
-    - cron: "*/5 * * * *"  # setiap 5 menit
-  workflow_dispatch: {}     # bisa juga trigger manual dari tab Actions
+  # schedule:
+  #   - cron: "*/5 * * * *"  # dinonaktifkan -- lihat catatan di atas
+  workflow_dispatch: {}     # trigger manual untuk backup darurat
 
 jobs:
   trigger-reconcile:
