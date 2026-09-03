@@ -35,7 +35,21 @@ import type { CronResult } from "@/services/scheduler/cron";
 // call asli per pair -- durasi total sebanding lurus dengan jumlah
 // candidate. Tanpa cap ini, siklus scan yang qualifiedCount-nya
 // besar (market ramai) SELALU berisiko timeout.
-const MAX_CANDIDATE_PAIRS_PER_CYCLE = 15;
+//
+// PENTING: batas ini SEBELUMNYA 15, diturunkan ke 8 karena
+// cron-job.org (trigger UTAMA sekarang, lihat catatan sesi
+// terkait) punya batas keras request timeout 30 DETIK -- tidak
+// bisa dinaikkan lewat pengaturan mereka ("The maximum timeout is
+// 30 seconds", dikonfirmasi langsung dari UI cron-job.org). Ini
+// jauh lebih ketat dari maxDuration:60 Vercel yang jadi acuan
+// sebelumnya. Total waktu siklus = waktu scan market penuh (~12
+// detik untuk ratusan pair) + waktu proses candidate (jumlah
+// candidate / PAIR_CONCURRENCY gelombang, tiap gelombang bisa
+// sampai AI_CALL_TIMEOUT_MS kalau ada BUY yang lolos ke AI
+// advisory) -- dengan 15 candidate & concurrency 5 (3 gelombang),
+// margin di bawah 30 detik nyaris nol. Dengan 8 candidate (2
+// gelombang), ada ruang aman lebih besar.
+const MAX_CANDIDATE_PAIRS_PER_CYCLE = 8;
 
 export interface ScanCycleResult {
   summary: MarketScanSummary;
