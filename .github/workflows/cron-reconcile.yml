@@ -1,25 +1,10 @@
-name: AURA Trade OS - Position Reconciliation Cron
-
-# Memicu /api/cron/reconcile secara berkala. Endpoint ini sudah
-# lengkap dibangun (services/reconciliation/*) tapi sebelumnya
-# TIDAK PERNAH dipanggil oleh workflow manapun -- cuma ada
-# cron-scan.yml untuk /api/cron/scan. File ini menutup celah itu.
-#
-# Endpoint sendiri sudah aman dipanggil sesering apapun saat mode
-# PAPER (langsung skip, lihat isLiveModeActive() di reconcile.ts)
-# -- jadi jadwal di bawah aktif terus, tidak perlu diaktif-matikan
-# manual saat ganti mode paper/live.
-#
-# Interval SAMA dengan cron-scan.yml (5 menit) -- reconciliation
-# cukup sering untuk menangkap drift posisi lebih cepat daripada
-# menunggu insiden ditemukan manual, tapi tidak perlu lebih rapat
-# dari siklus scan/trading itu sendiri.
+name: AURA Trade OS - Market Scan Cron
 
 # BACKUP DARURAT SAJA -- cron-job.org sekarang jadi trigger UTAMA
-# untuk /api/cron/reconcile juga (terbukti sukses konsisten).
-# Jadwal otomatis di sini SENGAJA dinonaktifkan (schedule:
-# dikomentari) supaya tidak ada 2 sumber sekaligus memicu
-# endpoint yang sama tiap 5 menit.
+# untuk /api/cron/scan (terbukti sukses konsisten, lihat riwayat
+# eksekusi di cron-job.org dashboard). Jadwal otomatis di sini
+# SENGAJA dinonaktifkan (schedule: dikomentari) supaya tidak ada
+# 2 sumber sekaligus memicu endpoint yang sama tiap 5 menit.
 #
 # Kalau cron-job.org down/bermasalah, workflow ini tetap bisa
 # dipicu manual: tab Actions -> workflow ini -> "Run workflow".
@@ -30,10 +15,10 @@ on:
   workflow_dispatch: {}     # trigger manual untuk backup darurat
 
 jobs:
-  trigger-reconcile:
+  trigger-scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Call reconcile endpoint
+      - name: Call scan endpoint
         run: |
-          curl -f -X POST https://auto-idx.vercel.app/api/cron/reconcile \
+          curl -f -X POST https://auto-idx.vercel.app/api/cron/scan \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
