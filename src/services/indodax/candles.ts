@@ -2,17 +2,57 @@
 ==========================================================
 AURA Trade OS
 Indodax Candlestick Service
-Version : 0.0.7 Alpha
-Perubahan dari 0.0.6: fix bug ke-3 yang bikin getClosePrices()
-tetap selalu return array kosong walau symbol & parameter "tf"
-sudah benar - kode masih parsing respons dengan asumsi format
-TradingView UDF lama ({s,t,o,h,l,c,v}), padahal API Indodax
-yang sebenarnya balikin ARRAY POLOS
-[{Time,Open,High,Low,Close,Volume}, ...]. Dikonfirmasi lewat
-endpoint debug manual (httpStatus 200, data valid, tapi bentuknya
-array, bukan object dengan properti .s).
+Version : 0.0.8 Alpha
+Perubahan dari 0.0.7: fetch() ke Indodax SEBELUMNYA tidak punya
+timeout sama sekali -- kalau koneksi hang/sangat lambat, request
+bisa menggantung tanpa batas, berpotensi menghabiskan seluruh
+budget waktu siklus cron (batas keras 30 detik di cron-job.org,
+trigger utama). Fungsi ini dipanggil untuk SETIAP pair yang
+diproses (market scan + evaluasi candidate), jadi satu request
+yang nyangkut bisa menahan seluruh siklus. Ditambahkan
+AbortController dengan timeout 6 detik, sama seperti yang sudah
+dipakai liveTrading/exchange/indodaxClient.ts.
 ==========================================================
 */
+
+const CANDLES_FETCH_TIMEOUT_MS = 6_000;
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+
+  const controller = new AbortController();
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    CANDLES_FETCH_TIMEOUT_MS
+  );
+
+  try {
+
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+
+  } catch (error) {
+
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error(
+        `Indodax candles request timed out after ${CANDLES_FETCH_TIMEOUT_MS}ms: ${url}`
+      );
+    }
+
+    throw error;
+
+  } finally {
+
+    clearTimeout(timeout);
+
+  }
+
+}
 
 export interface Candle {
   time: number;
@@ -81,7 +121,7 @@ export async function getCandles(
     `&to=${to}`;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       next: {
         revalidate: 30,
       },
