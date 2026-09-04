@@ -1,9 +1,22 @@
 name: AURA Trade OS - Market Scan Cron
 
+# BACKUP DARURAT SAJA -- cron-job.org sudah jadi trigger UTAMA untuk
+# /api/cron/scan (lihat catatan sama di cron-reconcile.yml). Jadwal
+# di sini SEBELUMNYA masih aktif (*/5 * * * *) BERBARENGAN dengan
+# cron-job.org yang juga tiap 5 menit -- artinya endpoint yang
+# paling berat (scan+trade+kalibrasi) terpanggil 2X LIPAT dari
+# seharusnya. Ini kemungkinan besar penyebab Fluid Active CPU &
+# Provisioned Memory Vercel tembus kuota Hobby plan (5h42m/4h dan
+# 370GB-Hrs/360GB-Hrs), yang berujung deploy baru diblokir.
+#
+# Dinonaktifkan sekarang, konsisten dengan cron-reconcile.yml.
+# Kalau cron-job.org down/bermasalah, workflow ini tetap bisa
+# dipicu manual: tab Actions -> workflow ini -> "Run workflow".
+
 on:
-  schedule:
-    - cron: "*/5 * * * *"  # setiap 5 menit
-  workflow_dispatch: {}     # bisa juga trigger manual dari tab Actions
+  # schedule:
+  #   - cron: "*/5 * * * *"  # dinonaktifkan -- lihat catatan di atas
+  workflow_dispatch: {}     # trigger manual untuk backup darurat
 
 jobs:
   trigger-scan:
