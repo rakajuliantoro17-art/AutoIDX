@@ -29,8 +29,16 @@ import type { ExchangeResponse } from "../types";
  * privateRequest sebagai error biasa -- certainty: "UNCERTAIN"
  * untuk privateRequest, konsisten dengan penanganan error network
  * lain yang sudah ada).
+ *
+ * PENTING: sebelumnya 15 detik -- diturunkan ke 6 detik. Trigger
+ * cron UTAMA (cron-job.org) punya batas keras 30 detik untuk
+ * SELURUH siklus (dikonfirmasi dari pesan error mereka sendiri).
+ * reconcile.ts bisa memanggil getInfo()/openOrders() berurutan
+ * untuk beberapa pair posisi terbuka -- satu panggilan yang
+ * mendekati 15 detik saja sudah menghabiskan separuh budget
+ * total, sebelum panggilan lain sempat jalan.
  */
-const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 6_000;
 
 async function fetchWithTimeout(
   url: string,
