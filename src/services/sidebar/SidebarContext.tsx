@@ -81,6 +81,34 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const toggleMobile = useCallback(() => setMobileOpen((prev) => !prev), []);
 
+  // Shortcut Ctrl+B / Cmd+B ala Claude -- ciutkan/perluas rail sidebar
+  // dari mana saja (kecuali sedang mengetik di input/textarea/contentEditable).
+  useEffect(() => {
+
+    function handleKeyDown(event: KeyboardEvent) {
+
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (event.key.toLowerCase() !== "b") return;
+
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const isEditable =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        target?.isContentEditable;
+
+      if (isEditable) return;
+
+      event.preventDefault();
+      toggleRail();
+
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+
+  }, [toggleRail]);
+
   const value = useMemo(
     () => ({
       railCollapsed,
