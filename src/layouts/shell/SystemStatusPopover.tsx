@@ -58,7 +58,8 @@ export default function SystemStatusPopover() {
         <div
           role="dialog"
           aria-label="Status sistem"
-          className="glass absolute right-0 top-full z-[80] mt-2 w-80 max-w-[90vw] p-3"
+          className="glass fixed left-4 right-4 top-[4.25rem] z-[80] max-h-[calc(100vh-5.5rem)] overflow-y-auto p-3
+                     sm:left-auto sm:right-4 sm:w-80"
         >
           <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             Status Subsistem
