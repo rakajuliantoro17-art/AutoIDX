@@ -64,7 +64,7 @@ export default function SystemStatusPopover() {
           <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
             Status Subsistem
           </p>
-          <SystemStatusPanel />
+          <SystemStatusPanel compact />
         </div>
       )}
 
