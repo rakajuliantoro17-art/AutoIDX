@@ -165,14 +165,21 @@ export default function AppSidebar({ pathname }: AppSidebarProps) {
         type="button"
         onClick={toggleRail}
         className="mt-auto hidden items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] py-2.5 text-xs text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] md:flex"
-        title={railCollapsed ? "Perluas sidebar" : "Ciutkan sidebar"}
+        title={`${railCollapsed ? "Perluas sidebar" : "Ciutkan sidebar"} (Ctrl+B)`}
       >
         <IconChevronsLeft
           className={`h-4 w-4 transition-transform ${
             railCollapsed ? "rotate-180" : ""
           }`}
         />
-        {!railCollapsed && <span>Ciutkan</span>}
+        {!railCollapsed && (
+          <span className="flex items-center gap-1.5">
+            Ciutkan
+            <kbd className="rounded border border-[var(--border)] px-1 py-0.5 text-[10px] leading-none text-[var(--text-muted)]">
+              Ctrl+B
+            </kbd>
+          </span>
+        )}
       </button>
 
     </nav>
