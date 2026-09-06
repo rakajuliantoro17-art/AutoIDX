@@ -24,6 +24,17 @@ Universe pair yang diproses tiap siklus = gabungan dari:
 Kalau `candidatePairs` tidak diberikan (mis. dipanggil manual
 tanpa scan), perilaku lama tetap jalan: TRADING_CONFIG.pairs +
 openPositionPairs.
+
+FITUR BARU -- Checklist Prioritas Pair (opt-in, lihat
+BotControl.priorityPairs di services/firebase/botControl.ts):
+operator bisa pilih dari dashboard SUBSET pair (dari top
+candidatePairs siklus terbaru) yang mau benar-benar dieksekusi
+otomatis. Kalau checklist ini diisi, pair top-N lain yang TIDAK
+dicentang tetap ter-scan/terlihat di dashboard tapi TIDAK
+dieksekusi TradingEngine ("second alternative", observability
+saja) -- mengurangi jumlah pair diproses per siklus untuk
+mengurangi risiko timeout. Kalau checklist kosong (default),
+TIDAK ADA PERUBAHAN dari perilaku union lama.
 ==========================================================
 */
 import { getCandles } from "../indodax/candles";
@@ -40,6 +51,7 @@ import type { IndicatorFeatureVector } from "../indicators";
 import { TradingEngine } from "../trading/engine";
 import { recordLog } from "../firebase/logService";
 import { getOpenPositionPairs } from "../firebase/botState";
+import { getBotControl } from "../firebase/botControl";
 import { TRADING_CONFIG } from "@/config/trading";
 import { latencyMonitor } from "@/services/monitor/latencyMonitor";
 import strategyManager from "@/services/strategy/manager";
@@ -287,17 +299,80 @@ export async function executeCron(
   // tidak lagi jadi top opportunity di siklus scan berikutnya.
   const openPositionPairs = await getOpenPositionPairs();
 
-  const pairs = Array.from(
-    new Set(
-      [
-        ...(candidatePairs ?? []),
-        ...openPositionPairs,
-        ...TRADING_CONFIG.pairs,
-      ]
-        .map((p) => p.trim().toLowerCase())
-        .filter(Boolean)
-    )
-  );
+  // --- Checklist prioritas pair (opt-in, lihat BotControl.priorityPairs) ---
+  // Kalau operator sudah pilih checklist dari dashboard (subset dari
+  // top candidatePairs siklus TERBARU), HANYA pair yang dicentang
+  // (dan overlap dengan candidatePairs siklus INI) yang dieksekusi
+  // otomatis TradingEngine -- bukan seluruh candidatePairs+watchlist
+  // seperti biasa. Ini sengaja mengurangi jumlah pair yang diproses
+  // per siklus (cron-job.org hard limit 30 detik, lihat catatan
+  // MAX_CANDIDATE_PAIRS_PER_CYCLE di scanCycle.ts).
+  //
+  // Kalau checklist KOSONG (default, belum pernah diisi dari
+  // dashboard): TIDAK ADA PERUBAHAN PERILAKU -- tetap union penuh
+  // candidatePairs + openPositionPairs + TRADING_CONFIG.pairs
+  // seperti sebelum fitur ini ada.
+  //
+  // Fail-safe: kalau getBotControl() gagal (Firestore error), catch
+  // di dalam fungsi itu sendiri sudah mengembalikan objek default
+  // (priorityPairs undefined) -- tidak pernah melempar ke atas,
+  // tidak pernah menghentikan siklus cron.
+  const control = await getBotControl();
+
+  const priorityPairs = (control.priorityPairs ?? [])
+    .map((p) => p.trim().toLowerCase())
+    .filter(Boolean);
+
+  let pairs: string[];
+
+  if (priorityPairs.length > 0) {
+
+    const candidateSet = new Set(
+      (candidatePairs ?? []).map((p) => p.trim().toLowerCase())
+    );
+
+    const focusedFromCandidates = priorityPairs.filter((p) =>
+      candidateSet.has(p)
+    );
+
+    pairs = Array.from(
+      new Set([
+        ...openPositionPairs.map((p) => p.trim().toLowerCase()),
+        ...focusedFromCandidates,
+      ])
+    );
+
+    const skippedCandidates = (candidatePairs ?? []).filter(
+      (p) => !priorityPairs.includes(p.trim().toLowerCase())
+    );
+
+    if (skippedCandidates.length > 0) {
+      await recordLog(
+        "BOT",
+        "info",
+        `[Priority Pairs] Checklist aktif (${priorityPairs.length} pair) -- ` +
+          `${skippedCandidates.length} kandidat scanner TIDAK dieksekusi otomatis ` +
+          `siklus ini (second alternative, cuma observability): ${skippedCandidates
+            .map((p) => p.toUpperCase())
+            .join(", ")}.`
+      );
+    }
+
+  } else {
+
+    pairs = Array.from(
+      new Set(
+        [
+          ...(candidatePairs ?? []),
+          ...openPositionPairs,
+          ...TRADING_CONFIG.pairs,
+        ]
+          .map((p) => p.trim().toLowerCase())
+          .filter(Boolean)
+      )
+    );
+
+  }
 
   if (candidatePairs && candidatePairs.length > 0) {
     await recordLog(
