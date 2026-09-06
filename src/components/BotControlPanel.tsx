@@ -23,8 +23,18 @@ import { formatFullDateTime, formatRelativeTime } from "@/utils";
 interface BotControlState {
   emergencyStop: boolean;
   mode: "paper" | "live";
+  priorityPairs?: string[];
   updatedAt: number;
   updatedBy?: string;
+}
+
+interface ScannerCandidate {
+  pair: string;
+  symbol: string;
+  opportunityScore: number;
+  confidence: number;
+  signalRecommendation: string;
+  riskLevel?: "LOW" | "MEDIUM" | "HIGH";
 }
 
 export default function BotControlPanel() {
@@ -35,6 +45,29 @@ export default function BotControlPanel() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showLiveConfirm, setShowLiveConfirm] = useState(false);
+
+  // --- Priority Pairs checklist ---
+  const [candidates, setCandidates] = useState<ScannerCandidate[]>([]);
+  const [candidatesLoading, setCandidatesLoading] = useState(true);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [savingPairs, setSavingPairs] = useState(false);
+  const [pairsError, setPairsError] = useState("");
+
+  async function loadCandidates() {
+    setCandidatesLoading(true);
+    try {
+      const res = await fetch("/api/scanner/candidates");
+      if (!res.ok) throw new Error("Gagal memuat kandidat scanner.");
+      const data = await res.json();
+      setCandidates(Array.isArray(data.candidates) ? data.candidates : []);
+    } catch {
+      // Fail-safe: kalau gagal, checklist cukup kosong -- bukan
+      // error yang memblokir seluruh panel Bot Control.
+      setCandidates([]);
+    } finally {
+      setCandidatesLoading(false);
+    }
+  }
 
   async function loadControl() {
     setLoading(true);
@@ -53,7 +86,17 @@ export default function BotControlPanel() {
 
   useEffect(() => {
     loadControl();
+    loadCandidates();
   }, []);
+
+  // Sinkronkan checklist lokal begitu `control` (dari Firestore)
+  // selesai dimuat/berubah -- supaya centang yang sudah tersimpan
+  // sebelumnya kelihatan begitu halaman dibuka.
+  useEffect(() => {
+    if (control?.priorityPairs) {
+      setChecked(new Set(control.priorityPairs));
+    }
+  }, [control?.priorityPairs]);
 
   async function sendUpdate(update: Partial<Pick<BotControlState, "emergencyStop" | "mode">>) {
     if (!user) {
@@ -110,6 +153,53 @@ export default function BotControlPanel() {
   function confirmGoLive() {
     setShowLiveConfirm(false);
     sendUpdate({ mode: "live" });
+  }
+
+  function toggleCandidate(pair: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(pair)) {
+        next.delete(pair);
+      } else {
+        next.add(pair);
+      }
+      return next;
+    });
+  }
+
+  async function savePriorityPairs() {
+    if (!user) {
+      setPairsError("Kamu harus login untuk mengubah pengaturan ini.");
+      return;
+    }
+
+    setSavingPairs(true);
+    setPairsError("");
+
+    try {
+      const token = await user.getIdToken();
+
+      const res = await fetch("/api/bot/control", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ priorityPairs: Array.from(checked) }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? "Gagal menyimpan checklist pair.");
+      }
+
+      const data = await res.json();
+      setControl(data);
+    } catch (err) {
+      setPairsError(err instanceof Error ? err.message : "Terjadi kesalahan.");
+    } finally {
+      setSavingPairs(false);
+    }
   }
 
   if (loading) {
@@ -219,6 +309,90 @@ export default function BotControlPanel() {
             Live Trading
           </button>
         </div>
+      </div>
+
+      {/* --- Priority Pairs Checklist (opt-in) --- */}
+      <div className="rounded-xl border border-white/10 p-5 space-y-4">
+        <div>
+          <p className="font-semibold">
+            Priority Pairs
+            {checked.size > 0 ? (
+              <span className="ml-2 rounded-full bg-blue-500/20 px-3 py-1 text-xs font-bold text-blue-400">
+                {checked.size} DICENTANG
+              </span>
+            ) : (
+              <span className="ml-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-400">
+                MODE OTOMATIS PENUH
+              </span>
+            )}
+          </p>
+          <p className="text-sm text-slate-400 mt-1">
+            Pilih dari top kandidat hasil scan siklus terbaru mana yang mau
+            benar-benar dieksekusi otomatis. Yang TIDAK dicentang tetap
+            ter-scan &amp; kelihatan di sini, tapi TIDAK dieksekusi
+            TradingEngine siklus ini (second alternative). Kosongkan semua
+            centang untuk kembali ke mode otomatis penuh (semua kandidat +
+            watchlist diproses seperti biasa).
+          </p>
+        </div>
+
+        {candidatesLoading ? (
+          <p className="text-sm text-slate-500">Memuat kandidat scanner...</p>
+        ) : candidates.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            Belum ada hasil scan siklus terbaru. Checklist akan terisi
+            otomatis begitu cron scan pertama selesai.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {candidates.map((c) => (
+              <label
+                key={c.pair}
+                className="flex items-center justify-between rounded-lg bg-white/5 px-4 py-3 cursor-pointer hover:bg-white/10"
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={checked.has(c.pair.toLowerCase())}
+                    onChange={() => toggleCandidate(c.pair.toLowerCase())}
+                    className="h-4 w-4"
+                  />
+                  <span className="font-semibold">
+                    {c.symbol.toUpperCase()}/IDR
+                  </span>
+                  {c.riskLevel ? (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                        c.riskLevel === "LOW"
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : c.riskLevel === "MEDIUM"
+                          ? "bg-yellow-500/20 text-yellow-400"
+                          : "bg-red-500/20 text-red-400"
+                      }`}
+                    >
+                      {c.riskLevel}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="text-sm text-slate-400">
+                  Skor {c.opportunityScore} · {c.signalRecommendation}
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {pairsError ? (
+          <p className="text-sm text-red-400">{pairsError}</p>
+        ) : null}
+
+        <button
+          onClick={savePriorityPairs}
+          disabled={savingPairs || candidatesLoading}
+          className="rounded-xl bg-blue-500 px-5 py-2 font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
+        >
+          {savingPairs ? "Menyimpan..." : "Simpan Checklist"}
+        </button>
       </div>
 
       {/* --- Konfirmasi pindah ke Live --- */}
