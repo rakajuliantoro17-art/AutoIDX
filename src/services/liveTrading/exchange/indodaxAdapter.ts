@@ -32,7 +32,7 @@
  * - getOrder()/cancelOrder() sekarang memanggil method
  *   Indodax "getOrder" dengan parameter "order_id"
  *   (sebelumnya memakai "orderInfo"/"order", nama lama
- *   yang sudah tidak dipakai di dokumentasi API saat ini).
+ *   yang tidak sesuai dokumentasi resmi saat ini).
  * ==========================================================
  */
 
@@ -127,7 +127,7 @@ export class IndodaxAdapter {
 
   private async request<T>(
     method: string,
-    params: Record<
+    params: Record
       string,
       string | number | boolean
     > = {},
@@ -223,7 +223,7 @@ export class IndodaxAdapter {
     }
 
     const record =
-      info as Record<
+      info as Record
         string,
         unknown
       >;
@@ -246,7 +246,7 @@ export class IndodaxAdapter {
     for (
       const [currency, value]
       of Object.entries(
-        balance as Record<
+        balance as Record
           string,
           unknown
         >,
@@ -338,12 +338,10 @@ export class IndodaxAdapter {
       );
     }
 
-    // Nama parameter mata uang dasar mengikuti format pair
-    // Indodax, mis. "btc_idr" -> "btc".
     const baseCurrency =
       request.pair.split("_")[0];
 
-    const params: Record<
+    const params: Record
       string,
       string | number | boolean
     > = {
@@ -383,8 +381,8 @@ export class IndodaxAdapter {
     }
 
     const result =
-      await this.request<
-        Record<
+      await this.request
+        Record
           string,
           unknown
         >
@@ -419,8 +417,8 @@ export class IndodaxAdapter {
     }
 
     const result =
-      await this.request<
-        Record<
+      await this.request
+        Record
           string,
           unknown
         >
@@ -634,8 +632,6 @@ export class IndodaxExchangeClient implements ExchangeClient {
     orderId: string,
     symbol: string,
   ): Promise<ExchangeOrder> {
-    // Indodax butuh tahu sisi (buy/sell) order untuk cancel;
-    // ambil dulu detail order-nya sebelum cancel.
     const existing = await this.getOrder(orderId, symbol);
 
     await this.adapter.cancelOrder(
