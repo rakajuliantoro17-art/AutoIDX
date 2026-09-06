@@ -2,7 +2,7 @@
 ==========================================================
 AURA Trade OS
 Scanner Candidates API (read-only)
-Version : 0.1.0 Alpha
+Version : 0.2.0 Alpha
 
 GET -> daftar top pair hasil scan MARKET TERBARU (dokumen
        `scannerResults/latest`, ditulis services/scheduler/
@@ -10,6 +10,16 @@ GET -> daftar top pair hasil scan MARKET TERBARU (dokumen
        "Priority Pairs" di dashboard supaya operator cuma bisa
        pilih dari pair yang MEMANG sedang direkomendasikan
        scanner saat ini -- bukan input bebas.
+
+v0.2.0: ditambah field DIAGNOSTIK penuh (scannedCount,
+candidatesCount, qualifiedCount, maxVolIdrSeen, scoreStats) --
+SEBELUMNYA cuma expose candidates+qualifiedPairs, jadi kalau
+keduanya kosong operator TIDAK PUNYA CARA tahu KENAPA (market
+sepi? threshold ketat? bug parsing volume?) tanpa buka log
+mentah Vercel (baris "[SCAN CYCLE] ..." di scanCycle.ts cuma
+console.log, TIDAK PERNAH masuk Activity Logs dashboard yang
+berbasis recordLog()/Firestore -- gap ini ditemukan langsung
+dari laporan user).
 
 Read-only, tidak mengubah apapun -- makanya TIDAK pakai
 verifyApiAuth (sama seperti pola /api/logs/recent, data yang
@@ -31,6 +41,19 @@ export interface ScannerCandidatesResponse {
   candidates: ScannedPairResult[];
   qualifiedPairs: string[];
   scannedAt: number | null;
+  diagnostics: {
+    scannedCount: number;
+    candidatesCount: number;
+    qualifiedCount: number;
+    maxVolIdrSeen: number;
+    scoreStats: {
+      analyzedCount: number;
+      minScore: number;
+      maxScore: number;
+      avgScore: number;
+      thresholdUsed: number;
+    } | null;
+  };
 }
 
 export default async function handler(
@@ -56,6 +79,13 @@ export default async function handler(
         candidates: [],
         qualifiedPairs: [],
         scannedAt: null,
+        diagnostics: {
+          scannedCount: 0,
+          candidatesCount: 0,
+          qualifiedCount: 0,
+          maxVolIdrSeen: 0,
+          scoreStats: null,
+        },
       });
 
     }
@@ -72,6 +102,13 @@ export default async function handler(
       scannedAt: typeof data.durationMs === "number"
         ? Date.now() - data.durationMs
         : null,
+      diagnostics: {
+        scannedCount: data.scannedCount ?? 0,
+        candidatesCount: data.candidatesCount ?? 0,
+        qualifiedCount: data.qualifiedCount ?? 0,
+        maxVolIdrSeen: data.maxVolIdrSeen ?? 0,
+        scoreStats: data.scoreStats ?? null,
+      },
     });
 
   } catch (error) {
