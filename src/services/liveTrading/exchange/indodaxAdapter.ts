@@ -13,12 +13,26 @@
  * This adapter is deliberately thin.
  * Risk, safety and canary decisions belong ABOVE this layer.
  *
- * Perubahan: kelas stub `IndodaxAdapter implements ExchangeClient`
- * (semua method throw "not wired") yang sebelumnya ada duluan di
- * file ini dihapus - bentrok nama dengan implementasi asli di
- * bawah ini (duplicate identifier, gagal build). Implementasi
- * lengkap Phase 38 ini yang dipertahankan sebagai satu-satunya
- * IndodaxAdapter di file ini.
+ * Perubahan (fix keamanan live trading, diverifikasi dari
+ * dokumentasi resmi Indodax - Private-RestAPI.md):
+ * - submitOrder() sekarang selalu mengirim `order_type`
+ *   secara eksplisit. Sebelumnya field ini TIDAK PERNAH
+ *   dikirim, sehingga Indodax diam-diam menganggapnya
+ *   sebagai "limit" (default API), padahal order MARKET
+ *   tidak pernah menyertakan `price` -> berisiko ditolak
+ *   atau berperilaku tak terduga.
+ * - Amount sekarang dipisah sesuai kontrak resmi Indodax:
+ *   `idr` untuk BUY (jumlah rupiah), dan field bernama
+ *   sesuai mata uang dasar pair (mis. `btc` untuk pair
+ *   btc_idr) untuk SELL. Field generik `amount` yang lama
+ *   BUKAN nama parameter yang dikenali Indodax.
+ * - `client_order_id` sekarang diteruskan ke Indodax,
+ *   supaya proteksi OrderIdempotency di LiveTradingEngine
+ *   benar-benar tersambung ke dedup order_id Indodax.
+ * - getOrder()/cancelOrder() sekarang memanggil method
+ *   Indodax "getOrder" dengan parameter "order_id"
+ *   (sebelumnya memakai "orderInfo"/"order", nama lama
+ *   yang sudah tidak dipakai di dokumentasi API saat ini).
  * ==========================================================
  */
 
@@ -48,9 +62,24 @@ export interface IndodaxTradeRequest {
     | "buy"
     | "sell";
 
+  /** Default Indodax: "limit". Untuk live trading kita selalu pakai "market". */
+  orderType?:
+    | "limit"
+    | "market";
+
+  /** Wajib untuk order "limit". */
   price?: number;
 
-  amount: number;
+  /** Jumlah dalam IDR - dipakai untuk order BUY. */
+  idr?: number;
+
+  /**
+   * Jumlah dalam mata uang dasar pair (mis. btc untuk btc_idr) -
+   * dipakai untuk order SELL, atau limit BUY dengan jumlah koin.
+   */
+  coinAmount?: number;
+
+  clientOrderId?: string;
 }
 
 export interface IndodaxTradeResult {
@@ -240,23 +269,67 @@ export class IndodaxAdapter {
   public async submitOrder(
     request: IndodaxTradeRequest,
   ): Promise<IndodaxTradeResult> {
+
+    const orderType =
+      request.orderType ?? "limit";
+
     if (
-      !Number.isFinite(
-        request.amount,
-      ) ||
-      request.amount <= 0
+      orderType === "limit" &&
+      request.price === undefined
     ) {
       throw new Error(
-        "Invalid order amount.",
+        "Limit order requires a price.",
+      );
+    }
+
+    if (
+      orderType === "market" &&
+      request.type === "buy" &&
+      request.idr === undefined
+    ) {
+      throw new Error(
+        "Market BUY order requires an IDR amount (idr field). " +
+        "Indodax currently only supports IDR-based amounts for market buy orders.",
+      );
+    }
+
+    if (
+      request.type === "sell" &&
+      request.coinAmount === undefined
+    ) {
+      throw new Error(
+        "Sell order requires a coin amount (coinAmount field).",
+      );
+    }
+
+    if (
+      request.idr !== undefined &&
+      (
+        !Number.isFinite(request.idr) ||
+        request.idr <= 0
+      )
+    ) {
+      throw new Error(
+        "Invalid IDR amount.",
+      );
+    }
+
+    if (
+      request.coinAmount !== undefined &&
+      (
+        !Number.isFinite(request.coinAmount) ||
+        request.coinAmount <= 0
+      )
+    ) {
+      throw new Error(
+        "Invalid coin amount.",
       );
     }
 
     if (
       request.price !== undefined &&
       (
-        !Number.isFinite(
-          request.price,
-        ) ||
+        !Number.isFinite(request.price) ||
         request.price <= 0
       )
     ) {
@@ -264,6 +337,11 @@ export class IndodaxAdapter {
         "Invalid order price.",
       );
     }
+
+    // Nama parameter mata uang dasar mengikuti format pair
+    // Indodax, mis. "btc_idr" -> "btc".
+    const baseCurrency =
+      request.pair.split("_")[0];
 
     const params: Record<
       string,
@@ -273,8 +351,7 @@ export class IndodaxAdapter {
 
       type: request.type,
 
-      amount:
-        request.amount,
+      order_type: orderType,
     };
 
     if (
@@ -282,6 +359,27 @@ export class IndodaxAdapter {
     ) {
       params.price =
         request.price;
+    }
+
+    if (
+      request.idr !== undefined
+    ) {
+      params.idr =
+        request.idr;
+    }
+
+    if (
+      request.coinAmount !== undefined
+    ) {
+      params[baseCurrency] =
+        request.coinAmount;
+    }
+
+    if (
+      request.clientOrderId
+    ) {
+      params.client_order_id =
+        request.clientOrderId;
     }
 
     const result =
@@ -327,9 +425,9 @@ export class IndodaxAdapter {
           unknown
         >
       >(
-        "orderInfo",
+        "getOrder",
         {
-          order: orderId,
+          order_id: orderId,
 
           pair,
         },
@@ -397,7 +495,7 @@ export class IndodaxAdapter {
 
         type,
 
-        order: orderId,
+        order_id: orderId,
       },
     );
   }
@@ -414,11 +512,11 @@ Exchange Client Bridge
 Phase 38 / Batch (bridge)
 
 IndodaxAdapter di atas sengaja "tipis" dan memakai bentuk
-API asli Indodax (pair, type "buy"/"sell", amount). Kontrak
-generik ExchangeClient (dipakai LiveTradingEngine, dkk.)
-memakai bentuk berbeda (symbol, side "BUY"/"SELL", quantity).
-Class ini menjembatani keduanya tanpa mengubah IndodaxAdapter
-di atas.
+API asli Indodax (pair, type "buy"/"sell", idr/coinAmount).
+Kontrak generik ExchangeClient (dipakai LiveTradingEngine,
+dkk.) memakai bentuk berbeda (symbol, side "BUY"/"SELL",
+quantity). Class ini menjembatani keduanya tanpa mengubah
+IndodaxAdapter di atas.
 ==========================================================
 */
 
@@ -468,16 +566,28 @@ export class IndodaxExchangeClient implements ExchangeClient {
   public async submitOrder(
     request: ExchangeOrderRequest,
   ): Promise<ExchangeOrder> {
-    const amount =
-      request.side === "BUY" && request.quoteAmount !== undefined
-        ? request.quoteAmount
-        : request.quantity;
 
-    const result = await this.adapter.submitOrder({
-      pair: symbolToPair(request.symbol),
+    const pair = symbolToPair(request.symbol);
+
+    const tradeRequest: IndodaxTradeRequest = {
+      pair,
       type: request.side === "BUY" ? "buy" : "sell",
-      amount,
-    });
+      orderType: "market",
+      clientOrderId: request.clientOrderId,
+    };
+
+    if (request.side === "BUY") {
+      if (request.quoteAmount === undefined) {
+        throw new Error(
+          "Market BUY order requires quoteAmount (IDR amount to spend).",
+        );
+      }
+      tradeRequest.idr = request.quoteAmount;
+    } else {
+      tradeRequest.coinAmount = request.quantity;
+    }
+
+    const result = await this.adapter.submitOrder(tradeRequest);
 
     const now = Date.now();
 
