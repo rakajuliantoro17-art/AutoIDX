@@ -29,6 +29,26 @@ export interface BotControl {
 
   mode: BotControlMode;
 
+  /**
+   * Checklist prioritas pair (opt-in, kosong = perilaku lama tidak
+   * berubah). Isinya SELALU subset dari top-N hasil scanner siklus
+   * TERBARU (candidatePairs) -- bukan daftar bebas, supaya user
+   * cuma bisa memilih dari pair yang memang lagi direkomendasikan
+   * scanner saat itu. Kalau field ini non-kosong, HANYA pair yang
+   * ada di sini (dan overlap dengan candidatePairs siklus berjalan)
+   * + pair yang sedang open position yang diproses TradingEngine
+   * tiap siklus -- pair top-N lain yang TIDAK dicentang tetap
+   * discan/ditampilkan tapi TIDAK dieksekusi otomatis ("second
+   * alternative", cuma observability). Ini sengaja mengurangi
+   * jumlah pair yang diproses per siklus untuk mengurangi risiko
+   * timeout Vercel, sesuai permintaan pemilik project.
+   *
+   * Kalau kosong/tidak ada: TIDAK ADA PERUBAHAN dari perilaku lama
+   * (union candidatePairs + openPositionPairs + TRADING_CONFIG.pairs
+   * tetap semua diproses, lihat services/scheduler/cron.ts).
+   */
+  priorityPairs?: string[];
+
   updatedAt: number;
 
   updatedBy?: string;
@@ -117,7 +137,7 @@ export async function getBotControl(): Promise<BotControl> {
  */
 export async function updateBotControl(
 
-  update: Partial<Pick<BotControl, "emergencyStop" | "mode">>,
+  update: Partial<Pick<BotControl, "emergencyStop" | "mode" | "priorityPairs">>,
 
   updatedBy?: string
 
