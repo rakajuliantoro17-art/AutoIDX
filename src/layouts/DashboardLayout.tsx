@@ -1,22 +1,22 @@
+"use client";
+
 /**
 ==========================================================
 AURA Trade OS
 Dashboard Layout (Pages Router)
-Version : 0.2.0
+Version : 0.3.0
 
-Perubahan dari 0.0.1: sebelumnya Sidebar.tsx statis (list menu
-sendiri, hilang beberapa item dibanding sisi App Router) tanpa
-mode mobile sama sekali -- di layar sempit sidebar itu langsung
-disembunyikan total (`hidden md:block`) tanpa cara lain untuk
-membukanya. Sekarang pakai AppSidebar bersama (satu sumber menu
-di navigation.ts) dengan rail mode + drawer mobile yang bisa
-dibuka dari tombol hamburger di Header.
+Perubahan dari 0.2.0: Header.tsx & Footer.tsx (implementasi
+terpisah, sempat beda dari App Router -- Header lama tidak
+punya logo gambar, Footer lama nomor versinya tidak sinkron)
+diganti dengan AppHeader.tsx / AppFooter.tsx yang sama persis
+dipakai App Router lewat AppShell.tsx.
 ==========================================================
 */
 
 import { useRouter } from "next/router";
-import Header from "./Header";
-import Footer from "./Footer";
+import AppHeader from "./shell/AppHeader";
+import AppFooter from "./shell/AppFooter";
 import AppSidebar from "./shell/AppSidebar";
 
 export default function DashboardLayout({
@@ -24,13 +24,11 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-
   const router = useRouter();
 
   return (
     <div className="flex min-h-screen flex-col">
-
-      <Header />
+      <AppHeader />
 
       <div className="flex flex-1">
         <AppSidebar pathname={router.pathname} />
@@ -39,9 +37,7 @@ export default function DashboardLayout({
         </main>
       </div>
 
-      <Footer />
-
+      <AppFooter />
     </div>
   );
-
 }
