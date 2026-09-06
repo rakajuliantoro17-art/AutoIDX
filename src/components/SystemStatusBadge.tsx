@@ -36,6 +36,7 @@ export default function SystemStatusBadge() {
   const [effectiveMode, setEffectiveMode] = useState<BotMode | null>(null);
   const [requestedMode, setRequestedMode] = useState<BotMode | null>(null);
   const [emergencyStop, setEmergencyStop] = useState(false);
+  const [fetchFailed, setFetchFailed] = useState(false);
 
   const fetchMode = useCallback(async () => {
 
@@ -51,17 +52,22 @@ export default function SystemStatusBadge() {
         },
       });
 
-      if (!response.ok) return;
+      if (!response.ok) {
+        setFetchFailed(true);
+        return;
+      }
 
       const json = await response.json();
 
       setEffectiveMode(json.effectiveMode === "live" ? "live" : "paper");
       setRequestedMode(json.requestedMode === "live" ? "live" : "paper");
       setEmergencyStop(Boolean(json.emergencyStop));
+      setFetchFailed(false);
 
     } catch (error) {
 
       console.error("[SystemStatusBadge] Failed to fetch mode:", error);
+      setFetchFailed(true);
 
     }
 
@@ -77,14 +83,24 @@ export default function SystemStatusBadge() {
 
   }, [fetchMode]);
 
-  if (!user || effectiveMode === null) {
+  if (!user) {
+    return null;
+  }
+
+  if (effectiveMode === null) {
 
     return (
       <div className="glass flex items-center gap-3 rounded-full px-4 py-2">
-        <span className="status-dot status-warning" />
+        <span
+          className={`status-dot ${
+            fetchFailed ? "status-error" : "status-warning"
+          }`}
+        />
         <div className="text-right">
-          <p className="text-sm text-slate-300">Memuat status...</p>
-          <p className="text-xs text-slate-500">v0.0.2 Alpha</p>
+          <p className="text-sm text-slate-300">
+            {fetchFailed ? "Gagal memuat status" : "Memuat status..."}
+          </p>
+          <p className="text-xs text-slate-500">v0.1.0 Alpha</p>
         </div>
       </div>
     );
@@ -130,7 +146,9 @@ export default function SystemStatusBadge() {
           {label}
         </p>
 
-        <p className="text-xs text-slate-500">v0.0.2 Alpha</p>
+        <p className="text-xs text-slate-500">
+          {fetchFailed ? "Data mungkin usang" : "v0.1.0 Alpha"}
+        </p>
 
       </div>
 
