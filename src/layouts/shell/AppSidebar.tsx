@@ -31,7 +31,7 @@ dipaksa terbuka, apa pun state tersimpannya.
 */
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSidebar } from "@/services/sidebar/SidebarContext";
 import { NAV_GROUPS, isNavItemActive } from "@/layouts/navigation";
 import { IconChevronDown, IconChevronsLeft, IconClose } from "@/components/icons";
@@ -64,10 +64,35 @@ export default function AppSidebar({ pathname }: AppSidebarProps) {
   const { railCollapsed, toggleRail, mobileOpen, closeMobile } = useSidebar();
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setOpenGroups(readOpenGroups());
   }, []);
+
+  // Pindahkan fokus keyboard ke dalam drawer saat dibuka, supaya
+  // pengguna keyboard/screen reader tidak "tertinggal" di konten
+  // belakang overlay yang sedang tertutup secara visual.
+  useEffect(() => {
+    if (mobileOpen) {
+      closeButtonRef.current?.focus();
+    }
+  }, [mobileOpen]);
+
+  // Konsistensi dengan SystemStatusPopover: overlay yang sama-sama
+  // menutup lewat tombol Escape, bukan cuma klik di luar area.
+  useEffect(() => {
+
+    if (!mobileOpen) return;
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") closeMobile();
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+
+  }, [mobileOpen, closeMobile]);
 
   const toggleGroup = (groupId: string) => {
 
@@ -206,6 +231,9 @@ export default function AppSidebar({ pathname }: AppSidebarProps) {
       )}
 
       <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu navigasi"
         className={`glass-nav fixed inset-y-0 left-0 z-[70] w-72 border-r transition-transform duration-300 md:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -216,6 +244,7 @@ export default function AppSidebar({ pathname }: AppSidebarProps) {
             Menu
           </span>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={closeMobile}
             aria-label="Tutup menu"
