@@ -127,6 +127,16 @@ export function validateSettingsInput(
       throw AppError.validation("pairs harus berupa array string.");
     }
 
+    // Sengaja dibatasi maksimal 10 -- fokus eksekusi & mencegah
+    // timeout siklus cron (lihat MAX_CANDIDATE_PAIRS_PER_CYCLE di
+    // scheduler/scanCycle.ts). Kosong (0 pair) tetap diperbolehkan,
+    // artinya bot kembali ke mode auto (top opportunity by score).
+    if (partial.pairs.length > 10) {
+      throw AppError.validation(
+        "Maksimal 10 pair yang bisa dipilih untuk trading aktif."
+      );
+    }
+
     // PairValidator.normalize() dipakai HANYA untuk reformat string
     // (BTC-IDR / btcidr / "  Btc_Idr  " -> btc_idr) -- BUKAN
     // PairValidator.validate() yang membatasi ke whitelist 10 pair
