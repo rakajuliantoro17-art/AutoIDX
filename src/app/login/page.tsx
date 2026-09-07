@@ -79,7 +79,7 @@ export default function LoginPage() {
           {mode === "login" ? "Masuk ke AURA Trade OS" : "Buat Akun Baru"}
         </h1>
 
-        <p className="text-slate-400 text-sm text-center mt-2 mb-8">
+        <p className="text-[var(--text-secondary)] text-sm text-center mt-2 mb-8">
           {mode === "login"
             ? "Kelola bot trading dan akun Indodax kamu"
             : "Daftar untuk mulai mengelola akun Indodax kamu"}
@@ -87,7 +87,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm text-slate-400 block mb-1">Email</label>
+            <label className="text-sm text-[var(--text-secondary)] block mb-1">Email</label>
             <input
               type="email"
               required
@@ -98,7 +98,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 block mb-1">Password</label>
+            <label className="text-sm text-[var(--text-secondary)] block mb-1">Password</label>
             <input
               type="password"
               required
@@ -126,7 +126,7 @@ export default function LoginPage() {
 
         <div className="flex items-center gap-3 my-6">
           <div className="h-px bg-white/10 flex-1" />
-          <span className="text-xs text-slate-500">atau</span>
+          <span className="text-xs text-[var(--text-muted)]">atau</span>
           <div className="h-px bg-white/10 flex-1" />
         </div>
 
@@ -138,7 +138,7 @@ export default function LoginPage() {
           Lanjutkan dengan Google
         </button>
 
-        <p className="text-center text-sm text-slate-400 mt-6">
+        <p className="text-center text-sm text-[var(--text-secondary)] mt-6">
           {mode === "login" ? "Belum punya akun?" : "Sudah punya akun?"}{" "}
           <button
             onClick={() => {

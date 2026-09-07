@@ -50,7 +50,7 @@ Route Not Found
 
 
 
-<p className="mt-3 text-slate-400">
+<p className="mt-3 text-[var(--text-secondary)]">
 
 
 Halaman AutoIDX yang Anda cari tidak tersedia
@@ -76,7 +76,7 @@ atau belum dikembangkan pada versi ini.
 <span className="status-dot status-online"/>
 
 
-<span className="text-sm text-slate-400">
+<span className="text-sm text-[var(--text-secondary)]">
 
 
 AutoIDX System Online
@@ -117,7 +117,7 @@ className="btn btn-primary mt-8 inline-flex"
 
 
 
-<p className="mt-6 text-xs text-slate-600">
+<p className="mt-6 text-xs text-[var(--text-muted)]">
 
 
 AutoIDX Trading OS • Version 0.0.1 Alpha

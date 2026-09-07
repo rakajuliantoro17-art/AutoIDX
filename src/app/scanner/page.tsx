@@ -28,19 +28,19 @@ function signalColor(signal: string) {
     return "text-emerald-300 bg-emerald-500/20 font-bold";
   if (signal === "BUY") return "text-emerald-400 bg-emerald-500/10";
   if (signal === "SELL") return "text-red-400 bg-red-500/10";
-  return "text-slate-400 bg-white/5";
+  return "text-[var(--text-secondary)] bg-white/5";
 }
 
 function trendColor(trend: string) {
   if (trend === "BULLISH") return "text-emerald-400";
   if (trend === "BEARISH") return "text-red-400";
-  return "text-slate-400";
+  return "text-[var(--text-secondary)]";
 }
 
 function aiDirectionColor(direction?: string) {
   if (direction === "BULLISH") return "text-emerald-400";
   if (direction === "BEARISH") return "text-red-400";
-  return "text-slate-500";
+  return "text-[var(--text-muted)]";
 }
 
 // Sinyal bot ASLI (dari bot_state, hasil TradingEngine) memakai sistem
@@ -51,7 +51,7 @@ function aiDirectionColor(direction?: string) {
 function botSignalColor(signal: string) {
   if (signal === "BUY") return "text-emerald-400 bg-emerald-500/10";
   if (signal === "SELL") return "text-red-400 bg-red-500/10";
-  return "text-slate-400 bg-white/5";
+  return "text-[var(--text-secondary)] bg-white/5";
 }
 
 export default function ScannerPage() {
@@ -185,7 +185,7 @@ export default function ScannerPage() {
     <section className="space-y-8">
       <div className="glass p-8">
         <h1 className="text-3xl font-bold">Market Scanner</h1>
-        <p className="text-slate-400 mt-2">
+        <p className="text-[var(--text-secondary)] mt-2">
           Opportunity detection engine — RSI, EMA, dan skor peluang dihitung
           live dari data Indodax
         </p>
@@ -193,24 +193,24 @@ export default function ScannerPage() {
 
       <div className="grid gap-6 md:grid-cols-4">
         <div className="card">
-          <p className="text-sm text-slate-400">Pair Dipindai</p>
+          <p className="text-sm text-[var(--text-secondary)]">Pair Dipindai</p>
           <h2 className="text-3xl font-bold mt-2">{scannedCount}</h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Lolos Kriteria</p>
+          <p className="text-sm text-[var(--text-secondary)]">Lolos Kriteria</p>
           <h2 className="text-3xl font-bold mt-2">{results.length}</h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Sinyal BUY</p>
+          <p className="text-sm text-[var(--text-secondary)]">Sinyal BUY</p>
           <h2 className="text-3xl font-bold text-emerald-400 mt-2">
             {buySignals}
           </h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Scanner Status</p>
+          <p className="text-sm text-[var(--text-secondary)]">Scanner Status</p>
           <h2
             className={`text-3xl font-bold mt-2 ${
               loading ? "text-yellow-400" : error ? "text-red-400" : "text-emerald-400"
@@ -229,7 +229,7 @@ export default function ScannerPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/10 text-slate-400 text-sm">
+              <tr className="border-b border-white/10 text-[var(--text-secondary)] text-sm">
                 <th className="text-left py-3">Pair</th>
                 <th className="text-left">Harga</th>
                 <th className="text-left">RSI(14)</th>
@@ -238,12 +238,12 @@ export default function ScannerPage() {
                 <th className="text-left">Sinyal</th>
                 <th className="text-left">
                   Sinyal Bot Asli
-                  <span className="text-slate-600 font-normal"> (watchlist)</span>
+                  <span className="text-[var(--text-muted)] font-normal"> (watchlist)</span>
                 </th>
                 <th className="text-left">Confidence</th>
                 <th className="text-left">
                   AI Score
-                  <span className="text-slate-600 font-normal"> (beta)</span>
+                  <span className="text-[var(--text-muted)] font-normal"> (beta)</span>
                 </th>
               </tr>
             </thead>
@@ -265,7 +265,7 @@ export default function ScannerPage() {
                             style={{ width: `${item.opportunityScore}%` }}
                           />
                         </div>
-                        <span className="text-xs text-slate-400">
+                        <span className="text-xs text-[var(--text-secondary)]">
                           {item.opportunityScore}
                         </span>
                       </div>
@@ -290,7 +290,7 @@ export default function ScannerPage() {
                           {botSignals[item.pair]}
                         </span>
                       ) : (
-                        <span className="text-slate-600 text-xs" title="Pair ini tidak ada di watchlist bot (config/trading.ts)">
+                        <span className="text-[var(--text-muted)] text-xs" title="Pair ini tidak ada di watchlist bot (config/trading.ts)">
                           Bukan watchlist
                         </span>
                       )}
@@ -301,13 +301,13 @@ export default function ScannerPage() {
                         <span className={`text-xs font-semibold ${aiDirectionColor(item.aiDirection)}`}>
                           {item.aiDirection}
                           {typeof item.aiScore === "number" && (
-                            <span className="text-slate-500 font-normal">
+                            <span className="text-[var(--text-muted)] font-normal">
                               {" "}({item.aiScore.toFixed(2)})
                             </span>
                           )}
                         </span>
                       ) : (
-                        <span className="text-slate-600 text-xs">—</span>
+                        <span className="text-[var(--text-muted)] text-xs">—</span>
                       )}
                     </td>
                   </tr>
@@ -315,7 +315,7 @@ export default function ScannerPage() {
 
               {!loading && results.length === 0 && !error && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-500">
+                  <td colSpan={9} className="py-8 text-center text-[var(--text-muted)]">
                     Belum ada pair yang memenuhi kriteria minimum volume.
                   </td>
                 </tr>

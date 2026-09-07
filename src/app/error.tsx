@@ -51,7 +51,7 @@ AutoIDX Error
 
 
 
-<p className="text-slate-400 mt-3">
+<p className="text-[var(--text-secondary)] mt-3">
 
 Trading system mengalami gangguan.
 
@@ -66,7 +66,7 @@ Trading system mengalami gangguan.
 <div className="mt-6 rounded-xl bg-black/20 p-4 text-left">
 
 
-<p className="text-xs text-slate-500">
+<p className="text-xs text-[var(--text-muted)]">
 
 ERROR MESSAGE
 
@@ -105,7 +105,7 @@ className="btn btn-success mt-8"
 
 
 
-<p className="mt-6 text-xs text-slate-500">
+<p className="mt-6 text-xs text-[var(--text-muted)]">
 
 AutoIDX Trading OS • Version 0.0.1 Alpha
 

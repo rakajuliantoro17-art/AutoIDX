@@ -171,7 +171,7 @@ export default function ActivityPage() {
               Activity Logs
             </h1>
 
-            <p className="mt-2 text-slate-400">
+            <p className="mt-2 text-[var(--text-secondary)]">
               Riwayat aktivitas AutoIDX selama proses scanning,
               analisis, dan eksekusi trading — auto-refresh tiap{" "}
               {REFRESH_INTERVAL_MS / 1000} detik.
@@ -179,7 +179,7 @@ export default function ActivityPage() {
 
           </div>
 
-          <div className="text-right text-xs text-slate-500">
+          <div className="text-right text-xs text-[var(--text-muted)]">
             {lastFetchedAt && (
               <p>Terakhir diperbarui: {lastFetchedAt}</p>
             )}
@@ -200,28 +200,28 @@ export default function ActivityPage() {
       <div className="grid gap-6 md:grid-cols-4">
 
         <div className="card">
-          <p className="text-sm text-slate-400">Total Events</p>
+          <p className="text-sm text-[var(--text-secondary)]">Total Events</p>
           <h2 className="mt-2 text-2xl font-bold">
             {loading ? "..." : activities.length}
           </h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Success</p>
+          <p className="text-sm text-[var(--text-secondary)]">Success</p>
           <h2 className="mt-2 text-2xl font-bold text-emerald-400">
             {loading ? "..." : successCount}
           </h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Warning</p>
+          <p className="text-sm text-[var(--text-secondary)]">Warning</p>
           <h2 className="mt-2 text-2xl font-bold text-yellow-400">
             {loading ? "..." : warningCount}
           </h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Danger</p>
+          <p className="text-sm text-[var(--text-secondary)]">Danger</p>
           <h2 className="mt-2 text-2xl font-bold text-red-400">
             {loading ? "..." : dangerCount}
           </h2>
@@ -253,13 +253,13 @@ export default function ActivityPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td className="py-4 text-slate-500" colSpan={6}>
+                <td className="py-4 text-[var(--text-muted)]" colSpan={6}>
                   Memuat...
                 </td>
               </tr>
             ) : trades.length === 0 ? (
               <tr>
-                <td className="py-4 text-slate-500" colSpan={6}>
+                <td className="py-4 text-[var(--text-muted)]" colSpan={6}>
                   Belum ada transaksi.
                 </td>
               </tr>
@@ -278,7 +278,7 @@ export default function ActivityPage() {
                       className={`rounded-full px-2 py-0.5 text-xs ${
                         trade.mode === "live"
                           ? "bg-red-500/20 text-red-400"
-                          : "bg-white/10 text-slate-400"
+                          : "bg-white/10 text-[var(--text-secondary)]"
                       }`}
                     >
                       {trade.mode.toUpperCase()}
@@ -315,13 +315,13 @@ export default function ActivityPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td className="py-4 text-slate-500" colSpan={4}>
+                <td className="py-4 text-[var(--text-muted)]" colSpan={4}>
                   Memuat...
                 </td>
               </tr>
             ) : activities.length === 0 ? (
               <tr>
-                <td className="py-4 text-slate-500" colSpan={4}>
+                <td className="py-4 text-[var(--text-muted)]" colSpan={4}>
                   Belum ada log.
                 </td>
               </tr>

@@ -66,7 +66,7 @@ function formatIdr(value: number): string {
 function pnlColor(value: number): string {
   if (value > 0) return "text-emerald-400";
   if (value < 0) return "text-red-400";
-  return "text-slate-300";
+  return "text-[var(--text)]";
 }
 
 export default function PortfolioPage() {
@@ -138,7 +138,7 @@ export default function PortfolioPage() {
               Portfolio
             </h1>
 
-            <p className="mt-2 text-slate-400">
+            <p className="mt-2 text-[var(--text-secondary)]">
               Ringkasan saldo dan performa trading AutoIDX
               {" "}
               ({portfolio.mode === "live" ? "Live Trading" : "Paper Trading"})
@@ -148,7 +148,7 @@ export default function PortfolioPage() {
 
           </div>
 
-          <div className="text-right text-xs text-slate-500">
+          <div className="text-right text-xs text-[var(--text-muted)]">
             {lastFetchedAt ? `Update terakhir: ${lastFetchedAt}` : loading ? "Memuat..." : ""}
           </div>
 
@@ -183,7 +183,7 @@ export default function PortfolioPage() {
       <div className="grid gap-6 md:grid-cols-4">
 
         <div className="card">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-[var(--text-secondary)]">
             Total Balance
           </p>
 
@@ -193,7 +193,7 @@ export default function PortfolioPage() {
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-[var(--text-secondary)]">
             Available
           </p>
 
@@ -203,7 +203,7 @@ export default function PortfolioPage() {
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-[var(--text-secondary)]">
             Invested
           </p>
 
@@ -213,7 +213,7 @@ export default function PortfolioPage() {
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-[var(--text-secondary)]">
             Open Positions
           </p>
 
@@ -229,7 +229,7 @@ export default function PortfolioPage() {
       <div className="grid gap-6 md:grid-cols-3">
 
         <div className="card">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-[var(--text-secondary)]">
             Realized Profit
           </p>
 
@@ -239,7 +239,7 @@ export default function PortfolioPage() {
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-[var(--text-secondary)]">
             Unrealized Profit
           </p>
 
@@ -249,13 +249,13 @@ export default function PortfolioPage() {
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-[var(--text-secondary)]">
             Win Rate
           </p>
 
           <h2 className="mt-2 text-xl font-bold">
             {portfolio.winRate}%
-            <span className="ml-2 text-sm font-normal text-slate-500">
+            <span className="ml-2 text-sm font-normal text-[var(--text-muted)]">
               ({portfolio.totalClosedTrades} trade selesai)
             </span>
           </h2>
@@ -311,7 +311,7 @@ export default function PortfolioPage() {
                 <tr>
                   <td
                     colSpan={5}
-                    className="py-8 text-center text-slate-500"
+                    className="py-8 text-center text-[var(--text-muted)]"
                   >
                     Belum ada transaksi.
                   </td>
@@ -335,7 +335,7 @@ export default function PortfolioPage() {
                         className={
                           trade.status === "OPEN"
                             ? "rounded bg-sky-500/20 px-2 py-1 text-xs text-sky-400"
-                            : "rounded bg-slate-500/20 px-2 py-1 text-xs text-slate-300"
+                            : "rounded bg-[var(--surface-strong)]/20 px-2 py-1 text-xs text-[var(--text)]"
                         }
                       >
                         {trade.status === "OPEN" ? "TERBUKA" : "SELESAI"}

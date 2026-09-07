@@ -67,7 +67,7 @@ AutoIDX Engine
 
 
 
-<p className="mt-2 text-sm text-slate-400">
+<p className="mt-2 text-sm text-[var(--text-secondary)]">
 
 
 Loading trading environment...
@@ -88,7 +88,7 @@ Loading trading environment...
 <span className="status-dot status-online"/>
 
 
-<span className="text-xs text-slate-400">
+<span className="text-xs text-[var(--text-secondary)]">
 
 
 System Initializing
@@ -103,7 +103,7 @@ System Initializing
 
 
 
-<p className="mt-5 text-xs text-slate-600">
+<p className="mt-5 text-xs text-[var(--text-muted)]">
 
 
 Version 0.0.1 Alpha
