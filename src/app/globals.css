@@ -584,6 +584,85 @@ tbody tr:hover {
   color: #15803d;
 }
 
+/* --- Perbaikan tambahan: kontras rendah & gap yang terlewat --- */
+
+[data-theme="light"] .text-yellow-400 {
+  /* Dipakai untuk teks status (loading, mode badge) -- yellow-400
+     asli (#facc15) nyaris tidak terbaca di atas latar putih. */
+  color: #a16207;
+}
+
+[data-theme="light"] .text-orange-400 {
+  /* Label transaksi SELL di paper-trading -- sama, terlalu terang
+     untuk latar terang. */
+  color: #c2410c;
+}
+
+[data-theme="light"] .bg-yellow-500\/20 {
+  background-color: rgba(161, 98, 7, 0.12);
+}
+
+[data-theme="light"] .bg-amber-950 {
+  /* Badge status WARNING di Canary Monitor -- pasangan
+     amber-950/700/300 ini kepakai sebagai trio solid, sebelumnya
+     belum ada padanan terang seperti trio emerald/red di atas. */
+  background-color: #fffbeb;
+}
+
+[data-theme="light"] .border-amber-700 {
+  border-color: rgba(180, 83, 9, 0.35);
+}
+
+[data-theme="light"] .text-amber-300 {
+  color: #b45309;
+}
+
+[data-theme="light"] .bg-amber-500\/5 {
+  background-color: rgba(180, 83, 9, 0.05);
+}
+
+[data-theme="light"] .border-amber-500\/40 {
+  border-color: rgba(180, 83, 9, 0.35);
+}
+
+[data-theme="light"] .bg-emerald-500\/5 {
+  background-color: rgba(22, 163, 74, 0.06);
+}
+
+[data-theme="light"] .border-emerald-500\/20,
+[data-theme="light"] .border-emerald-500\/30,
+[data-theme="light"] .border-emerald-500\/40 {
+  border-color: rgba(22, 163, 74, 0.3);
+}
+
+[data-theme="light"] .bg-red-500\/30 {
+  background-color: rgba(225, 29, 72, 0.22);
+}
+
+[data-theme="light"] .bg-rose-500\/5 {
+  background-color: rgba(190, 18, 60, 0.05);
+}
+
+[data-theme="light"] .bg-sky-500\/5 {
+  background-color: rgba(2, 132, 199, 0.05);
+}
+
+[data-theme="light"] .bg-sky-500\/10 {
+  background-color: rgba(2, 132, 199, 0.1);
+}
+
+[data-theme="light"] .bg-slate-700\/30 {
+  background-color: rgba(15, 23, 42, 0.08);
+}
+
+[data-theme="light"] .bg-slate-900\/40 {
+  background-color: rgba(15, 23, 42, 0.05);
+}
+
+[data-theme="light"] .bg-slate-500\/20 {
+  background-color: rgba(100, 116, 139, 0.18);
+}
+
 [data-theme="light"] .bg-emerald-950 {
   background-color: #f0fdf4;
 }
