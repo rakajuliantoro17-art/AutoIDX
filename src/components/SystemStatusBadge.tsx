@@ -90,13 +90,13 @@ export default function SystemStatusBadge() {
   if (effectiveMode === null) {
 
     return (
-      <div className="glass flex items-center gap-3 rounded-full px-4 py-2">
+      <div className="glass flex items-center gap-3 rounded-full px-2.5 py-2 sm:px-4">
         <span
           className={`status-dot ${
             fetchFailed ? "status-error" : "status-warning"
           }`}
         />
-        <div className="text-right">
+        <div className="hidden text-right sm:block">
           <p className="text-sm text-slate-300">
             {fetchFailed ? "Gagal memuat status" : "Memuat status..."}
           </p>
@@ -119,24 +119,24 @@ export default function SystemStatusBadge() {
 
   let label = "Paper Trading";
   let dotClass = "status-dot status-online";
-  let labelClass = "text-sm text-slate-300";
+  let labelClass = "text-xs sm:text-sm text-slate-300";
 
   if (emergencyStop) {
     label = "Emergency Stop Aktif";
     dotClass = "status-dot status-error";
-    labelClass = "text-sm font-semibold text-red-400";
+    labelClass = "text-xs sm:text-sm font-semibold text-red-400";
   } else if (isLive) {
     label = "Live Trading";
     dotClass = "status-dot status-error";
-    labelClass = "text-sm font-semibold text-red-400";
+    labelClass = "text-xs sm:text-sm font-semibold text-red-400";
   } else if (isPendingLiveConfirm) {
     label = "Live Diminta - Masih Paper";
     dotClass = "status-dot status-warning";
-    labelClass = "text-sm font-semibold text-amber-400";
+    labelClass = "text-xs sm:text-sm font-semibold text-amber-400";
   }
 
   return (
-    <div className="glass flex items-center gap-3 rounded-full px-4 py-2">
+    <div className="glass flex items-center gap-2 rounded-full px-2.5 py-2 sm:gap-3 sm:px-4">
 
       <span className={dotClass} />
 
@@ -146,7 +146,7 @@ export default function SystemStatusBadge() {
           {label}
         </p>
 
-        <p className="text-xs text-slate-500">
+        <p className="hidden text-xs text-slate-500 sm:block">
           {fetchFailed ? "Data mungkin usang" : "v0.1.0 Alpha"}
         </p>
 
