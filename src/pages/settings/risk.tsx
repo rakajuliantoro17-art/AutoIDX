@@ -140,7 +140,7 @@ export default function RiskSettings() {
       <div className="card space-y-6">
         <div>
           <h1 className="text-xl font-bold">Risk Management</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[var(--text-muted)] mt-1">
             Nilai di sini benar-benar dipakai bot (lewat effectiveConfig),
             tapi selalu dibatasi ke rentang aman supaya tidak bisa diisi
             angka ekstrem tanpa redeploy.
@@ -157,7 +157,7 @@ export default function RiskSettings() {
             TRADE_AMOUNT_MIN===TRADE_AMOUNT_MAX, fase uji coba awal) */}
         <div>
           <div className="flex justify-between items-center mb-2">
-            <p className="text-slate-400 text-sm">Trade Amount</p>
+            <p className="text-[var(--text-secondary)] text-sm">Trade Amount</p>
             <p className="text-sky-400 font-bold">
               {loading ? "..." : formatIDR(tradeAmount)}
             </p>
@@ -189,7 +189,7 @@ export default function RiskSettings() {
                 className="w-full accent-sky-500"
               />
 
-              <div className="flex justify-between text-xs text-slate-500 mt-1">
+              <div className="flex justify-between text-xs text-[var(--text-muted)] mt-1">
                 <span>{formatIDR(TRADE_AMOUNT_MIN)}</span>
                 <span>{formatIDR(TRADE_AMOUNT_MAX)}</span>
               </div>
@@ -262,7 +262,7 @@ function SaveStatus({
 }) {
   return (
     <p className="text-xs mt-2 h-4">
-      {savingField === field && <span className="text-slate-400">Menyimpan...</span>}
+      {savingField === field && <span className="text-[var(--text-secondary)]">Menyimpan...</span>}
       {savedField === field && <span className="text-emerald-400">Tersimpan ✓</span>}
     </p>
   );
@@ -298,7 +298,7 @@ function NumberField({
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
-        <p className="text-slate-400 text-sm">{label}</p>
+        <p className="text-[var(--text-secondary)] text-sm">{label}</p>
         <input
           type="number"
           min={min}
@@ -312,12 +312,12 @@ function NumberField({
             onChange(clamped);
             onCommit(clamped);
           }}
-          className={`bg-slate-900/60 border border-slate-700 rounded-md px-2 py-1 w-24 text-right font-bold ${accent}`}
+          className={`bg-[var(--background-secondary)]/60 border border-[var(--border)] rounded-md px-2 py-1 w-24 text-right font-bold ${accent}`}
         />
       </div>
-      {hint && <p className="text-xs text-slate-500">{hint}</p>}
+      {hint && <p className="text-xs text-[var(--text-muted)]">{hint}</p>}
       <p className="text-xs mt-1 h-4">
-        {saving && <span className="text-slate-400">Menyimpan...</span>}
+        {saving && <span className="text-[var(--text-secondary)]">Menyimpan...</span>}
         {saved && <span className="text-emerald-400">Tersimpan ✓</span>}
       </p>
     </div>

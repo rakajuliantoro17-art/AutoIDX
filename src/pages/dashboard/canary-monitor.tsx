@@ -112,7 +112,7 @@ export default function CanaryMonitorPage() {
   if (authLoading) {
     return (
       <DashboardLayout>
-        <p className="text-slate-400">Memuat...</p>
+        <p className="text-[var(--text-secondary)]">Memuat...</p>
       </DashboardLayout>
     );
   }
@@ -120,7 +120,7 @@ export default function CanaryMonitorPage() {
   if (!user) {
     return (
       <DashboardLayout>
-        <p className="text-slate-400">Silakan login dulu.</p>
+        <p className="text-[var(--text-secondary)]">Silakan login dulu.</p>
       </DashboardLayout>
     );
   }
@@ -131,7 +131,7 @@ export default function CanaryMonitorPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Canary Monitor</h1>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-[var(--text-secondary)] mt-1">
               Kesehatan live trading skala kecil. Status CRITICAL otomatis
               memblokir BUY live baru — SELL tetap selalu diizinkan.
             </p>
@@ -139,7 +139,7 @@ export default function CanaryMonitorPage() {
           <button
             onClick={fetchSnapshot}
             disabled={loading}
-            className="rounded bg-slate-700 px-3 py-2 text-sm disabled:opacity-50"
+            className="rounded bg-[var(--surface-strong)] px-3 py-2 text-sm disabled:opacity-50"
           >
             {loading ? "Memuat..." : "Refresh"}
           </button>
@@ -166,44 +166,44 @@ export default function CanaryMonitorPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="card">
-                <p className="text-xs text-slate-400">Total Order</p>
+                <p className="text-xs text-[var(--text-secondary)]">Total Order</p>
                 <p className="text-xl font-bold">{snapshot.totalOrders}</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Error Rate</p>
+                <p className="text-xs text-[var(--text-secondary)]">Error Rate</p>
                 <p className="text-xl font-bold">{pct(snapshot.errorRate)}</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Win Rate</p>
+                <p className="text-xs text-[var(--text-secondary)]">Win Rate</p>
                 <p className="text-xl font-bold">{pct(snapshot.winRate)}</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Drawdown</p>
+                <p className="text-xs text-[var(--text-secondary)]">Drawdown</p>
                 <p className="text-xl font-bold">{pct(snapshot.drawdown)}</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Latency Rata-rata</p>
+                <p className="text-xs text-[var(--text-secondary)]">Latency Rata-rata</p>
                 <p className="text-xl font-bold">{snapshot.averageLatencyMs.toFixed(0)} ms</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Order Gagal</p>
+                <p className="text-xs text-[var(--text-secondary)]">Order Gagal</p>
                 <p className="text-xl font-bold">{snapshot.failedOrders + snapshot.rejectedOrders}</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Total PnL</p>
+                <p className="text-xs text-[var(--text-secondary)]">Total PnL</p>
                 <p className="text-xl font-bold">
                   {formatIDR(snapshot.totalPnl)}
                 </p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Order Terakhir</p>
+                <p className="text-xs text-[var(--text-secondary)]">Order Terakhir</p>
                 <p className="text-sm">
                   {snapshot.lastOrderAt
                     ? formatFullDateTime(new Date(snapshot.lastOrderAt).toISOString())
                     : "-"}
                 </p>
                 {snapshot.lastOrderAt && (
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
                     {formatRelativeTime(new Date(snapshot.lastOrderAt).toISOString())}
                   </p>
                 )}

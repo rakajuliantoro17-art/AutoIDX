@@ -217,13 +217,13 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold">Bot Executive Overview</h1>
-            <p className="text-xs text-slate-400">Serverless Trading Monitoring</p>
+            <p className="text-xs text-[var(--text-secondary)]">Serverless Trading Monitoring</p>
           </div>
           <div className="flex items-center gap-3">
             <select
               value={selectedPair}
               onChange={(e) => setSelectedPair(e.target.value)}
-              className="bg-black/30 border border-white/10 rounded-md text-xs px-3 py-2 text-slate-200"
+              className="bg-black/30 border border-white/10 rounded-md text-xs px-3 py-2 text-[var(--text)]"
               aria-label="Pilih pair yang ditampilkan"
             >
               {availablePairs.map((p) => (

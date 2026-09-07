@@ -129,7 +129,7 @@ export default function SettingsPage() {
 
         <div className="glass p-8">
           <h1 className="text-3xl font-bold">AURA Trade OS Settings</h1>
-          <p className="text-slate-400 mt-2">
+          <p className="text-[var(--text-secondary)] mt-2">
             Trading configuration and risk management
             {loading ? " — memuat..." : ""}
           </p>
@@ -148,10 +148,10 @@ export default function SettingsPage() {
             href="/settings/risk"
             className="card block hover:border-sky-500/40 transition"
           >
-            <p className="font-semibold text-slate-100">
+            <p className="font-semibold text-[var(--text)]">
               Edit Risk Management →
             </p>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-[var(--text-secondary)] mt-1">
               Trade amount, stop loss, take profit, max position -- bisa
               diubah tanpa redeploy.
             </p>
@@ -160,10 +160,10 @@ export default function SettingsPage() {
             href="/settings/strategy"
             className="card block hover:border-sky-500/40 transition"
           >
-            <p className="font-semibold text-slate-100">
+            <p className="font-semibold text-[var(--text)]">
               Edit Strategy Mode →
             </p>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-[var(--text-secondary)] mt-1">
               Conservative / Balanced / Aggressive -- sumber sinyal utama.
             </p>
           </Link>
@@ -179,13 +179,13 @@ export default function SettingsPage() {
           <h2 className="text-xl font-semibold mb-6">Risk Management</h2>
           <div className="grid md:grid-cols-4 gap-5">
             <div>
-              <p className="text-xs text-slate-500">Trade Amount</p>
+              <p className="text-xs text-[var(--text-muted)]">Trade Amount</p>
               <p className="font-bold mt-2">
                 {formatIDR(config.tradeAmount)}
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[var(--text-muted)]">
                 Target Profit
               </p>
               <p className="font-bold text-emerald-400 mt-2">
@@ -193,7 +193,7 @@ export default function SettingsPage() {
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[var(--text-muted)]">
                 Stop Loss
               </p>
               <p className="font-bold text-red-400 mt-2">
@@ -201,12 +201,12 @@ export default function SettingsPage() {
               </p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">Max Open Position</p>
+              <p className="text-xs text-[var(--text-muted)]">Max Open Position</p>
               <p className="font-bold mt-2">{config.maxOpenPosition}</p>
             </div>
           </div>
 
-          <p className="mt-5 text-xs text-slate-500">
+          <p className="mt-5 text-xs text-[var(--text-muted)]">
             Mode SL/TP saat ini: <span className="text-sky-400">Persentase statis</span>
             {" "}
             -- angka di atas dipakai APA ADANYA untuk semua pair
@@ -215,15 +215,15 @@ export default function SettingsPage() {
 
           <div className="mt-6 grid md:grid-cols-3 gap-5 border-t border-white/10 pt-6">
             <div>
-              <p className="text-xs text-slate-500">Max Exposure / Trade</p>
+              <p className="text-xs text-[var(--text-muted)]">Max Exposure / Trade</p>
               <p className="font-bold mt-2">{config.maxExposurePercent}%</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">Max Daily Loss</p>
+              <p className="text-xs text-[var(--text-muted)]">Max Daily Loss</p>
               <p className="font-bold mt-2">{config.maxDailyLossPercent}%</p>
             </div>
             <div>
-              <p className="text-xs text-slate-500">Cooldown Antar Trade</p>
+              <p className="text-xs text-[var(--text-muted)]">Cooldown Antar Trade</p>
               <p className="font-bold mt-2">{config.cooldownSeconds} detik</p>
             </div>
           </div>
@@ -236,7 +236,7 @@ export default function SettingsPage() {
 
           {config.fullPairMode ? (
             <div>
-              <p className="text-slate-400">
+              <p className="text-[var(--text-secondary)]">
                 Mode <span className="text-sky-400">Full Pair</span> aktif --
                 scanner memindai SEMUA pair IDR di Indodax dengan volume 24
                 jam minimal {formatIDR(config.minVolumeIdr)}, bukan daftar
@@ -246,7 +246,7 @@ export default function SettingsPage() {
           ) : (
             <div className="flex flex-wrap gap-3">
               {config.pairs.length === 0 && (
-                <p className="text-slate-500">Belum ada pair terdaftar.</p>
+                <p className="text-[var(--text-muted)]">Belum ada pair terdaftar.</p>
               )}
               {config.pairs.map((pair) => (
                 <span
@@ -262,7 +262,7 @@ export default function SettingsPage() {
 
         <div className="card border border-dashed border-white/10">
           <h2 className="text-xl font-semibold">Future Configuration</h2>
-          <ul className="mt-4 text-slate-400 space-y-2">
+          <ul className="mt-4 text-[var(--text-secondary)] space-y-2">
             <li>• Edit config langsung dari dashboard (saat ini lewat env var Vercel + redeploy)</li>
             <li>• Telegram notification</li>
             <li>• AI risk adjustment</li>

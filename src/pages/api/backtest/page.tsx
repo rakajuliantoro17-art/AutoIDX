@@ -214,7 +214,7 @@ export default function BacktestPage() {
     <section className="space-y-8">
       <div className="glass p-8">
         <h1 className="text-3xl font-bold">Strategy Backtesting</h1>
-        <p className="mt-2 text-slate-400">
+        <p className="mt-2 text-[var(--text-secondary)]">
           Simulasi performa strategi sebelum digunakan pada mode Live
           Trading.
         </p>
@@ -226,7 +226,7 @@ export default function BacktestPage() {
 
         <div className="mt-6 grid gap-4 md:grid-cols-5">
           <div>
-            <label className="text-sm text-slate-400">Pair</label>
+            <label className="text-sm text-[var(--text-secondary)]">Pair</label>
             <select
               className="mt-2 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2"
               value={pair}
@@ -242,7 +242,7 @@ export default function BacktestPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400">Timeframe</label>
+            <label className="text-sm text-[var(--text-secondary)]">Timeframe</label>
             <select
               className="mt-2 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2"
               value={timeframe}
@@ -258,7 +258,7 @@ export default function BacktestPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400">Periode (hari)</label>
+            <label className="text-sm text-[var(--text-secondary)]">Periode (hari)</label>
             <input
               type="number"
               min={1}
@@ -271,7 +271,7 @@ export default function BacktestPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400">Strategy</label>
+            <label className="text-sm text-[var(--text-secondary)]">Strategy</label>
             <select
               className="mt-2 w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2"
               value={strategy}
@@ -287,7 +287,7 @@ export default function BacktestPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400">Modal Awal (Rp)</label>
+            <label className="text-sm text-[var(--text-secondary)]">Modal Awal (Rp)</label>
             <input
               type="number"
               min={100000}
@@ -314,7 +314,7 @@ export default function BacktestPage() {
       {/* Summary */}
       <div className="grid gap-6 md:grid-cols-4">
         <div className="card">
-          <p className="text-sm text-slate-400">Strategy</p>
+          <p className="text-sm text-[var(--text-secondary)]">Strategy</p>
           <h2 className="mt-2 text-lg font-bold">
             {report
               ? STRATEGY_OPTIONS.find((s) => s.value === report.strategy)
@@ -324,21 +324,21 @@ export default function BacktestPage() {
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Testing Period</p>
+          <p className="text-sm text-[var(--text-secondary)]">Testing Period</p>
           <h2 className="mt-2 text-lg font-bold">
             {data ? `${days} Hari` : "-"}
           </h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Total Trades</p>
+          <p className="text-sm text-[var(--text-secondary)]">Total Trades</p>
           <h2 className="mt-2 text-2xl font-bold">
             {report?.performance.totalTrades ?? 0}
           </h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Win Rate</p>
+          <p className="text-sm text-[var(--text-secondary)]">Win Rate</p>
           <h2 className="mt-2 text-2xl font-bold text-emerald-400">
             {report?.performance.winRate ?? 0}%
           </h2>
@@ -348,21 +348,21 @@ export default function BacktestPage() {
       {/* Capital */}
       <div className="grid gap-6 md:grid-cols-3">
         <div className="card">
-          <p className="text-sm text-slate-400">Initial Capital</p>
+          <p className="text-sm text-[var(--text-secondary)]">Initial Capital</p>
           <h2 className="mt-2 text-xl font-bold">
             {formatIdr(report?.summary.initialCapital ?? initialCapital)}
           </h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Final Capital</p>
+          <p className="text-sm text-[var(--text-secondary)]">Final Capital</p>
           <h2 className="mt-2 text-xl font-bold">
             {formatIdr(report?.summary.finalCapital ?? initialCapital)}
           </h2>
         </div>
 
         <div className="card">
-          <p className="text-sm text-slate-400">Net Profit</p>
+          <p className="text-sm text-[var(--text-secondary)]">Net Profit</p>
           <h2
             className={`mt-2 text-xl font-bold ${
               (report?.summary.profitLoss ?? 0) >= 0
@@ -379,25 +379,25 @@ export default function BacktestPage() {
       {report && (
         <div className="grid gap-6 md:grid-cols-4">
           <div className="card">
-            <p className="text-sm text-slate-400">Max Drawdown</p>
+            <p className="text-sm text-[var(--text-secondary)]">Max Drawdown</p>
             <h2 className="mt-2 text-lg font-bold text-red-400">
               {report.risk.maxDrawdown}%
             </h2>
           </div>
           <div className="card">
-            <p className="text-sm text-slate-400">Profit Factor</p>
+            <p className="text-sm text-[var(--text-secondary)]">Profit Factor</p>
             <h2 className="mt-2 text-lg font-bold">
               {report.performance.profitFactor}
             </h2>
           </div>
           <div className="card">
-            <p className="text-sm text-slate-400">Sharpe Ratio</p>
+            <p className="text-sm text-[var(--text-secondary)]">Sharpe Ratio</p>
             <h2 className="mt-2 text-lg font-bold">
               {report.risk.sharpeRatio}
             </h2>
           </div>
           <div className="card">
-            <p className="text-sm text-slate-400">Risk Level</p>
+            <p className="text-sm text-[var(--text-secondary)]">Risk Level</p>
             <h2 className="mt-2 text-lg font-bold">{report.risk.riskLevel}</h2>
           </div>
         </div>
@@ -421,7 +421,7 @@ export default function BacktestPage() {
             <tbody>
               {!report || report.performance.totalTrades === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-slate-500">
+                  <td colSpan={5} className="py-8 text-center text-[var(--text-muted)]">
                     {loading
                       ? "Menjalankan simulasi..."
                       : "Belum ada hasil backtest."}
@@ -458,7 +458,7 @@ export default function BacktestPage() {
             <h2 className="text-xl font-semibold">
               Batch Test — Top Opportunities
             </h2>
-            <p className="mt-2 max-w-2xl text-sm text-slate-400">
+            <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
               Jalankan strategi yang sama (di atas) terhadap SEMUA pair yang
               saat ini direkomendasikan scanner (bukan cuma 1 pair) --
               memakai timeframe, periode, dan modal awal yang sama seperti
@@ -486,7 +486,7 @@ export default function BacktestPage() {
         {batchData?.aggregate && (
           <div className="mt-6 grid gap-4 md:grid-cols-5">
             <div className="rounded-lg bg-white/5 p-4">
-              <p className="text-xs text-slate-400">Pair Diuji</p>
+              <p className="text-xs text-[var(--text-secondary)]">Pair Diuji</p>
               <p className="mt-1 text-lg font-bold">
                 {batchData.aggregate.pairsTested}
                 {batchData.aggregate.pairsFailed > 0 && (
@@ -498,7 +498,7 @@ export default function BacktestPage() {
               </p>
             </div>
             <div className="rounded-lg bg-white/5 p-4">
-              <p className="text-xs text-slate-400">Rata-rata Return</p>
+              <p className="text-xs text-[var(--text-secondary)]">Rata-rata Return</p>
               <p
                 className={`mt-1 text-lg font-bold ${
                   batchData.aggregate.avgReturnPercent >= 0
@@ -510,20 +510,20 @@ export default function BacktestPage() {
               </p>
             </div>
             <div className="rounded-lg bg-white/5 p-4">
-              <p className="text-xs text-slate-400">Rata-rata Win Rate</p>
+              <p className="text-xs text-[var(--text-secondary)]">Rata-rata Win Rate</p>
               <p className="mt-1 text-lg font-bold">
                 {batchData.aggregate.avgWinRate}%
               </p>
             </div>
             <div className="rounded-lg bg-white/5 p-4">
-              <p className="text-xs text-slate-400">Pair Profit</p>
+              <p className="text-xs text-[var(--text-secondary)]">Pair Profit</p>
               <p className="mt-1 text-lg font-bold">
                 {batchData.aggregate.profitablePairs}/
                 {batchData.aggregate.pairsTested}
               </p>
             </div>
             <div className="rounded-lg bg-white/5 p-4">
-              <p className="text-xs text-slate-400">Terbaik / Terburuk</p>
+              <p className="text-xs text-[var(--text-secondary)]">Terbaik / Terburuk</p>
               <p className="mt-1 text-sm font-semibold">
                 <span className="text-emerald-400">
                   {batchData.aggregate.bestPair?.toUpperCase() ?? "-"}

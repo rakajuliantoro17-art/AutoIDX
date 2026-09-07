@@ -32,7 +32,7 @@ BUY ORDERS
 </h2>
 
 
-<p className="text-slate-400 mt-4">
+<p className="text-[var(--text-secondary)] mt-4">
 
 Waiting order book...
 
@@ -55,7 +55,7 @@ SELL ORDERS
 </h2>
 
 
-<p className="text-slate-400 mt-4">
+<p className="text-[var(--text-secondary)] mt-4">
 
 Waiting order book...
 

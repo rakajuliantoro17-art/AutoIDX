@@ -115,7 +115,7 @@ export default function HistoryPage() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold">Transaction History</h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
             Riwayat eksekusi order AutoIDX Engine
           </p>
         </div>
@@ -130,22 +130,22 @@ export default function HistoryPage() {
         <div className="grid md:grid-cols-4 gap-5">
 
           <div className="card">
-            <p className="text-xs text-slate-400">Total Orders</p>
+            <p className="text-xs text-[var(--text-secondary)]">Total Orders</p>
             <p className="text-2xl font-bold mt-2">{orders.length}</p>
           </div>
 
           <div className="card">
-            <p className="text-xs text-slate-400">BUY Orders</p>
+            <p className="text-xs text-[var(--text-secondary)]">BUY Orders</p>
             <p className="text-2xl font-bold text-emerald-400 mt-2">{buyCount}</p>
           </div>
 
           <div className="card">
-            <p className="text-xs text-slate-400">SELL Orders</p>
+            <p className="text-xs text-[var(--text-secondary)]">SELL Orders</p>
             <p className="text-2xl font-bold text-rose-400 mt-2">{sellCount}</p>
           </div>
 
           <div className="card">
-            <p className="text-xs text-slate-400">Mode</p>
+            <p className="text-xs text-[var(--text-secondary)]">Mode</p>
             <p
               className={`text-xl font-bold mt-2 ${
                 mode === "live" ? "text-amber-400" : "text-sky-400"
@@ -162,7 +162,7 @@ export default function HistoryPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
 
-              <thead className="bg-white/5 text-slate-400">
+              <thead className="bg-white/5 text-[var(--text-secondary)]">
                 <tr>
                   <th className="p-4 text-left">ID</th>
                   <th className="p-4">TYPE</th>
@@ -179,7 +179,7 @@ export default function HistoryPage() {
 
                 {loading && (
                   <tr>
-                    <td colSpan={8} className="p-6 text-center text-slate-400">
+                    <td colSpan={8} className="p-6 text-center text-[var(--text-secondary)]">
                       Memuat riwayat transaksi...
                     </td>
                   </tr>
@@ -187,7 +187,7 @@ export default function HistoryPage() {
 
                 {!loading && orders.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="p-6 text-center text-slate-400">
+                    <td colSpan={8} className="p-6 text-center text-[var(--text-secondary)]">
                       Belum ada transaksi.
                     </td>
                   </tr>
@@ -199,7 +199,7 @@ export default function HistoryPage() {
                       key={tx.id}
                       className="border-t border-white/10 hover:bg-white/5"
                     >
-                      <td className="p-4 text-slate-400">{tx.id}</td>
+                      <td className="p-4 text-[var(--text-secondary)]">{tx.id}</td>
 
                       <td className="p-4">
                         <span
@@ -219,7 +219,7 @@ export default function HistoryPage() {
                       <td
                         className={`p-4 ${
                           tx.profitIdr === null
-                            ? "text-slate-400"
+                            ? "text-[var(--text-secondary)]"
                             : tx.profitIdr >= 0
                             ? "text-emerald-400"
                             : "text-rose-400"

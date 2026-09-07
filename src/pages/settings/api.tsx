@@ -20,7 +20,7 @@ export default function ApiSettings() {
       <div className="space-y-6">
         <div>
           <h1 className="text-xl font-bold">API &amp; Account</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[var(--text-muted)] mt-1">
             Kelola akun Indodax yang dipakai untuk live trading. Kredensial
             dienkripsi (AES-256-GCM) sebelum disimpan.
           </p>

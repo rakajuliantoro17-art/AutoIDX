@@ -237,7 +237,7 @@ export default function MlLabPage() {
   if (authLoading) {
     return (
       <DashboardLayout>
-        <p className="text-slate-400">Memuat...</p>
+        <p className="text-[var(--text-secondary)]">Memuat...</p>
       </DashboardLayout>
     );
   }
@@ -245,7 +245,7 @@ export default function MlLabPage() {
   if (!user) {
     return (
       <DashboardLayout>
-        <p className="text-slate-400">
+        <p className="text-[var(--text-secondary)]">
           Silakan login dulu untuk memakai ML Lab.
         </p>
       </DashboardLayout>
@@ -263,7 +263,7 @@ export default function MlLabPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">ML Lab (Eksperimental)</h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
             Advisory only — belum disambungkan ke eksekusi order otomatis.
             Halaman ini untuk melatih & mengevaluasi model secara transparan
             sebelum ada keputusan menyambungkannya ke live trading.
@@ -274,10 +274,10 @@ export default function MlLabPage() {
         <div className="card space-y-3">
           <h2 className="font-bold">1. Latih Model</h2>
 
-          <label className="block text-sm text-slate-400">
+          <label className="block text-sm text-[var(--text-secondary)]">
             Pair (pisah koma)
             <input
-              className="mt-1 w-full rounded bg-slate-800 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded bg-[var(--surface)] px-3 py-2 text-sm"
               value={pairs}
               onChange={(e) => setPairs(e.target.value)}
               disabled={training}
@@ -299,9 +299,9 @@ export default function MlLabPage() {
           )}
 
           {trainResult?.success && trainResult.validationMetrics && (
-            <div className="rounded bg-slate-800 p-3 text-sm space-y-2">
+            <div className="rounded bg-[var(--surface)] p-3 text-sm space-y-2">
               <p>
-                Model ID: <span className="text-slate-300">{trainResult.modelId}</span>
+                Model ID: <span className="text-[var(--text)]">{trainResult.modelId}</span>
               </p>
               <p>
                 Sample training: {trainResult.trainedSamples} / validasi:{" "}
@@ -313,7 +313,7 @@ export default function MlLabPage() {
                 </p>
               )}
               {trainResult.classCountsBeforeBalance && (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-[var(--text-secondary)]">
                   Distribusi label sebelum balancing:{" "}
                   {Object.entries(trainResult.classCountsBeforeBalance)
                     .map(([k, v]) => `${k}=${v}`)
@@ -339,7 +339,7 @@ export default function MlLabPage() {
                 >
                   {pct(accuracy)}
                 </span>{" "}
-                <span className="text-slate-500">
+                <span className="text-[var(--text-muted)]">
                   (baseline tebak-acak ~{pct(randomBaseline)})
                 </span>
               </p>
@@ -354,12 +354,12 @@ export default function MlLabPage() {
                 )}
 
               <details>
-                <summary className="cursor-pointer text-slate-400">
+                <summary className="cursor-pointer text-[var(--text-secondary)]">
                   Detail per kelas
                 </summary>
                 <table className="mt-2 w-full text-xs">
                   <thead>
-                    <tr className="text-slate-500">
+                    <tr className="text-[var(--text-muted)]">
                       <th className="text-left">Kelas</th>
                       <th>Precision</th>
                       <th>Recall</th>
@@ -395,7 +395,7 @@ export default function MlLabPage() {
         {/* ============ DATASET EXPORT/IMPORT ============ */}
         <div className="card space-y-3">
           <h2 className="font-bold">1b. Export / Import Dataset (Opsional)</h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[var(--text-secondary)]">
             Export untuk inspeksi manual offline (spreadsheet/audit). Import
             untuk melatih ulang dari dataset yang sudah diedit manual - HARUS
             format JSON kalau mau langsung dipakai training (CSV cuma simpan
@@ -406,14 +406,14 @@ export default function MlLabPage() {
             <button
               onClick={() => handleExport("json")}
               disabled={exporting}
-              className="rounded bg-slate-700 px-3 py-2 text-sm disabled:opacity-50"
+              className="rounded bg-[var(--surface-strong)] px-3 py-2 text-sm disabled:opacity-50"
             >
               {exporting ? "..." : "Export JSON"}
             </button>
             <button
               onClick={() => handleExport("csv")}
               disabled={exporting}
-              className="rounded bg-slate-700 px-3 py-2 text-sm disabled:opacity-50"
+              className="rounded bg-[var(--surface-strong)] px-3 py-2 text-sm disabled:opacity-50"
             >
               {exporting ? "..." : "Export CSV"}
             </button>
@@ -426,13 +426,13 @@ export default function MlLabPage() {
           )}
 
           <details>
-            <summary className="cursor-pointer text-slate-400 text-sm">
+            <summary className="cursor-pointer text-[var(--text-secondary)] text-sm">
               Import dataset
             </summary>
 
             <div className="mt-2 space-y-2">
               <textarea
-                className="w-full rounded bg-slate-800 px-3 py-2 text-xs font-mono h-32"
+                className="w-full rounded bg-[var(--surface)] px-3 py-2 text-xs font-mono h-32"
                 placeholder="Paste isi file JSON hasil export di sini..."
                 value={importContent}
                 onChange={(e) => setImportContent(e.target.value)}
@@ -441,7 +441,7 @@ export default function MlLabPage() {
 
               <div className="flex items-center gap-3 text-sm">
                 <select
-                  className="rounded bg-slate-800 px-2 py-1"
+                  className="rounded bg-[var(--surface)] px-2 py-1"
                   value={importFormat}
                   onChange={(e) => setImportFormat(e.target.value as "JSON" | "CSV")}
                   disabled={importing}
@@ -476,7 +476,7 @@ export default function MlLabPage() {
               )}
 
               {importResult && (
-                <div className="rounded bg-slate-800 p-3 text-xs space-y-1">
+                <div className="rounded bg-[var(--surface)] p-3 text-xs space-y-1">
                   <p>Total diparse: {importResult.totalParsed}</p>
                   <p>Sample valid: {importResult.validSamples}</p>
                   <p>Sample dibuang: {importResult.droppedInvalidSamples}</p>
@@ -497,10 +497,10 @@ export default function MlLabPage() {
         <div className="card space-y-3">
           <h2 className="font-bold">2. Coba Prediksi (Advisory Only)</h2>
 
-          <label className="block text-sm text-slate-400">
+          <label className="block text-sm text-[var(--text-secondary)]">
             Pair
             <input
-              className="mt-1 w-full rounded bg-slate-800 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded bg-[var(--surface)] px-3 py-2 text-sm"
               value={predictPair}
               onChange={(e) => setPredictPair(e.target.value)}
               disabled={predicting}
@@ -519,7 +519,7 @@ export default function MlLabPage() {
             <div className="rounded bg-red-950 border border-red-800 p-3 text-sm text-red-300">
               Gagal: {predictErrorRaw}
               {predictErrorRaw.includes("Belum ada model ML") && (
-                <p className="mt-1 text-slate-400">
+                <p className="mt-1 text-[var(--text-secondary)]">
                   Latih model dulu di bagian atas sebelum mencoba prediksi.
                 </p>
               )}
@@ -527,19 +527,19 @@ export default function MlLabPage() {
           )}
 
           {predictResult?.prediction && (
-            <div className="rounded bg-slate-800 p-3 text-sm space-y-2">
+            <div className="rounded bg-[var(--surface)] p-3 text-sm space-y-2">
               <p className="text-base">
                 Sinyal:{" "}
-                <span className="font-bold text-slate-200">
+                <span className="font-bold text-[var(--text)]">
                   {predictResult.prediction.label}
                 </span>{" "}
                 (confidence {pct(predictResult.prediction.confidence)})
               </p>
-              <p className="text-slate-400 text-xs">
+              <p className="text-[var(--text-secondary)] text-xs">
                 Harga saat ini: {formatIDR(predictResult.price ?? 0)} • Candle:{" "}
                 {predictResult.candleTime}
               </p>
-              <p className="text-slate-400 text-xs">
+              <p className="text-[var(--text-secondary)] text-xs">
                 Model dilatih: {predictResult.model?.trainedAt} • Akurasi validasi model:{" "}
                 {pct(predictResult.model?.validationAccuracy)}
               </p>

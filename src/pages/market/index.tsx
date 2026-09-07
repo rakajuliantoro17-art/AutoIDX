@@ -31,7 +31,7 @@ Market Overview
 </h1>
 
 
-<p className="text-xs text-slate-400 mt-1">
+<p className="text-xs text-[var(--text-secondary)] mt-1">
 
 Realtime Indodax Market Monitoring
 
@@ -100,7 +100,7 @@ Market Data Stream
 </h2>
 
 
-<p className="text-sm text-slate-400 mt-3">
+<p className="text-sm text-[var(--text-secondary)] mt-3">
 
 Waiting for Indodax ticker feed...
 

@@ -116,7 +116,7 @@ export default function StrategySettings() {
       <div className="card space-y-6">
         <div>
           <h1 className="text-xl font-bold">Strategy Mode</h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="text-xs text-[var(--text-muted)] mt-1">
             Menentukan strategi mana yang jadi sumber sinyal utama BUY/SELL/HOLD.
             Berlaku untuk semua pair, efektif di siklus trading berikutnya.
           </p>
@@ -142,13 +142,13 @@ export default function StrategySettings() {
                 className={`text-left rounded-lg border px-4 py-3 transition ${
                   isActive
                     ? info.accent
-                    : "border-slate-800 bg-slate-900/40 hover:border-slate-700"
+                    : "border-[var(--border)] bg-[var(--background-secondary)]/40 hover:border-[var(--border)]"
                 } ${loading || saving ? "opacity-60 cursor-wait" : "cursor-pointer"}`}
               >
                 <div className="flex items-center justify-between">
-                  <p className="font-semibold text-slate-100">
+                  <p className="font-semibold text-[var(--text)]">
                     {info.title}
-                    <span className="text-xs text-slate-500 font-normal ml-2">
+                    <span className="text-xs text-[var(--text-muted)] font-normal ml-2">
                       ({info.strategy})
                     </span>
                   </p>
@@ -158,14 +158,14 @@ export default function StrategySettings() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-400 mt-1">{info.description}</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">{info.description}</p>
               </button>
             );
           })}
         </div>
 
         <p className="text-xs h-4">
-          {saving && <span className="text-slate-400">Menyimpan...</span>}
+          {saving && <span className="text-[var(--text-secondary)]">Menyimpan...</span>}
           {saved && <span className="text-emerald-400">Tersimpan ✓</span>}
         </p>
       </div>

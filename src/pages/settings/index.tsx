@@ -43,7 +43,7 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">System Settings</h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-[var(--text-secondary)] mt-1">
             Konfigurasi AutoIDX Trading Engine
           </p>
         </div>
@@ -55,8 +55,8 @@ export default function SettingsPage() {
               href={section.href}
               className="card block hover:border-sky-500/40 transition"
             >
-              <p className="font-semibold text-slate-100">{section.title}</p>
-              <p className="text-xs text-slate-400 mt-1">{section.description}</p>
+              <p className="font-semibold text-[var(--text)]">{section.title}</p>
+              <p className="text-xs text-[var(--text-secondary)] mt-1">{section.description}</p>
             </Link>
           ))}
         </div>

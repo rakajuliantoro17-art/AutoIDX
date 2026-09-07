@@ -112,7 +112,7 @@ export default function StrategyControlPage() {
   if (authLoading) {
     return (
       <DashboardLayout>
-        <p className="text-slate-400">Memuat...</p>
+        <p className="text-[var(--text-secondary)]">Memuat...</p>
       </DashboardLayout>
     );
   }
@@ -120,7 +120,7 @@ export default function StrategyControlPage() {
   if (!user) {
     return (
       <DashboardLayout>
-        <p className="text-slate-400">Silakan login dulu.</p>
+        <p className="text-[var(--text-secondary)]">Silakan login dulu.</p>
       </DashboardLayout>
     );
   }
@@ -130,7 +130,7 @@ export default function StrategyControlPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Strategy Control</h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
             Berlaku mulai siklus cron berikutnya (di-refresh sekali per
             siklus, bukan real-time). Nonaktifkan strategi default mode
             aktif → bot fallback ke AURA_TREND. Nonaktifkan AURA_TREND
@@ -155,7 +155,7 @@ export default function StrategyControlPage() {
             <div key={s.name} className="card flex items-center justify-between">
               <div>
                 <p className="font-bold">{s.name}</p>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
                   {STRATEGY_DESCRIPTIONS[s.name] ?? ""}
                 </p>
               </div>
@@ -172,7 +172,7 @@ export default function StrategyControlPage() {
                 <button
                   onClick={() => handleToggle(s.name, s.status)}
                   disabled={toggling === s.name || loading}
-                  className="rounded bg-slate-700 px-3 py-2 text-sm disabled:opacity-50"
+                  className="rounded bg-[var(--surface-strong)] px-3 py-2 text-sm disabled:opacity-50"
                 >
                   {toggling === s.name
                     ? "..."

@@ -80,7 +80,7 @@ export default function PaperTradingPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Paper Trading</h1>
-          <p className="text-xs text-slate-400 mt-1">Simulasi trading dengan saldo virtual</p>
+          <p className="text-xs text-[var(--text-secondary)] mt-1">Simulasi trading dengan saldo virtual</p>
         </div>
 
         {error && (
@@ -121,14 +121,14 @@ export default function PaperTradingPage() {
         <div className="card">
           <h2 className="text-xl font-semibold mb-5">Posisi Aktif</h2>
           {loading ? (
-            <p className="text-slate-400 text-sm">Memuat...</p>
+            <p className="text-[var(--text-secondary)] text-sm">Memuat...</p>
           ) : !status?.openPositions.length ? (
-            <p className="text-slate-500 text-sm">Tidak ada posisi terbuka saat ini.</p>
+            <p className="text-[var(--text-muted)] text-sm">Tidak ada posisi terbuka saat ini.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-slate-400 border-b border-white/10">
+                  <tr className="text-left text-[var(--text-secondary)] border-b border-white/10">
                     <th className="pb-2">Pair</th>
                     <th className="pb-2">Entry Price</th>
                     <th className="pb-2">Nilai</th>
@@ -156,9 +156,9 @@ export default function PaperTradingPage() {
         <div className="card">
           <h2 className="text-xl font-semibold mb-5">Histori Transaksi Terbaru</h2>
           {loading ? (
-            <p className="text-slate-400 text-sm">Memuat...</p>
+            <p className="text-[var(--text-secondary)] text-sm">Memuat...</p>
           ) : !status?.trades.length ? (
-            <p className="text-slate-500 text-sm">Belum ada transaksi.</p>
+            <p className="text-[var(--text-muted)] text-sm">Belum ada transaksi.</p>
           ) : (
             <div className="space-y-2">
               {status.trades.map((trade) => (
@@ -173,7 +173,7 @@ export default function PaperTradingPage() {
                       </span>{" "}
                       {trade.pair.toUpperCase()}
                     </p>
-                    <p className="text-slate-500 text-xs mt-1">
+                    <p className="text-[var(--text-muted)] text-xs mt-1">
                       {formatFullDateTime(new Date(trade.executedAt).toISOString())} ·{" "}
                       {formatIDR(trade.price)}
                       {trade.reason && ` · ${trade.reason}`}

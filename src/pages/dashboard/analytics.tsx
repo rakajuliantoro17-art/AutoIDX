@@ -100,7 +100,7 @@ export default function AnalyticsPage() {
   if (authLoading) {
     return (
       <DashboardLayout>
-        <p className="text-slate-400">Memuat...</p>
+        <p className="text-[var(--text-secondary)]">Memuat...</p>
       </DashboardLayout>
     );
   }
@@ -108,7 +108,7 @@ export default function AnalyticsPage() {
   if (!user) {
     return (
       <DashboardLayout>
-        <p className="text-slate-400">Silakan login dulu.</p>
+        <p className="text-[var(--text-secondary)]">Silakan login dulu.</p>
       </DashboardLayout>
     );
   }
@@ -119,7 +119,7 @@ export default function AnalyticsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Risk Analytics</h1>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-[var(--text-secondary)] mt-1">
               Dihitung dari riwayat trade tertutup ({data?.mode ?? "..."} mode) -
               bukan simulasi/contoh.
             </p>
@@ -127,7 +127,7 @@ export default function AnalyticsPage() {
           <button
             onClick={fetchData}
             disabled={loading}
-            className="rounded bg-slate-700 px-3 py-2 text-sm disabled:opacity-50"
+            className="rounded bg-[var(--surface-strong)] px-3 py-2 text-sm disabled:opacity-50"
           >
             {loading ? "Memuat..." : "Refresh"}
           </button>
@@ -140,7 +140,7 @@ export default function AnalyticsPage() {
         )}
 
         {data && data.totalClosedTrades === 0 && (
-          <div className="glass p-6 text-sm text-slate-400">
+          <div className="glass p-6 text-sm text-[var(--text-secondary)]">
             {data.message ?? "Belum ada trade tertutup untuk dianalisis."}
           </div>
         )}
@@ -148,11 +148,11 @@ export default function AnalyticsPage() {
         {data && data.totalClosedTrades > 0 && (
           <>
             <div className="glass p-6">
-              <p className="text-xs text-slate-400">Risk Score</p>
+              <p className="text-xs text-[var(--text-secondary)]">Risk Score</p>
               <p className={`text-4xl font-bold ${riskScoreStyle(data.riskScore ?? 0)}`}>
                 {data.riskScore}/100
               </p>
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-[var(--text-muted)] mt-1">
                 100 = risiko rendah (exposure &amp; loss kecil relatif terhadap
                 riwayat sendiri), 0 = risiko tinggi. Dihitung dari{" "}
                 {data.totalClosedTrades} trade tertutup terakhir.
@@ -161,52 +161,52 @@ export default function AnalyticsPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="card">
-                <p className="text-xs text-slate-400">Win Rate</p>
+                <p className="text-xs text-[var(--text-secondary)]">Win Rate</p>
                 <p className="text-xl font-bold">{data.winRate}%</p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[var(--text-muted)]">
                   {data.winningTrades}W / {data.losingTrades}L
                 </p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Max Drawdown</p>
+                <p className="text-xs text-[var(--text-secondary)]">Max Drawdown</p>
                 <p className="text-xl font-bold text-red-400">
                   {idr(data.maxDrawdownIdr)}
                 </p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Trade Terbaik</p>
+                <p className="text-xs text-[var(--text-secondary)]">Trade Terbaik</p>
                 <p className="text-xl font-bold text-emerald-400">
                   {idr(data.bestTradeIdr)}
                 </p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Trade Terburuk</p>
+                <p className="text-xs text-[var(--text-secondary)]">Trade Terburuk</p>
                 <p className="text-xl font-bold text-red-400">
                   {idr(data.worstTradeIdr)}
                 </p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Rata-rata Profit/Trade</p>
+                <p className="text-xs text-[var(--text-secondary)]">Rata-rata Profit/Trade</p>
                 <p className="text-xl font-bold">{idr(data.averageProfitIdr)}</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Rata-rata Exposure</p>
+                <p className="text-xs text-[var(--text-secondary)]">Rata-rata Exposure</p>
                 <p className="text-xl font-bold">{data.averageExposure}%</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Rata-rata Loss</p>
+                <p className="text-xs text-[var(--text-secondary)]">Rata-rata Loss</p>
                 <p className="text-xl font-bold">{data.averageLoss}%</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Total Trade Dianalisis</p>
+                <p className="text-xs text-[var(--text-secondary)]">Total Trade Dianalisis</p>
                 <p className="text-xl font-bold">{data.totalClosedTrades}</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Total Volume</p>
+                <p className="text-xs text-[var(--text-secondary)]">Total Volume</p>
                 <p className="text-xl font-bold">{idr(data.totalVolumeIdr)}</p>
               </div>
               <div className="card">
-                <p className="text-xs text-slate-400">Total Fee</p>
+                <p className="text-xs text-[var(--text-secondary)]">Total Fee</p>
                 <p className="text-xl font-bold">{idr(data.totalFeesIdr)}</p>
               </div>
             </div>
@@ -216,7 +216,7 @@ export default function AnalyticsPage() {
                 <p className="text-sm font-bold mb-2">Breakdown per Strategi</p>
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-slate-500 text-left">
+                    <tr className="text-[var(--text-muted)] text-left">
                       <th>Strategi</th>
                       <th className="text-center">Trade</th>
                       <th className="text-center">Win Rate</th>
@@ -243,7 +243,7 @@ export default function AnalyticsPage() {
                   </tbody>
                 </table>
                 {data.strategyBreakdownNote && (
-                  <p className="text-xs text-slate-500 mt-2">{data.strategyBreakdownNote}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-2">{data.strategyBreakdownNote}</p>
                 )}
               </div>
             )}

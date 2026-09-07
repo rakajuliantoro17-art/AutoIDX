@@ -182,7 +182,7 @@ export default function MarketPairDetail() {
 
 
 
-          <p className="text-sm text-slate-400 mt-2">
+          <p className="text-sm text-[var(--text-secondary)] mt-2">
 
 
             Order book BUY dan SELL dari market Indodax.
@@ -310,7 +310,7 @@ function OrderBook({
           loading ? (
 
 
-            <p className="text-slate-400">
+            <p className="text-[var(--text-secondary)]">
 
               Loading order book...
 
@@ -320,7 +320,7 @@ function OrderBook({
           ) : orders.length === 0 ? (
 
 
-            <p className="text-slate-500">
+            <p className="text-[var(--text-muted)]">
 
               No order data available.
 
@@ -361,7 +361,7 @@ function OrderBook({
 
 
 
-                  <span className="text-slate-400">
+                  <span className="text-[var(--text-secondary)]">
 
 
                     {item.amount}

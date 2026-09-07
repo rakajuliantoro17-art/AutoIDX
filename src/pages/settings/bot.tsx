@@ -113,7 +113,7 @@ export default function BotSettingsPage() {
         <div className="card space-y-6">
           <div>
             <h1 className="text-xl font-bold">Bot Configuration</h1>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-[var(--text-muted)] mt-1">
               Scan Interval &amp; Pairs tersimpan ke Firestore, tapi{" "}
               <span className="text-amber-400">
                 belum tersambung ke cron scheduler asli
@@ -131,7 +131,7 @@ export default function BotSettingsPage() {
           )}
 
           <div>
-            <label className="text-sm text-slate-400">Scan Interval (menit)</label>
+            <label className="text-sm text-[var(--text-secondary)]">Scan Interval (menit)</label>
             <div className="flex items-center gap-2 mt-1">
               <input
                 type="number"
@@ -141,10 +141,10 @@ export default function BotSettingsPage() {
                 disabled={loading || saving === "interval"}
                 onChange={(e) => setScanInterval(Number(e.target.value))}
                 onBlur={handleSaveInterval}
-                className="bg-slate-900/60 border border-slate-700 rounded-md px-2 py-1 w-24"
+                className="bg-[var(--background-secondary)]/60 border border-[var(--border)] rounded-md px-2 py-1 w-24"
               />
               {saving === "interval" && (
-                <span className="text-xs text-slate-400">Menyimpan...</span>
+                <span className="text-xs text-[var(--text-secondary)]">Menyimpan...</span>
               )}
               {saved === "interval" && (
                 <span className="text-xs text-emerald-400">Tersimpan ✓</span>
@@ -153,7 +153,7 @@ export default function BotSettingsPage() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400">
+            <label className="text-sm text-[var(--text-secondary)]">
               Pairs (pisahkan dengan koma)
             </label>
             <div className="flex items-center gap-2 mt-1">
@@ -164,10 +164,10 @@ export default function BotSettingsPage() {
                 onChange={(e) => setPairsText(e.target.value)}
                 onBlur={handleSavePairs}
                 placeholder="btcidr, ethidr, solidr"
-                className="bg-slate-900/60 border border-slate-700 rounded-md px-3 py-1 flex-1"
+                className="bg-[var(--background-secondary)]/60 border border-[var(--border)] rounded-md px-3 py-1 flex-1"
               />
               {saving === "pairs" && (
-                <span className="text-xs text-slate-400">Menyimpan...</span>
+                <span className="text-xs text-[var(--text-secondary)]">Menyimpan...</span>
               )}
               {saved === "pairs" && (
                 <span className="text-xs text-emerald-400">Tersimpan ✓</span>
