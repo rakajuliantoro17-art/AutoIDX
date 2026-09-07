@@ -21,10 +21,11 @@ import {
   useEffect,
   useState,
 } from "react";
+import { THEME_STORAGE_KEY } from "./themeScript";
 
 export type Theme = "dark" | "light";
 
-const STORAGE_KEY = "autoidx-theme";
+const STORAGE_KEY = THEME_STORAGE_KEY;
 
 interface ThemeContextValue {
   theme: Theme;
@@ -97,20 +98,9 @@ export function useTheme() {
   return ctx;
 }
 
-/**
- * Skrip inline yang dijalankan sebelum React hydrate, supaya tema yang
- * benar sudah terpasang di <html> sebelum cat pertama -- mencegah kedipan
- * (flash) dari dark -> light atau sebaliknya saat halaman dimuat.
- */
-export const THEME_INIT_SCRIPT = `
-(function () {
-  try {
-    var stored = window.localStorage.getItem("${STORAGE_KEY}");
-    var theme = stored === "light" || stored === "dark"
-      ? stored
-      : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-    document.documentElement.setAttribute("data-theme", theme);
-    document.documentElement.style.colorScheme = theme;
-  } catch (e) {}
-})();
-`;
+// Skrip anti-flash yang sebenarnya dipakai <head> ada di themeScript.ts
+// (modul polos tanpa React, supaya aman diimpor _document.tsx di Pages
+// Router juga). Re-export di sini sekadar kenyamanan bagi kode lain yang
+// mungkin sudah terbiasa mengimpornya dari file ini -- BUKAN salinan
+// terpisah, supaya tidak ada 2 sumber yang bisa saling tidak sinkron.
+export { THEME_INIT_SCRIPT } from "./themeScript";
