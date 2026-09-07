@@ -10,25 +10,8 @@ Version : 0.0.9 Alpha
 
 import { useEffect, useState } from "react";
 import { formatIDR } from "@/utils";
-
-interface ScannedPairResult {
-  pair: string;
-  symbol: string;
-  lastPrice: number;
-  volIdr: number;
-  change24h?: number;
-  rsi14: number;
-  emaFast: number;
-  emaSlow: number;
-  trend: "BULLISH" | "BEARISH" | "SIDEWAYS";
-  opportunityScore: number;
-  confidence: number;
-  signalRecommendation: "BUY" | "SELL" | "HOLD";
-  riskLevel?: "LOW" | "MEDIUM" | "HIGH";
-  aiScore?: number;
-  aiDirection?: "BULLISH" | "BEARISH" | "NEUTRAL";
-  aiConfidence?: number;
-}
+import { useAuth } from "@/services/auth/AuthContext";
+import type { ScannedPairResult } from "@/services/scanner/types";
 
 function formatPair(pair: string) {
   const [base, quote] = pair.split("_");
@@ -36,6 +19,13 @@ function formatPair(pair: string) {
 }
 
 function signalColor(signal: string) {
+  // PERBAIKAN: "STRONG_BUY" sebelumnya jatuh ke warna netral abu-abu
+  // (fallback di bawah) karena hanya dicek === "BUY" persis -- padahal
+  // itu kategori sinyal PALING bullish, seharusnya hijau (malah lebih
+  // ditekankan dari BUY biasa), bukan disamakan visualnya dengan
+  // WAIT/AVOID yang justru netral/menunggu.
+  if (signal === "STRONG_BUY")
+    return "text-emerald-300 bg-emerald-500/20 font-bold";
   if (signal === "BUY") return "text-emerald-400 bg-emerald-500/10";
   if (signal === "SELL") return "text-red-400 bg-red-500/10";
   return "text-slate-400 bg-white/5";
@@ -53,11 +43,29 @@ function aiDirectionColor(direction?: string) {
   return "text-slate-500";
 }
 
+// Sinyal bot ASLI (dari bot_state, hasil TradingEngine) memakai sistem
+// 3-nilai yang berbeda dari signalRecommendation Scanner (5-nilai,
+// STRONG_BUY/BUY/WAIT/AVOID/SELL) -- lihat catatan di komentar kolom
+// tabel "Sinyal Bot Asli" untuk konteks lengkap kenapa keduanya bisa
+// tidak sama untuk pair yang sama.
+function botSignalColor(signal: string) {
+  if (signal === "BUY") return "text-emerald-400 bg-emerald-500/10";
+  if (signal === "SELL") return "text-red-400 bg-red-500/10";
+  return "text-slate-400 bg-white/5";
+}
+
 export default function ScannerPage() {
+  const { user } = useAuth();
+
   const [results, setResults] = useState<ScannedPairResult[]>([]);
   const [scannedCount, setScannedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Peta pair -> sinyal bot asli (BUY/SELL/HOLD dari bot_state),
+  // KHUSUS pair yang ada di watchlist bot (10 pair tetap di
+  // config/trading.ts) -- lihat komentar useEffect di bawah.
+  const [botSignals, setBotSignals] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -94,7 +102,84 @@ export default function ScannerPage() {
     };
   }, []);
 
-  const buySignals = results.filter((r) => r.signalRecommendation === "BUY").length;
+  // Sinyal bot ASLI, khusus untuk pair watchlist -- dipisah dari
+  // polling scanner di atas (30 detik) karena bot_state cuma berubah
+  // sekali per siklus cron (beberapa menit), jadi refresh tiap 30
+  // detik untuk data ini cuma buang-buang read Firestore percuma.
+  // Butuh login (Bearer token) karena /api/bot/pairs & /api/bot/state
+  // memang endpoint terproteksi, beda dari /api/market di atas yang
+  // publik.
+  useEffect(() => {
+    if (!user) return;
+
+    let cancelled = false;
+
+    async function loadBotSignals() {
+      try {
+        const idToken = await user!.getIdToken();
+
+        const pairsRes = await fetch("/api/bot/pairs", {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+
+        if (!pairsRes.ok) return;
+
+        const pairsJson = await pairsRes.json();
+        const watchlist: string[] = pairsJson.pairs ?? [];
+
+        const entries = await Promise.all(
+          watchlist.map(async (pair) => {
+            try {
+              const stateRes = await fetch(
+                `/api/bot/state?pair=${encodeURIComponent(pair)}`,
+                { headers: { Authorization: `Bearer ${idToken}` } }
+              );
+
+              if (!stateRes.ok) return null;
+
+              const stateJson = await stateRes.json();
+              return [pair, stateJson.lastSignal ?? "HOLD"] as const;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        if (!cancelled) {
+          const map: Record<string, string> = {};
+          for (const entry of entries) {
+            if (entry) map[entry[0]] = entry[1];
+          }
+          setBotSignals(map);
+        }
+      } catch {
+        // Gagal diam-diam -- kolom "Sinyal Bot Asli" akan tampil
+        // "—" untuk semua pair (lihat fallback di render), bukan
+        // memblokir tabel scanner utama yang tetap harus tampil.
+      }
+    }
+
+    loadBotSignals();
+    const botInterval = setInterval(loadBotSignals, 60000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(botInterval);
+    };
+  }, [user]);
+
+  // PERBAIKAN: sebelumnya cuma cocok string "BUY" persis, jadi pair
+  // dengan skor >= 85 (dikategorikan "STRONG_BUY" -- sinyal PALING
+  // kuat, lebih bagus dari "BUY" biasa) tidak pernah ikut terhitung
+  // di sini. Akibatnya kartu ini bisa menunjukkan 0 padahal ada
+  // peluang STRONG_BUY yang aktif -- inkonsisten dengan halaman lain
+  // (mis. Dashboard) yang memakai sistem sinyal lebih sederhana
+  // (BUY/SELL/HOLD) dan tetap menandai peluang itu sebagai "BUY".
+  const buySignals = results.filter(
+    (r) =>
+      r.signalRecommendation === "BUY" ||
+      r.signalRecommendation === "STRONG_BUY"
+  ).length;
 
   return (
     <section className="space-y-8">
@@ -151,6 +236,10 @@ export default function ScannerPage() {
                 <th className="text-left">Trend</th>
                 <th className="text-left">Opportunity Score</th>
                 <th className="text-left">Sinyal</th>
+                <th className="text-left">
+                  Sinyal Bot Asli
+                  <span className="text-slate-600 font-normal"> (watchlist)</span>
+                </th>
                 <th className="text-left">Confidence</th>
                 <th className="text-left">
                   AI Score
@@ -190,6 +279,22 @@ export default function ScannerPage() {
                         {item.signalRecommendation}
                       </span>
                     </td>
+                    <td>
+                      {item.pair in botSignals ? (
+                        <span
+                          className={`text-xs font-semibold px-2 py-1 rounded-full ${botSignalColor(
+                            botSignals[item.pair]
+                          )}`}
+                          title="Sinyal aktual dari TradingEngine (bot_state), bukan skor Scanner"
+                        >
+                          {botSignals[item.pair]}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600 text-xs" title="Pair ini tidak ada di watchlist bot (config/trading.ts)">
+                          Bukan watchlist
+                        </span>
+                      )}
+                    </td>
                     <td>{item.confidence}%</td>
                     <td>
                       {item.aiDirection ? (
@@ -210,7 +315,7 @@ export default function ScannerPage() {
 
               {!loading && results.length === 0 && !error && (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500">
+                  <td colSpan={9} className="py-8 text-center text-slate-500">
                     Belum ada pair yang memenuhi kriteria minimum volume.
                   </td>
                 </tr>
