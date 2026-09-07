@@ -36,7 +36,7 @@ export default function PriceChart({
           </h3>
 
 
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[var(--text-secondary)]">
 
             Realtime Market Visualization
 
@@ -69,7 +69,7 @@ export default function PriceChart({
       ">
 
 
-        <p className="text-slate-500 text-sm">
+        <p className="text-[var(--text-muted)] text-sm">
 
           Trading Chart Engine
           <br/>

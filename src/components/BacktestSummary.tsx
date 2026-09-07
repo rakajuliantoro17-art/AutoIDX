@@ -27,18 +27,18 @@ export default function BacktestSummary() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold">Backtesting</h2>
-          <p className="text-sm text-slate-400">Strategi default saat ini</p>
+          <p className="text-sm text-[var(--text-secondary)]">Strategi default saat ini</p>
         </div>
         <span className="rounded-full bg-sky-500/20 px-3 py-1 text-xs text-sky-400">
           Belum dijalankan
         </span>
       </div>
       <div>
-        <p className="text-xs text-slate-500">Strategy</p>
+        <p className="text-xs text-[var(--text-muted)]">Strategy</p>
         <p className="font-semibold mt-1">{STRATEGY_LABEL}</p>
       </div>
       <div className="mt-6 rounded-xl border border-dashed border-white/10 p-4">
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-[var(--text-secondary)]">
           Belum ada hasil backtest yang dijalankan dari dashboard ini.
           Hasil backtest tidak disimpan otomatis -- jalankan simulasi
           penuh (pilih pair/timeframe/periode/strategi) di halaman

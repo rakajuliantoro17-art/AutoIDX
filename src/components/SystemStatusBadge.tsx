@@ -97,10 +97,10 @@ export default function SystemStatusBadge() {
           }`}
         />
         <div className="hidden text-right sm:block">
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-[var(--text)]">
             {fetchFailed ? "Gagal memuat status" : "Memuat status..."}
           </p>
-          <p className="text-xs text-slate-500">v0.1.0 Alpha</p>
+          <p className="text-xs text-[var(--text-muted)]">v0.1.0 Alpha</p>
         </div>
       </div>
     );
@@ -119,7 +119,7 @@ export default function SystemStatusBadge() {
 
   let label = "Paper Trading";
   let dotClass = "status-dot status-online";
-  let labelClass = "text-xs sm:text-sm text-slate-300";
+  let labelClass = "text-xs sm:text-sm text-[var(--text)]";
 
   if (emergencyStop) {
     label = "Emergency Stop Aktif";
@@ -146,7 +146,7 @@ export default function SystemStatusBadge() {
           {label}
         </p>
 
-        <p className="hidden text-xs text-slate-500 sm:block">
+        <p className="hidden text-xs text-[var(--text-muted)] sm:block">
           {fetchFailed ? "Data mungkin usang" : "v0.1.0 Alpha"}
         </p>
 

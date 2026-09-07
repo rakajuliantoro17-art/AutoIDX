@@ -43,7 +43,7 @@ export default function RouteGuard({ children }: { children: React.ReactNode }) 
   if (loading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
-        <p className="text-slate-400">Memuat sesi...</p>
+        <p className="text-[var(--text-secondary)]">Memuat sesi...</p>
       </div>
     );
   }

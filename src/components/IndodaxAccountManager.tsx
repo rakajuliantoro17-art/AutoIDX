@@ -129,10 +129,10 @@ export default function IndodaxAccountManager() {
   return (
     <div className="card">
       <h2 className="text-xl font-semibold mb-5">Akun Trade API Indodax</h2>
-      <p className="text-slate-400 text-sm mb-2">
+      <p className="text-[var(--text-secondary)] text-sm mb-2">
         Kelola API Key & Secret dari akun Indodax kamu. Bisa lebih dari satu akun.
       </p>
-      <p className="text-slate-500 text-xs mb-6">
+      <p className="text-[var(--text-muted)] text-xs mb-6">
         🔒 Disimpan terenkripsi (AES-256-GCM) di server. API key/secret utuh
         tidak pernah dikirim balik ke browser setelah disimpan.
       </p>
@@ -181,9 +181,9 @@ export default function IndodaxAccountManager() {
       {/* List akun tersimpan */}
       <div className="space-y-2">
         {loading ? (
-          <p className="text-slate-400 text-sm">Memuat akun...</p>
+          <p className="text-[var(--text-secondary)] text-sm">Memuat akun...</p>
         ) : accounts.length === 0 ? (
-          <p className="text-slate-500 text-sm">Belum ada akun Indodax tersimpan.</p>
+          <p className="text-[var(--text-muted)] text-sm">Belum ada akun Indodax tersimpan.</p>
         ) : (
           accounts.map((acc) => (
             <div
@@ -192,13 +192,13 @@ export default function IndodaxAccountManager() {
             >
               <div>
                 <p className="font-medium">{acc.label}</p>
-                <p className="text-slate-500 text-xs mt-1">{acc.apiKeyMasked}</p>
+                <p className="text-[var(--text-muted)] text-xs mt-1">{acc.apiKeyMasked}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleToggle(acc.id, acc.isActive)}
                   className={`text-xs px-3 py-1 rounded-full ${
-                    acc.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-slate-400"
+                    acc.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-[var(--text-secondary)]"
                   }`}
                 >
                   {acc.isActive ? "Aktif" : "Nonaktif"}

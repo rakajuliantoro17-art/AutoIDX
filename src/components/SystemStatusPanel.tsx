@@ -65,7 +65,7 @@ function levelStyle(level: HealthLevel) {
     case "UNHEALTHY":
       return { dot: "status-dot status-error", text: "text-rose-400" };
     default:
-      return { dot: "status-dot status-warning", text: "text-slate-400" };
+      return { dot: "status-dot status-warning", text: "text-[var(--text-secondary)]" };
   }
 }
 

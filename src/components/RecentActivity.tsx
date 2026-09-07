@@ -45,15 +45,15 @@ export default function RecentActivity({ logs, loading = false }: RecentActivity
     <section className="card">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold">Recent Activity</h2>
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-[var(--text-muted)]">
           {loading ? "Memuat..." : `Last ${logs.length} events`}
         </span>
       </div>
       <div className="space-y-4">
         {loading ? (
-          <p className="text-sm text-slate-500">Memuat aktivitas terbaru...</p>
+          <p className="text-sm text-[var(--text-muted)]">Memuat aktivitas terbaru...</p>
         ) : logs.length === 0 ? (
-          <p className="text-sm text-slate-500">Belum ada aktivitas.</p>
+          <p className="text-sm text-[var(--text-muted)]">Belum ada aktivitas.</p>
         ) : (
           logs.map((log) => (
             <div
@@ -62,7 +62,7 @@ export default function RecentActivity({ logs, loading = false }: RecentActivity
             >
               <div>
                 <p className="font-medium">{log.message}</p>
-                <p className="text-xs text-slate-500 mt-1">{log.time}</p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">{log.time}</p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeColor(log.level)}`}>
                 {log.level}

@@ -32,13 +32,13 @@ export default function UserMenu() {
         {initial}
       </div>
 
-      <span className="hidden text-sm text-slate-300 sm:inline">
+      <span className="hidden text-sm text-[var(--text)] sm:inline">
         {user.email}
       </span>
 
       <button
         onClick={() => logout()}
-        className="rounded-full border border-white/10 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/5 sm:px-3"
+        className="rounded-full border border-white/10 px-2.5 py-1.5 text-xs font-medium text-[var(--text)] transition hover:bg-white/5 sm:px-3"
       >
         Keluar
       </button>

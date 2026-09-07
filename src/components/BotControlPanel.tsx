@@ -205,7 +205,7 @@ export default function BotControlPanel() {
   if (loading) {
     return (
       <div className="card">
-        <p className="text-slate-400">Memuat status kontrol bot...</p>
+        <p className="text-[var(--text-secondary)]">Memuat status kontrol bot...</p>
       </div>
     );
   }
@@ -223,7 +223,7 @@ export default function BotControlPanel() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Bot Control</h2>
         {control.updatedAt ? (
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-[var(--text-muted)]">
             Terakhir diubah:{" "}
             <span title={formatFullDateTime(new Date(control.updatedAt).toISOString())}>
               {formatRelativeTime(new Date(control.updatedAt).toISOString())}
@@ -252,7 +252,7 @@ export default function BotControlPanel() {
               </span>
             )}
           </p>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
             Kalau aktif: BUY baru langsung diblokir. SELL, stop-loss, dan take-profit
             tetap berjalan supaya posisi terbuka tidak "nyangkut".
           </p>
@@ -285,7 +285,7 @@ export default function BotControlPanel() {
                 {control.mode === "live" ? "LIVE (uang asli)" : "PAPER (simulasi)"}
               </span>
             </p>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-[var(--text-secondary)] mt-1">
               Mode "live" di sini baru satu dari dua syarat. Bot baru benar-benar
               eksekusi order asli kalau env var <code>BOT_LIVE_CONFIRM=true</code> juga
               sudah di-set di Vercel.
@@ -321,12 +321,12 @@ export default function BotControlPanel() {
                 {checked.size} DICENTANG
               </span>
             ) : (
-              <span className="ml-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-400">
+              <span className="ml-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-[var(--text-secondary)]">
                 MODE OTOMATIS PENUH
               </span>
             )}
           </p>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
             Pilih dari top kandidat hasil scan siklus terbaru mana yang mau
             benar-benar dieksekusi otomatis. Yang TIDAK dicentang tetap
             ter-scan &amp; kelihatan di sini, tapi TIDAK dieksekusi
@@ -337,9 +337,9 @@ export default function BotControlPanel() {
         </div>
 
         {candidatesLoading ? (
-          <p className="text-sm text-slate-500">Memuat kandidat scanner...</p>
+          <p className="text-sm text-[var(--text-muted)]">Memuat kandidat scanner...</p>
         ) : candidates.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-[var(--text-muted)]">
             Belum ada hasil scan siklus terbaru. Checklist akan terisi
             otomatis begitu cron scan pertama selesai.
           </p>
@@ -374,7 +374,7 @@ export default function BotControlPanel() {
                     </span>
                   ) : null}
                 </div>
-                <div className="text-sm text-slate-400">
+                <div className="text-sm text-[var(--text-secondary)]">
                   Skor {c.opportunityScore} · {c.signalRecommendation}
                 </div>
               </label>
@@ -401,7 +401,7 @@ export default function BotControlPanel() {
           <p className="font-bold text-red-400">
             Yakin mau pindah ke mode LIVE?
           </p>
-          <p className="text-sm text-slate-300">
+          <p className="text-sm text-[var(--text)]">
             Bot akan mencoba mengeksekusi order ASLI dengan uang sungguhan setelah
             <code className="mx-1">BOT_LIVE_CONFIRM=true</code>
             juga di-set di Vercel. Pastikan nominal trade, stop loss, dan batas

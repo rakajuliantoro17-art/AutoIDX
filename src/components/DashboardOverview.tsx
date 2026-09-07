@@ -53,7 +53,7 @@ export default function DashboardOverview({
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-lg font-semibold">Overview</h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[var(--text-secondary)]">
             {pair.replace("_", "/").toUpperCase()} -- siklus terakhir
           </p>
         </div>

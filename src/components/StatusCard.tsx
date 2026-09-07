@@ -98,7 +98,7 @@ default:
 
 return {
 
-text:"text-slate-200",
+text:"text-[var(--text)]",
 
 border:"border-white/10"
 
@@ -157,7 +157,7 @@ duration-200
 <div>
 
 
-<p className="text-xs uppercase tracking-wider text-slate-400">
+<p className="text-xs uppercase tracking-wider text-[var(--text-secondary)]">
 
 
 {title}
@@ -297,7 +297,7 @@ subtext &&
 (
 
 
-<p className="mt-3 text-xs text-slate-500">
+<p className="mt-3 text-xs text-[var(--text-muted)]">
 
 
 {subtext}

@@ -151,11 +151,11 @@ return {
 
 style:
 
-"bg-slate-700/30 text-slate-400 border-slate-600/40",
+"bg-[var(--surface-strong)]/30 text-[var(--text-secondary)] border-[var(--border-strong)]/40",
 
 dot:
 
-"bg-slate-400",
+"bg-[var(--surface-strong)]",
 
 icon:"•"
 

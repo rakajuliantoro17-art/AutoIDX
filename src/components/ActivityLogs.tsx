@@ -152,7 +152,7 @@ Live Activity Logs
 </h3>
 
 
-<p className="text-xs text-slate-500">
+<p className="text-xs text-[var(--text-muted)]">
 
 
 Realtime Trading Engine Events
@@ -172,7 +172,7 @@ Realtime Trading Engine Events
 <span className="status-dot status-online"/>
 
 
-<span className="text-xs text-slate-400">
+<span className="text-xs text-[var(--text-secondary)]">
 
 
 LIVE
@@ -211,7 +211,7 @@ logs.length === 0 ?
 (
 
 
-<p className="text-sm text-slate-500 italic">
+<p className="text-sm text-[var(--text-muted)] italic">
 
 
 Belum ada aktivitas engine...
@@ -246,7 +246,7 @@ className="fade-in flex gap-3 items-start text-xs font-mono"
 
 
 
-<span className="text-slate-600 shrink-0">
+<span className="text-[var(--text-muted)] shrink-0">
 
 
 [{log.timestamp}]
