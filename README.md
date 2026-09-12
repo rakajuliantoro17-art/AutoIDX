@@ -1,253 +1,205 @@
-# 🚀 AURA Trade OS
+# 🎓 SMANSASOO Academic Portal
 
-> **Adaptive Unified Risk & AI Trading Operating System**
-
-![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript)
-![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase)
-![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+Portal Pengumuman Akademik SMAN 1 Sooko Mojokerto.
 
 ---
 
-## 📖 Overview
+## 📌 Tentang Project
 
-**AURA Trade OS** adalah platform trading otomatis berbasis AI yang dirancang khusus untuk **Indodax Exchange**.
+SMANSASOO Academic Portal merupakan aplikasi web berbasis HTML, CSS, dan JavaScript yang digunakan sebagai portal resmi pengumuman akademik SMAN 1 Sooko Mojokerto.
 
-Berbeda dengan trading bot biasa, AURA Trade OS dibangun sebagai **Trading Operating System** yang terdiri dari berbagai modul independen seperti:
+Project ini dirancang agar dapat digunakan setiap tahun tanpa perlu membangun ulang aplikasi. Data akademik dikelola melalui Google Spreadsheet dan diakses menggunakan Google Apps Script sebagai REST API.
 
-- 📊 Market Scanner
-- 📈 Technical Analysis Engine
-- 🤖 AI Confidence Engine
-- 🛡️ Risk Management
-- 💼 Portfolio Manager
-- ⚡ Auto Trading Engine
-- 📉 Analytics Dashboard
-
-Seluruh sistem dikembangkan secara modular sehingga mudah dikembangkan hingga versi Machine Learning.
+Website di-host menggunakan Vercel dan seluruh source code dikelola melalui GitHub.
 
 ---
 
-# ✨ Features
+## 🎯 Tujuan
 
-## ✅ Market Intelligence
-
-- Multi Pair Scanner
-- Market Ranking
-- Top Gainers
-- Top Losers
-- Volume Scanner
-- Liquidity Scanner
-- Order Book Analysis
+- Pengumuman Kenaikan Kelas
+- Pembagian Kelas Baru
+- Pengumuman Kelulusan
+- Pengumuman MPLS
+- Informasi Akademik
 
 ---
 
-## 📈 Technical Analysis
+## 🚀 Teknologi
 
-- EMA
-- RSI
-- MACD
-- ATR
-- Bollinger Bands
-- VWAP
-- ADX
-
----
-
-## 🛡 Risk Management
-
-- Position Sizing
-- Dynamic Stop Loss
-- Dynamic Take Profit
-- Trailing Stop
-- Daily Loss Limit
-- Maximum Drawdown
-- Portfolio Allocation
+| Teknologi | Keterangan |
+|-----------|------------|
+| HTML5 | Struktur Website |
+| CSS3 | Tampilan |
+| JavaScript ES6 | Interaksi |
+| Google Apps Script | REST API |
+| Google Spreadsheet | Database |
+| GitHub | Version Control |
+| Vercel | Hosting |
 
 ---
 
-## 🤖 AI (Roadmap)
-
-- Confidence Score
-- Strategy Optimizer
-- Adaptive Strategy
-- Machine Learning
-- Historical Learning
-
----
-
-## 📊 Dashboard
-
-- Portfolio
-- Open Position
-- Daily Profit
-- Monthly Profit
-- Win Rate
-- Drawdown
-- Activity Log
-- Strategy Performance
-- System Health
-
----
-
-# 🏗 Architecture
-
-```
-Indodax API
-      │
-      ▼
-Market Scanner
-      │
-      ▼
-Technical Analysis
-      │
-      ▼
-Risk Management
-      │
-      ▼
-Strategy Engine
-      │
-      ▼
-Execution Engine
-      │
-      ▼
-Firebase
-      │
-      ▼
-Dashboard
-```
-
----
-
-# 📁 Project Structure
+## 📁 Struktur Project
 
 ```text
-src/
-
-app/
-components/
-layouts/
-pages/
-
-services/
-
-    ai/
-    analytics/
-    firebase/
-    indicators/
-    indodax/
-    logger/
-    portfolio/
-    risk/
-    scanner/
-    strategy/
-
-styles/
-utils/
+smansasoo-academic-portal/
+│
+├── assets/
+├── css/
+├── docs/
+├── js/
+├── pages/
+│
+├── index.html
+├── vercel.json
+├── sw.js
+├── README.md
+├── LICENSE
+└── .gitignore
 ```
 
 ---
 
-# 🚀 Development Roadmap
+## ⚙️ Arsitektur
 
-## v0.0.1
-
-- Project Bootstrap
-- Dashboard
-- Firebase
-- Market Scanner
-- Live Market
-- Logging
-
----
-
-## v0.1.0
-
-- Technical Indicators
-- Multi Pair Scanner
-- Opportunity Ranking
-- Portfolio
+```text
+User
+ │
+ ▼
+Vercel
+ │
+ ▼
+Google Apps Script API
+ │
+ ▼
+Google Spreadsheet
+```
 
 ---
 
-## v0.2.0
+## 🌐 Deployment
 
-- Paper Trading
-- Strategy Engine
-- Backtesting
+Repository GitHub akan otomatis terhubung dengan Vercel sehingga setiap perubahan pada branch **main** akan langsung dideploy.
 
 ---
 
-## v0.5.0
+## 📊 Database
 
-- Auto Trading
-- Telegram Notification
-- Dynamic Risk Engine
+Seluruh data disimpan pada Google Spreadsheet.
 
----
+Contoh struktur data:
 
-## v1.0.0
-
-- Machine Learning
-- AI Confidence
-- Portfolio Optimizer
-- Adaptive Trading
+| Tahun | NIS | NISN | Nama | Status | Kelas Lama | Kelas Baru | Minat | Wali |
+|------|------|------|------|------|------|------|------|------|
 
 ---
 
-# 🛠 Technology Stack
+## 📐 Modul Nilai (tanpa Apps Script)
 
-- Next.js
-- TypeScript
-- TailwindCSS
-- Firebase
-- Vercel
-- Indodax API
+Selain modul kenaikan kelas di atas, portal ini juga punya modul **Cek Nilai
+Matematika** (`pages/nilai.html`) yang sudah sepenuhnya pindah dari Apps
+Script ke Vercel Serverless Function (folder `/api`). Modul ini membaca
+Google Spreadsheet langsung dari server, jadi ID spreadsheet tidak pernah
+kelihatan di browser maupun di source code GitHub.
+
+### Setup
+
+1. Buka spreadsheet-nya, klik **Share** → ubah ke **"Anyone with the link
+   - Viewer"** (bukan "Publish to web").
+2. Salin ID spreadsheet dari URL-nya:
+   `https://docs.google.com/spreadsheets/d/`**`ID_SPREADSHEET`**`/edit`
+3. Di **Vercel Dashboard → Project → Settings → Environment Variables**,
+   tambahkan:
+
+   | Key | Value |
+   |-----|-------|
+   | `GOOGLE_SHEET_ID` | ID spreadsheet dari langkah 2 |
+
+4. Redeploy project. Endpoint `/api/nilai`, `/api/kelas-list`, dan
+   `/api/kelas-summary` akan otomatis aktif — lihat `docs/API.md` untuk
+   detail masing-masing endpoint.
+
+> ⚠️ Vercel hanya membaca serverless function dari folder **`/api`** di
+> root project. Jangan pindahkan file-file di `/api` ke folder lain
+> (mis. `functions/api/`) karena tidak akan ke-deploy.
 
 ---
-Integrasi AI Explainability (Observability Only) — AutoIDX
-File di paket ini
-BARU: `src/services/intelligence/ai/decisionExplainer.ts`
-Adapter tipis yang menggabungkan `ai/confidence.ts` + `ai/explanation.ts`
-(yang sebelumnya orphan) menjadi satu baris log siap pakai.
-DIUBAH: `src/services/trading/engine.ts`
-Hanya 3 perubahan kecil di fungsi `logAIAdvisory()`:
-1 baris import baru (`explainDecision`)
-1 blok `try/catch` tambahan di dalam loop per-provider (setelah log "AI Advisory", sebelum `consensusInputs.push`)
-1 blok `try/catch` tambahan setelah `aiConsensus.evaluate()`
-Cara upload ke GitHub (browser UI, tanpa terminal)
-Buka repo → masuk ke folder `src/services/intelligence/ai/`
-Klik "Add file" → "Upload files" → drag `decisionExplainer.ts` dari paket ini
-Buka `src/services/trading/engine.ts` di GitHub → klik ikon pensil (edit)
-Replace SELURUH isi file dengan isi `engine.ts` dari paket ini (sudah lengkap, bukan cuma potongan)
-Commit langsung ke `main`, atau lewat PR kalau mau di-review dulu
-PENTING — kenapa cuma 2 file ini, bukan semua orphan
-Cluster `services/intelligence/ai/*` lain (`sentiment.ts`, `client.ts`,
-`orchestrator.ts`, `router.ts`, `analyzer.ts`) dan `fusion/voting.ts`
-+`fusion/decision.ts`+`fusion/confidence.ts` SENGAJA TIDAK diintegrasikan.
-Semua itu duplikat/pengganti dari logika yang sudah aktif di `engine.ts`
-(AI consensus, sanity check strategi) — menyambungkannya akan
-menciptakan sinyal ganda yang bisa saling kontradiksi dalam satu
-keputusan buy/sell. Detail lengkap sudah dijelaskan di chat.
-Verifikasi tipe
-Sandbox saya tidak punya akses internet jadi `npm install` + `tsc`
-tidak bisa dijalankan di sini. Saya sudah verifikasi manual:
-`IndicatorFeatureVector` (dipakai `engine.ts`) dan `FeatureVector`
-(dibutuhkan `confidence.ts`/`explanation.ts`) — identik strukturnya
-`AISignal` (consensus.ts) dan `TradingSignal` (types.ts) — identik
-`parseAIResponse()` mengembalikan `AIAnalysis` dari sumber tipe yang
-sama persis dengan yang dipakai `decisionExplainer.ts`
-Tolong tetap jalankan `npm run build` (lokal atau lihat build log
-Vercel) sebelum merge ke `main`, sesuai aturan wajib di `docs/claude.md`
-— jangan percaya klaim "sudah aman" dari sesi manapun (termasuk ini)
-tanpa verifikasi build sungguhan.
-Efek ke trading
-NOL. Ini murni menambah baris log baru bertag `[AI Explainability ...]`
-di collection `logs` Firestore (dashboard Activity). Tidak ada nilai
-yang dipakai risk-gate, sizing, atau keputusan BUY/SELL/HOLD yang berubah.
-# 📄 License
+
+## 🔌 API
+
+Google Apps Script digunakan sebagai REST API.
+
+Contoh request:
+
+```text
+GET
+/api?nis=123456
+```
+
+Contoh response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "nama": "Ahmad",
+    "status": "Naik",
+    "kelasBaru": "XI-5"
+  }
+}
+```
+
+---
+
+# 🛣️ Roadmap
+
+## Version 1.0
+
+- [x] HTML Structure
+- [x] GitHub Repository
+- [x] Vercel Deployment
+- [x] Google Spreadsheet
+- [x] Google Apps Script API
+- [ ] Search NIS/NISN
+- [ ] Result Card
+- [ ] Responsive Design
+
+---
+
+## Version 1.5
+
+- Countdown
+- Informasi Sekolah
+- FAQ
+- Responsive Improvement
+- Progressive Web App (PWA)
+- Offline Page
+
+---
+
+## Version 2.0
+
+- Multi Tahun Ajaran
+- Multi Pengumuman
+- Konfigurasi Portal
+- Statistik Pengunjung
+- Dashboard Admin
+- Download PDF
+- QR Verification
+
+---
+
+## 👨‍💻 Developer
+
+SMAN 1 Sooko Mojokerto
+
+IT Team
+
+Academic Portal Project
+
+---
+
+## 📄 License
 
 MIT License
 
-Copyright © 2026
-Raka Juliantoro
+Copyright © 2026 SMAN 1 Sooko Mojokerto
