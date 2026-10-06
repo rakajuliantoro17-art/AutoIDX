@@ -17,6 +17,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { formatIDR } from "@/utils";
 import { REFRESH_INTERVALS } from "@/utils/constants";
+import { setVisibleInterval } from "@/utils/visibleInterval";
 
 interface ActivityItem {
   id: string;
@@ -147,9 +148,9 @@ export default function ActivityPage() {
 
     fetchLogs();
 
-    const interval = setInterval(fetchLogs, REFRESH_INTERVAL_MS);
+    const interval = setVisibleInterval(fetchLogs, REFRESH_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    return () => interval();
 
   }, [fetchLogs]);
 

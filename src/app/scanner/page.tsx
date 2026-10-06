@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { formatIDR } from "@/utils";
 import { useAuth } from "@/services/auth/AuthContext";
 import type { ScannedPairResult } from "@/services/scanner/types";
+import { setVisibleInterval } from "@/utils/visibleInterval";
 
 function formatPair(pair: string) {
   const [base, quote] = pair.split("_");
@@ -94,11 +95,11 @@ export default function ScannerPage() {
     }
 
     load();
-    const interval = setInterval(load, 30000);
+    const interval = setVisibleInterval(load, 30000);
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      interval();
     };
   }, []);
 
@@ -160,11 +161,11 @@ export default function ScannerPage() {
     }
 
     loadBotSignals();
-    const botInterval = setInterval(loadBotSignals, 60000);
+    const botInterval = setVisibleInterval(loadBotSignals, 60000);
 
     return () => {
       cancelled = true;
-      clearInterval(botInterval);
+      botInterval();
     };
   }, [user]);
 

@@ -28,6 +28,19 @@ export const config = {
   maxDuration: 60,
 };
 
+/**
+ * Batas pengaman Vercel Fluid Active CPU. Scan penuh (~12-30 detik
+ * CPU/IO) TIDAK akan jalan lebih sering dari ini, berapa pun sering
+ * cron-job.org menembak. Request yang datang lebih cepat dijawab
+ * 200 "throttled" dalam beberapa milidetik. Ubah lewat env var
+ * CRON_SCAN_MIN_INTERVAL_SECONDS (default 60, minimum 10).
+ */
+function getMinIntervalMs(): number {
+  const raw = Number(process.env.CRON_SCAN_MIN_INTERVAL_SECONDS);
+  const seconds = Number.isFinite(raw) && raw > 0 ? raw : 60;
+  return Math.max(10, seconds) * 1000;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const cronSecret = process.env.CRON_SECRET?.trim();
@@ -61,13 +74,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const lock = await acquireCronLock();
+  const lock = await acquireCronLock(getMinIntervalMs());
 
   if (!lock.acquired) {
     return res.status(200).json({
       success: true,
       skipped: true,
-      reason: "Previous cron cycle still running",
+      throttled: lock.reason === "throttled",
+      reason:
+        lock.reason === "throttled"
+          ? "Too soon since last cycle (CRON_SCAN_MIN_INTERVAL_SECONDS)"
+          : "Previous cron cycle still running",
       executedAt: new Date().toISOString(),
     });
   }

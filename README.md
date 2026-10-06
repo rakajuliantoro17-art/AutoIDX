@@ -1,216 +1,42 @@
-# 🎓 SMANSASOO Academic Portal
+# AURA Trade OS
 
-Portal Pengumuman Akademik SMAN 1 Sooko Mojokerto.
+Automated Indodax trading engine dengan dashboard monitoring. Repo: `AutoIDX` (private). Versi saat ini: **0.2.0 Alpha**.
 
----
+## Stack
 
-## 📌 Tentang Project
+- Next.js 14 (App Router + Pages Router campuran, belum dimigrasi)
+- TypeScript (strict), Tailwind CSS
+- Firebase: Firestore (client SDK di frontend, Admin SDK di semua API/server)
+- Indodax API, AI advisory opsional (OpenAI / Gemini / Claude / DeepSeek via REST)
+- Deploy: Vercel. Scheduler: cron-job.org memanggil `/api/cron/scan` dan `/api/cron/reconcile`
 
-SMANSASOO Academic Portal merupakan aplikasi web berbasis HTML, CSS, dan JavaScript yang digunakan sebagai portal resmi pengumuman akademik SMAN 1 Sooko Mojokerto.
+## Menjalankan
 
-Project ini dirancang agar dapat digunakan setiap tahun tanpa perlu membangun ulang aplikasi. Data akademik dikelola melalui Google Spreadsheet dan diakses menggunakan Google Apps Script sebagai REST API.
-
-Website di-host menggunakan Vercel dan seluruh source code dikelola melalui GitHub.
-
----
-
-## 🎯 Tujuan
-
-- Pengumuman Kenaikan Kelas
-- Pembagian Kelas Baru
-- Pengumuman Kelulusan
-- Pengumuman MPLS
-- Informasi Akademik
-
----
-
-## 🚀 Teknologi
-
-| Teknologi | Keterangan |
-|-----------|------------|
-| HTML5 | Struktur Website |
-| CSS3 | Tampilan |
-| JavaScript ES6 | Interaksi |
-| Google Apps Script | REST API |
-| Google Spreadsheet | Database |
-| GitHub | Version Control |
-| Vercel | Hosting |
-
----
-
-## 📁 Struktur Project
-
-```text
-smansasoo-academic-portal/
-│
-├── assets/
-├── css/
-├── docs/
-├── js/
-├── pages/
-│
-├── index.html
-├── vercel.json
-├── sw.js
-├── README.md
-├── LICENSE
-└── .gitignore
+```bash
+npm install
+npm run dev          # development
+npm run typecheck    # tsc --noEmit
+npm run build        # production build
 ```
 
----
+Node 22.x. Semua konfigurasi lewat Environment Variables Vercel (tidak ada file `.env` di repo). Daftar lengkap: [`docs/environment-variables.md`](docs/environment-variables.md).
 
-## ⚙️ Arsitektur
+## Keamanan live trading
 
-```text
-User
- │
- ▼
-Vercel
- │
- ▼
-Google Apps Script API
- │
- ▼
-Google Spreadsheet
-```
+Order live hanya jalan kalau **dua** syarat terpenuhi: `bot_control.mode === "live"` di Firestore **dan** env var `BOT_LIVE_CONFIRM=true`. Kredensial Indodax disimpan terenkripsi (AES-256-GCM) per user di Firestore.
 
----
+## Menjaga pemakaian Vercel (Fluid Active CPU)
 
-## 🌐 Deployment
+- Scan penuh dibatasi server-side: tidak jalan lebih sering dari `CRON_SCAN_MIN_INTERVAL_SECONDS` (default 60 detik), berapa pun frekuensi cron-job.org.
+- Polling dashboard berhenti saat tab tidak terlihat dan berinterval 15-30 detik.
+- Workflow GitHub Actions untuk cron sengaja dinonaktifkan (hanya `workflow_dispatch` manual); cron-job.org adalah satu-satunya trigger terjadwal.
 
-Repository GitHub akan otomatis terhubung dengan Vercel sehingga setiap perubahan pada branch **main** akan langsung dideploy.
+## Dokumentasi
 
----
+- [`docs/claude.md`](docs/claude.md): panduan dan catatan sesi pengembangan (baca ini dulu)
+- [`docs/deployment.md`](docs/deployment.md): alur deploy
+- [`docs/Orphanfile.md`](docs/Orphanfile.md): kandidat kode yatim/tidak terpakai
 
-## 📊 Database
+## Lisensi
 
-Seluruh data disimpan pada Google Spreadsheet.
-
-Contoh struktur data:
-
-| Tahun | NIS | NISN | Nama | Status | Kelas Lama | Kelas Baru | Minat | Wali |
-|------|------|------|------|------|------|------|------|------|
-
----
-
-## 🧩 UI Shell (konsistensi tampilan)
-
-Nav bar dan footer di semua halaman dirender dari satu sumber:
-`js/shell.js` + `css/shell.css`. Tambah menu baru cukup di satu tempat,
-dan setiap halaman baru tinggal menyalin `pages/_template.html`.
-
-Panduan lengkap (design tokens, komponen yang sudah ada, cara menambah
-halaman/fitur baru): lihat **`docs/UI-SHELL.md`**.
-
----
-
-## 📐 Modul Nilai (tanpa Apps Script)
-
-Selain modul kenaikan kelas di atas, portal ini juga punya modul **Cek Nilai
-Matematika** (`pages/nilai.html`) yang sudah sepenuhnya pindah dari Apps
-Script ke Vercel Serverless Function (folder `/api`). Modul ini membaca
-Google Spreadsheet langsung dari server, jadi ID spreadsheet tidak pernah
-kelihatan di browser maupun di source code GitHub.
-
-### Setup
-
-1. Buka spreadsheet-nya, klik **Share** → ubah ke **"Anyone with the link
-   - Viewer"** (bukan "Publish to web").
-2. Salin ID spreadsheet dari URL-nya:
-   `https://docs.google.com/spreadsheets/d/`**`ID_SPREADSHEET`**`/edit`
-3. Di **Vercel Dashboard → Project → Settings → Environment Variables**,
-   tambahkan:
-
-   | Key | Value |
-   |-----|-------|
-   | `GOOGLE_SHEET_ID` | ID spreadsheet dari langkah 2 |
-
-4. Redeploy project. Endpoint `/api/nilai`, `/api/kelas-list`, dan
-   `/api/kelas-summary` akan otomatis aktif — lihat `docs/API.md` untuk
-   detail masing-masing endpoint.
-
-> ⚠️ Vercel hanya membaca serverless function dari folder **`/api`** di
-> root project. Jangan pindahkan file-file di `/api` ke folder lain
-> (mis. `functions/api/`) karena tidak akan ke-deploy.
-
----
-
-## 🔌 API
-
-Google Apps Script digunakan sebagai REST API.
-
-Contoh request:
-
-```text
-GET
-/api?nis=123456
-```
-
-Contoh response:
-
-```json
-{
-  "success": true,
-  "data": {
-    "nama": "Ahmad",
-    "status": "Naik",
-    "kelasBaru": "XI-5"
-  }
-}
-```
-
----
-
-# 🛣️ Roadmap
-
-## Version 1.0
-
-- [x] HTML Structure
-- [x] GitHub Repository
-- [x] Vercel Deployment
-- [x] Google Spreadsheet
-- [x] Google Apps Script API
-- [ ] Search NIS/NISN
-- [ ] Result Card
-- [ ] Responsive Design
-
----
-
-## Version 1.5
-
-- Countdown
-- Informasi Sekolah
-- FAQ
-- Responsive Improvement
-- Progressive Web App (PWA)
-- Offline Page
-
----
-
-## Version 2.0
-
-- Multi Tahun Ajaran
-- Multi Pengumuman
-- Konfigurasi Portal
-- Statistik Pengunjung
-- Dashboard Admin
-- Download PDF
-- QR Verification
-
----
-
-## 👨‍💻 Developer
-
-SMAN 1 Sooko Mojokerto
-
-IT Team
-
-Academic Portal Project
-
----
-
-## 📄 License
-
-MIT License
-
-Copyright © 2026 SMAN 1 Sooko Mojokerto
+MIT

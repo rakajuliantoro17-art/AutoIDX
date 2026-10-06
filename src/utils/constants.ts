@@ -21,8 +21,8 @@ export const POPULAR_PAIRS = [
 ];
 
 export const REFRESH_INTERVALS = {
-  TICKER_MS: 5000,    // Refresh harga tiap 5 detik
-  LOGS_MS: 3000,      // Refresh log aktivitas tiap 3 detik
-  PORTFOLIO_MS: 15000,// Refresh portofolio tiap 15 detik
-  STATUS_MS: 10000,   // Refresh status/config dashboard tiap 10 detik
+  TICKER_MS: 15000,   // Refresh harga tiap 15 detik (dulu 5; tiap tick = 1 invocation Vercel)
+  LOGS_MS: 15000,     // Refresh log aktivitas tiap 15 detik (dulu 3)
+  PORTFOLIO_MS: 30000,// Refresh portofolio tiap 30 detik
+  STATUS_MS: 30000,   // Refresh status/config dashboard tiap 30 detik (dulu 10)
 };

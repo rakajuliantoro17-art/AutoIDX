@@ -33,6 +33,8 @@ const LOCK_TTL_MS = 25_000;
 
 export interface CronLockHandle {
   readonly acquired: boolean;
+  /** Kenapa lock tidak didapat: "running" = siklus lain masih jalan, "throttled" = terlalu cepat sejak siklus terakhir. */
+  readonly reason?: "running" | "throttled";
   readonly runId: string;
   readonly release: () => Promise<void>;
 }
@@ -45,12 +47,26 @@ function createRunId(): string {
   ].join("-");
 }
 
-export async function acquireCronLock(): Promise<CronLockHandle> {
+/**
+ * @param minIntervalMs Jarak minimum antar-MULAI siklus. Kalau request
+ * datang lebih cepat dari ini, ditolak dengan reason "throttled"
+ * (hanya 1 transaksi Firestore kecil, TANPA scan market). Ini batas
+ * pengaman biaya Vercel Fluid Active CPU: seberapa pun sering
+ * cron-job.org menembak, scan penuh tidak akan jalan lebih sering
+ * dari ini. Default 0 = tanpa throttle (perilaku lama).
+ */
+export async function acquireCronLock(
+  minIntervalMs = 0
+): Promise<CronLockHandle> {
 
   const runId = createRunId();
   const lockRef = adminDb.collection(LOCK_COLLECTION).doc(LOCK_DOC_ID);
 
+  let reason: "running" | "throttled" | undefined;
+
   const acquired = await adminDb.runTransaction(async (transaction) => {
+
+    reason = undefined;
 
     const snapshot = await transaction.get(lockRef);
     const now = Date.now();
@@ -62,9 +78,16 @@ export async function acquireCronLock(): Promise<CronLockHandle> {
           ? data.lockedAt.toMillis()
           : 0;
 
+      const released = data?.released === true;
       const isStale = now - lockedAtMs > LOCK_TTL_MS;
 
-      if (!isStale) {
+      if (!released && !isStale) {
+        reason = "running";
+        return false;
+      }
+
+      if (minIntervalMs > 0 && now - lockedAtMs < minIntervalMs) {
+        reason = "throttled";
         return false;
       }
     }
@@ -72,6 +95,7 @@ export async function acquireCronLock(): Promise<CronLockHandle> {
     transaction.set(lockRef, {
       runId,
       lockedAt: Timestamp.now(),
+      released: false,
     });
 
     return true;
@@ -80,13 +104,16 @@ export async function acquireCronLock(): Promise<CronLockHandle> {
 
   return {
     acquired,
+    reason,
     runId,
     release: async () => {
       if (!acquired) return;
 
       const snapshot = await lockRef.get();
       if (snapshot.exists && snapshot.data()?.runId === runId) {
-        await lockRef.delete();
+        // Tandai selesai, JANGAN hapus: lockedAt dipakai sebagai
+        // patokan throttle (minIntervalMs) untuk siklus berikutnya.
+        await lockRef.update({ released: true });
       }
     },
   };

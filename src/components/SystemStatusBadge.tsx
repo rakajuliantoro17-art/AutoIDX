@@ -24,6 +24,7 @@ benar.
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { REFRESH_INTERVALS } from "@/utils/constants";
+import { setVisibleInterval } from "@/utils/visibleInterval";
 
 type BotMode = "paper" | "live";
 
@@ -77,9 +78,9 @@ export default function SystemStatusBadge() {
 
     fetchMode();
 
-    const interval = setInterval(fetchMode, REFRESH_INTERVAL_MS);
+    const interval = setVisibleInterval(fetchMode, REFRESH_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    return () => interval();
 
   }, [fetchMode]);
 

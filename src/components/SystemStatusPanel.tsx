@@ -21,6 +21,7 @@ Dipakai sebagai:
 import { useCallback, useEffect, useState } from "react";
 import { REFRESH_INTERVALS } from "@/utils/constants";
 import { IconServer } from "@/components/icons";
+import { setVisibleInterval } from "@/utils/visibleInterval";
 
 type HealthLevel = "HEALTHY" | "WARNING" | "UNHEALTHY" | string;
 
@@ -89,8 +90,8 @@ function useSystemHealth(pollMs: number) {
 
   useEffect(() => {
     fetchHealth();
-    const interval = setInterval(fetchHealth, pollMs);
-    return () => clearInterval(interval);
+    const interval = setVisibleInterval(fetchHealth, pollMs);
+    return () => interval();
   }, [fetchHealth, pollMs]);
 
   return { data, error, loading };

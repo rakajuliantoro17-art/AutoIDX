@@ -34,6 +34,7 @@ import RiskBadge from "@/components/RiskBadge";
 import PriceChart from "@/components/PriceChart";
 import ActivityLogs from "@/components/ActivityLogs";
 import { useAuth } from "@/services/auth/AuthContext";
+import { setVisibleInterval } from "@/utils/visibleInterval";
 
 interface DashboardData {
   price: number;
@@ -201,12 +202,12 @@ export default function DashboardPage() {
     loadBotState();
     loadLogs();
 
-    const interval = setInterval(() => {
+    const interval = setVisibleInterval(() => {
       loadBotState();
       loadLogs();
     }, REFRESH_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    return () => interval();
 
   }, [loadBotState, loadLogs]);
 

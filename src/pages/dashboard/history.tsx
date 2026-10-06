@@ -18,6 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/services/auth/AuthContext";
 import { REFRESH_INTERVALS } from "@/utils/constants";
+import { setVisibleInterval } from "@/utils/visibleInterval";
 
 interface OrderHistoryRow {
   id: string;
@@ -99,9 +100,9 @@ export default function HistoryPage() {
 
     fetchHistory();
 
-    const interval = setInterval(fetchHistory, REFRESH_INTERVAL_MS);
+    const interval = setVisibleInterval(fetchHistory, REFRESH_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    return () => interval();
 
   }, [fetchHistory]);
 

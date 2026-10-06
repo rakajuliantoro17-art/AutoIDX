@@ -20,6 +20,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { formatIDR, formatPercent } from "@/utils";
 import { REFRESH_INTERVALS } from "@/utils/constants";
+import { setVisibleInterval } from "@/utils/visibleInterval";
 
 interface TradeRow {
   pair: string;
@@ -119,9 +120,9 @@ export default function PortfolioPage() {
 
     fetchPortfolio();
 
-    const interval = setInterval(fetchPortfolio, REFRESH_INTERVAL_MS);
+    const interval = setVisibleInterval(fetchPortfolio, REFRESH_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    return () => interval();
 
   }, [fetchPortfolio]);
 

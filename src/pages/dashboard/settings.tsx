@@ -26,6 +26,7 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import IndodaxAccountManager from "@/components/IndodaxAccountManager";
 import BotControlPanel from "@/components/BotControlPanel";
 import { useAuth } from "@/services/auth/AuthContext";
+import { setVisibleInterval } from "@/utils/visibleInterval";
 
 interface RuntimeConfig {
   mode: string;
@@ -117,9 +118,9 @@ export default function SettingsPage() {
 
     fetchConfig();
 
-    const interval = setInterval(fetchConfig, REFRESH_INTERVAL_MS);
+    const interval = setVisibleInterval(fetchConfig, REFRESH_INTERVAL_MS);
 
-    return () => clearInterval(interval);
+    return () => interval();
 
   }, [fetchConfig]);
 

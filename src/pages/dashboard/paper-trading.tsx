@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { formatIDR, formatPercent, formatFullDateTime } from "@/utils";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import StatusCard from "@/components/StatusCard";
+import { setVisibleInterval } from "@/utils/visibleInterval";
 
 interface PaperPosition {
   pair: string;
@@ -66,8 +67,8 @@ export default function PaperTradingPage() {
 
   useEffect(() => {
     loadStatus();
-    const interval = setInterval(loadStatus, 30_000); // auto-refresh tiap 30 detik
-    return () => clearInterval(interval);
+    const interval = setVisibleInterval(loadStatus, 30_000); // auto-refresh tiap 30 detik
+    return () => interval();
   }, []);
 
   const portfolio = status?.portfolio;

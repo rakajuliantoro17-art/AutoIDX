@@ -39,6 +39,7 @@ Variabel	Wajib	Keterangan
 Cron / Scheduled Jobs
 Variabel	Wajib	Keterangan
 `CRON_SECRET`	Ya	Dicocokkan di `/api/cron/scan` DAN `/api/bot` (sejak audit keamanan sesi ML Advisory) untuk memvalidasi request dari cron-job.org / trigger manual, bukan dari publik. `/api/bot` sebelumnya TIDAK memvalidasi ini sama sekali -- lihat Session Log 11 di `docs/claude.md`.
+`CRON_SCAN_MIN_INTERVAL_SECONDS`	Tidak	Default `60`, minimum `10`. Jarak minimum antar-siklus scan penuh di `/api/cron/scan`. Request yang datang lebih cepat dijawab `200 {throttled:true}` tanpa scan (hampir tanpa CPU). Batas pengaman Vercel Fluid Active CPU; naikkan (mis. `120`-`300`) untuk menghemat lebih banyak.
 Bot Mode & Safety
 Variabel	Wajib	Keterangan
 `BOT_MODE`	Ya	`paper` (aman, tidak kirim order asli) atau `live` (order asli, uang sungguhan). Default harus `paper`.
