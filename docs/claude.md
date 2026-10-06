@@ -963,3 +963,26 @@ BELUM di-`tsc`/build sungguhan -- sandbox tanpa internet, konsisten seluruh sesi
 Rekomendasi AI untuk bantu milih pair (skor/confidence AI ditampilkan di sebelah checklist) SENGAJA ditunda atas permintaan user eksplisit -- checklist manual (opportunityScore dari scanner saja, sudah ditampilkan) cukup untuk versi ini.
 `priorityPairs` yang disimpan tapi TIDAK PERNAH qualified di scan manapun akan diam-diam tidak pernah tereksekusi selamanya tanpa peringatan eksplisit ke user (cuma kelihatan implisit dari checkbox yang tetap tercentang tapi tidak pernah muncul di transaction history) -- kalau mau UX lebih baik ke depan, bisa ditambah badge "belum pernah qualified" di checklist.
 Belum ada tombol "reset ke mode otomatis penuh" eksplisit di UI -- user harus uncheck semua secara manual lalu Simpan (fungsional tapi kurang jelas secara UX).
+
+---
+Session Log 24 — package.json Dipulihkan, Fokus Ulang ke AutoIDX, Pembatas Fluid Active CPU (Claude Code, akses repo langsung)
+Konteks: project Vercel sempat di-PAUSE user karena overload "Fluid Active". Sesi ini punya akses git push langsung ke repo dan akses npm, jadi SEMUA perubahan di bawah SUDAH diverifikasi `npm install` + `tsc --noEmit` (0 error) + `next build` (sukses, env Firebase dummy). Catatan lama "sandbox tanpa internet / BELUM di-tsc" TIDAK berlaku untuk sesi ini.
+
+Yang dikerjakan
+`package.json` + `package-lock.json` (BARU) -- repo SEBELUMNYA tidak punya package.json sama sekali (build mustahil). Dependensi diturunkan dari import nyata di `src/`: next 14.2.35, react/react-dom 18.3.1, firebase 10.12.4, firebase-admin 12.3.1 (+ typescript, tailwind, postcss, autoprefixer, eslint di devDependencies). Tidak ada recharts/axios/zod/SDK AI (panggilan AI pakai fetch REST). Node 22.x. Script: dev, build, start, lint, `typecheck` DAN `type-check` (ci.yml pakai yang berhubung, docs pakai yang tidak). `validate-env`/`check-build` di docs/deployment.md TIDAK pernah ada implementasinya -- belum dibuat.
+`.gitignore` -- tambah `.next/` dan `next-env.d.ts`.
+`README.md` dan `vercel.json` -- sebelumnya berisi sisa proyek LAIN (Portal Akademik SMANSASOO; vercel.json me-rewrite `/` ke `/index.html` yang tidak ada). Diganti konten AURA Trade OS / hanya security headers. Aset `public/` sudah AURA, tidak diubah.
+`services/scheduler/cronLock.ts` -- `acquireCronLock(minIntervalMs)`: lock sekarang di-"release" dengan flag `released:true` (bukan dihapus) supaya `lockedAt` jadi patokan throttle. `getScanMinIntervalMs()` baca env `CRON_SCAN_MIN_INTERVAL_SECONDS` (default 60, minimum 10).
+`pages/api/cron/scan.ts` -- request yang datang lebih cepat dari batas itu dijawab `200 {throttled:true}` tanpa scan. Pembatas biaya: berapa pun sering cron-job.org menembak, scan penuh tidak lebih sering dari ini.
+`services/scheduler/cronHeartbeat.ts` -- `EXPECTED_INTERVAL_MS` sekarang `max(30s, getScanMinIntervalMs())`, supaya menaikkan interval tidak memicu alarm palsu "Cron Scan Tidak Responsif" dari /api/cron/reconcile.
+`utils/visibleInterval.ts` (BARU) -- `setVisibleInterval()` berhenti saat tab tidak terlihat; dipakai semua polling dashboard (9 file). `utils/constants.ts` REFRESH_INTERVALS dilonggarkan: TICKER/LOGS 15s (dulu 5s/3s), PORTFOLIO/STATUS 30s (dulu 15s/10s).
+
+Temuan penting
+Penyebab utama beban Fluid Active = frekuensi cron scan (komentar kode menyebut cron-job.org tiap 30 detik; user melaporkan 1 menit) x durasi satu siklus (~12-30 detik, hampir semua menunggu network). BUKAN jumlah pair: 400+ pair hanya 1 request `getSummaryTickers()`; analisa mendalam dibatasi `DEEP_SCAN_LIMIT=30` pair, eksekusi `MAX_CANDIDATE_PAIRS_PER_CYCLE=8`.
+Reconcile (cron 5 menit) ringan: kalau mode bukan live aktif, langsung return setelah cek heartbeat.
+Sumber kebenaran mode paper/live = dokumen Firestore `bot_control/main`, BUKAN env var (`BOT_MODE` hanya nilai awal). Live butuh DUA syarat: `bot_control.mode==="live"` DAN env `BOT_LIVE_CONFIRM=true`. Badge status di header (`SystemStatusBadge`, bukan orphan) menampilkan Paper/Live/"Live Diminta - Masih Paper"/Emergency Stop.
+`cacheCleaner.ts` yang dulu dikira bermasalah TIDAK error di kode asli (tsc bersih) -- tidak perlu diperbaiki; folder `services/cache/` juga kandidat hapus di Orphanfile.md.
+
+Rekomendasi operasional (belum dilakukan, di luar kode)
+Interval cron-job.org scan -> 2-5 menit; set `CRON_SCAN_MIN_INTERVAL_SECONDS` (mis. 120) di Vercel; pastikan `bot_control/main.mode` = paper dan `BOT_LIVE_CONFIRM` bukan true sebelum resume project; pantau Usage -> Fluid Active CPU 1-2 jam pertama. Kalau masih tinggi: turunkan `DEEP_SCAN_LIMIT` (30->15) / `MAX_CANDIDATE_PAIRS_PER_CYCLE` (8->4) -- BELUM diubah.
+Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) dan CPU aktual per siklus.
