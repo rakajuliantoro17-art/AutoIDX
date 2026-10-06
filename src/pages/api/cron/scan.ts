@@ -22,24 +22,11 @@ catatan lengkap di scanCycle.ts.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { runScanCycle } from "@/services/scheduler/scanCycle";
-import { acquireCronLock } from "@/services/scheduler/cronLock";
+import { acquireCronLock, getScanMinIntervalMs } from "@/services/scheduler/cronLock";
 
 export const config = {
   maxDuration: 60,
 };
-
-/**
- * Batas pengaman Vercel Fluid Active CPU. Scan penuh (~12-30 detik
- * CPU/IO) TIDAK akan jalan lebih sering dari ini, berapa pun sering
- * cron-job.org menembak. Request yang datang lebih cepat dijawab
- * 200 "throttled" dalam beberapa milidetik. Ubah lewat env var
- * CRON_SCAN_MIN_INTERVAL_SECONDS (default 60, minimum 10).
- */
-function getMinIntervalMs(): number {
-  const raw = Number(process.env.CRON_SCAN_MIN_INTERVAL_SECONDS);
-  const seconds = Number.isFinite(raw) && raw > 0 ? raw : 60;
-  return Math.max(10, seconds) * 1000;
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
 
@@ -74,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const lock = await acquireCronLock(getMinIntervalMs());
+  const lock = await acquireCronLock(getScanMinIntervalMs());
 
   if (!lock.acquired) {
     return res.status(200).json({

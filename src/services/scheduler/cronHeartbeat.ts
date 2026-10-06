@@ -33,6 +33,7 @@ Cara kerja:
 ==========================================================
 */
 
+import { getScanMinIntervalMs } from "@/services/scheduler/cronLock";
 import { adminDb } from "@/services/firebase/admin";
 
 const COLLECTION = "system_status";
@@ -43,7 +44,10 @@ const DOC_ID = "cronHeartbeat";
  * -- dipakai sebagai basis ambang ALIVE/STALE/DEAD. Sesuai
  * dokumentasi di scan.ts & cronLock.ts (trigger tiap ~30 detik).
  */
-const EXPECTED_INTERVAL_MS = 30_000;
+// Interval yang diharapkan = jarak minimum antar-scan (throttle di
+// cron/scan.ts), minimal 30 detik. Ikut berubah kalau
+// CRON_SCAN_MIN_INTERVAL_SECONDS dinaikkan, supaya tidak ada alarm palsu.
+const EXPECTED_INTERVAL_MS = Math.max(30_000, getScanMinIntervalMs());
 
 export type CronHeartbeatStatus = "ALIVE" | "STALE" | "DEAD";
 

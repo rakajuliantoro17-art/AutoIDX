@@ -31,6 +31,18 @@ const LOCK_DOC_ID = "cronScan";
 
 const LOCK_TTL_MS = 25_000;
 
+/**
+ * Jarak minimum antar-siklus scan (detik di env
+ * CRON_SCAN_MIN_INTERVAL_SECONDS, default 60, minimum 10). Dipakai
+ * cron/scan.ts untuk throttle DAN cronHeartbeat.ts sebagai interval
+ * yang diharapkan, supaya ambang ALIVE/STALE/DEAD ikut menyesuaikan.
+ */
+export function getScanMinIntervalMs(): number {
+  const raw = Number(process.env.CRON_SCAN_MIN_INTERVAL_SECONDS);
+  const seconds = Number.isFinite(raw) && raw > 0 ? raw : 60;
+  return Math.max(10, seconds) * 1000;
+}
+
 export interface CronLockHandle {
   readonly acquired: boolean;
   /** Kenapa lock tidak didapat: "running" = siklus lain masih jalan, "throttled" = terlalu cepat sejak siklus terakhir. */
