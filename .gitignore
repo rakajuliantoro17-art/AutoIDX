@@ -3,3 +3,5 @@
 .env.production
 node_modules/
 tsconfig.tsbuildinfo
+.next/
+next-env.d.ts
