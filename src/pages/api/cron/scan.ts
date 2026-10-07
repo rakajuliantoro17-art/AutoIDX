@@ -23,6 +23,7 @@ catatan lengkap di scanCycle.ts.
 import type { NextApiRequest, NextApiResponse } from "next";
 import { runScanCycle } from "@/services/scheduler/scanCycle";
 import { acquireCronLock, getScanMinIntervalMs } from "@/services/scheduler/cronLock";
+import { recordHeartbeat } from "@/services/scheduler/cronHeartbeat";
 
 export const config = {
   maxDuration: 60,
@@ -78,7 +79,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
 
+    const cycleStartedAt = Date.now();
+
     const { summary, trading, aiCalibration } = await runScanCycle();
+
+    // Heartbeat di akhir siklus SUKSES (best-effort, tidak pernah
+    // menggagalkan scan). Pemanggilan ini sempat hilang di commit
+    // "Refactor cron scan handler by removing unused code" (26 Agu),
+    // akibatnya /api/health/status dan reconcile.ts melaporkan scan
+    // DEAD padahal scan jalan normal. Dikembalikan di sini.
+    await recordHeartbeat({
+      durationMs: Date.now() - cycleStartedAt,
+      qualifiedCount: summary.qualifiedCount,
+    });
 
     return res.status(200).json({
       success: true,
