@@ -8,6 +8,8 @@ Memory Health Monitoring
 ==========================================================
 */
 
+import { getHeapStatistics } from "node:v8";
+
 import logger from "@/services/logger";
 
 
@@ -122,19 +124,15 @@ export class MemoryHealth {
 
 
 
+            // Denominator = BATAS heap V8 (titik OOM sebenarnya), BUKAN
+            // heapTotal. heapTotal adalah heap yang sedang dialokasikan V8
+            // dan sengaja dibuat pas-pasan, jadi heapUsed/heapTotal hampir
+            // selalu 80-90% walau memori aman (alarm palsu "Memori Proses
+            // WARNING 89%" di panel status).
+            const heapLimitMB = this.toMB(getHeapStatistics().heap_size_limit);
+
             const usagePercent =
-
-                heapTotalMB === 0
-
-                    ? 0
-
-                    : (
-
-                        heapUsedMB /
-
-                        heapTotalMB
-
-                    ) * 100;
+                heapLimitMB === 0 ? 0 : (heapUsedMB / heapLimitMB) * 100;
 
 
 
