@@ -1000,3 +1000,5 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - SHADOW (dipindah ke `_shadow/observability/`, dikeluarkan dari build lewat `tsconfig.exclude`): `tracing`, `span`, `traceContext`, `correlation`, `traceExporter`, `profilerReport`. Alasan: `TracingManager.spans` tumbuh tanpa batas di instance serverless hangat, dan `traceContext`/`correlation` memakai state global yang bisa saling menimpa. Syarat aktivasi ulang ada di `_shadow/observability/README.md`.
 
 **Catatan:** `.github/workflows/cron-reconcile.yml` memanggil `/api/cron/scan` (seharusnya `/api/cron/reconcile`); jadwalnya nonaktif, hanya manual. Belum diperbaiki.
+
+**`services/telemetry/` (2026-10-07) -- DIHAPUS.** 9 file (574 baris) murni kontrak interface (Collector/Processor/Buffer/Exporter/Storage/Uploader) dengan `TelemetryManager` berisi fungsi kosong, nol importer. Dirancang untuk ekspor OTLP/protobuf ke collector eksternal, tidak realistis di Vercel Hobby; kebutuhan metrik per siklus sudah dicakup `observability/phaseTimer` + heartbeat. Bisa dipulihkan dari git: `git show c093f141:src/services/telemetry/<file>`. Verifikasi: `tsc` + `next build` lolos.
