@@ -18,13 +18,18 @@ recordCalibrationSnapshots()/evaluateDueCalibrations() di siklus
 yang sama. Akibatnya sejak commit itu, /api/analytics/ai-calibration
 tidak pernah dapat data baru lagi -- silent regression, endpoint-nya
 tetap merespons normal, cuma datanya beku. Dikembalikan di sini.
+
+CATATAN: pernah ada percobaan menambahkan filtering berbasis
+BotSettings.pairs (bot_settings/default) di sini -- DIHAPUS LAGI
+karena ternyata duplikat dengan mekanisme yang sudah ada dan benar
+di executeCron() (lihat priorityPairs / BotControl.priorityPairs
+di services/firebase/botControl.ts).
 ==========================================================
 */
 
 import marketScanner from "@/services/scanner";
 import { adminDb } from "@/services/firebase/admin";
 import { executeCron } from "@/services/scheduler/cron";
-import { getBotSettings } from "@/services/firebase/settingsService";
 import {
   recordCalibrationSnapshots,
   evaluateDueCalibrations,
@@ -109,43 +114,14 @@ export async function runScanCycle(): Promise<ScanCycleResult> {
     );
   }
 
-  // Pair yang secara eksplisit dipilih user lewat checklist di
-  // /settings/bot (BotSettings.pairs, Firestore bot_settings/default).
-  // Checklist itu sendiri HANYA menampilkan pair yang qualified di
-  // scan sebelumnya -- tapi qualifiedPairs BISA BERUBAH tiap siklus,
-  // jadi di sini kita selalu ambil IRISAN antara pilihan user dan
-  // qualifiedPairs siklus INI. Kalau pair pilihan user kebetulan
-  // tidak qualified siklus ini, otomatis di-skip (bukan error) --
-  // akan otomatis ikut lagi begitu qualified kembali.
-  //
-  // Kalau user belum pernah memilih apa pun (pairs: [], default),
-  // bot kembali ke perilaku lama: auto top-N by opportunityScore.
-  const selectedPairs = await getBotSettings()
-    .then((settings) => settings.pairs ?? [])
-    .catch((error) => {
-      console.error(
-        "[SCAN CYCLE] Gagal membaca BotSettings.pairs, fallback ke mode auto (non-fatal):",
-        error
-      );
-      return [] as string[];
-    });
+  const candidatePairs = summary.qualifiedPairs.slice(
+    0,
+    MAX_CANDIDATE_PAIRS_PER_CYCLE
+  );
 
-  const hasManualSelection = selectedPairs.length > 0;
-
-  const candidatePairs = (
-    hasManualSelection
-      ? summary.qualifiedPairs.filter((pair) => selectedPairs.includes(pair))
-      : summary.qualifiedPairs
-  ).slice(0, MAX_CANDIDATE_PAIRS_PER_CYCLE);
-
-  if (hasManualSelection) {
+  if (summary.qualifiedPairs.length > MAX_CANDIDATE_PAIRS_PER_CYCLE) {
     console.log(
-      `[SCAN CYCLE] Mode manual: ${selectedPairs.length} pair dipilih user, ` +
-      `${candidatePairs.length} di antaranya qualified & diproses siklus ini.`
-    );
-  } else if (summary.qualifiedPairs.length > MAX_CANDIDATE_PAIRS_PER_CYCLE) {
-    console.log(
-      `[SCAN CYCLE] Mode auto: ${summary.qualifiedPairs.length} pair qualified, dibatasi ke ${MAX_CANDIDATE_PAIRS_PER_CYCLE} teratas siklus ini (cegah timeout).`
+      `[SCAN CYCLE] ${summary.qualifiedPairs.length} pair qualified, dibatasi ke ${MAX_CANDIDATE_PAIRS_PER_CYCLE} teratas siklus ini (cegah timeout).`
     );
   }
 
