@@ -986,3 +986,17 @@ Sumber kebenaran mode paper/live = dokumen Firestore `bot_control/main`, BUKAN e
 Rekomendasi operasional (belum dilakukan, di luar kode)
 Interval cron-job.org scan -> 2-5 menit; set `CRON_SCAN_MIN_INTERVAL_SECONDS` (mis. 120) di Vercel; pastikan `bot_control/main.mode` = paper dan `BOT_LIVE_CONFIRM` bukan true sebelum resume project; pantau Usage -> Fluid Active CPU 1-2 jam pertama. Kalau masih tinggi: turunkan `DEEP_SCAN_LIMIT` (30->15) / `MAX_CANDIDATE_PAIRS_PER_CYCLE` (8->4) -- BELUM diubah.
 Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) dan CPU aktual per siklus.
+
+---
+
+## Session Log 25 (2026-10-07)
+
+**Heartbeat & health.** `/api/health/status` melaporkan `cronScan: DEAD` karena pemanggilan `recordHeartbeat()` hilang di commit 8b6c9de1 (26 Agu). Dikembalikan di `pages/api/cron/scan.ts` (d3a482cd). Terverifikasi: `ok:true`, `cronScan: ALIVE`, rekonsiliasi konsisten. Pengaturan cron-job.org saat ini: scan tiap 10 menit, reconcile tiap 15 menit (akan ditinjau lagi bulan depan). Env: `CRON_SCAN_MIN_INTERVAL_SECONDS=480`, `BOT_CANARY_RECONCILIATION_MAX_AGE_MINUTES=20`.
+
+**Keputusan orphan.** File orphan AI/ML TIDAK dihapus; disinkronkan bertahap (lihat `docs/ai-ml-integration-map.md`): shadow mode dulu, training berat di luar Vercel, jalur aktif jadi dasar. Audit graf import ulang: 626 file orphan dari 1025 (angka di `Orphanfile.md` usang). Uji hapus semua orphan di salinan: `tsc` dan `next build` lolos.
+
+**`services/observability/` (fokus integrasi pertama).**
+- AKTIF: `profiler.ts` + `phaseTimer.ts` (baru). `runScanCycle()` kini mengukur durasi per tahap (`scan`, `persist`, `calibration`, `trading`) lewat `PhaseTimer`; hasilnya (`phasesMs`) ada di respons `/api/cron/scan` dan di dokumen heartbeat (`lastPhasesMs`). Tujuannya mengukur tahap mana yang paling banyak makan Fluid Active CPU. Tidak ada singleton/state global.
+- SHADOW (dipindah ke `_shadow/observability/`, dikeluarkan dari build lewat `tsconfig.exclude`): `tracing`, `span`, `traceContext`, `correlation`, `traceExporter`, `profilerReport`. Alasan: `TracingManager.spans` tumbuh tanpa batas di instance serverless hangat, dan `traceContext`/`correlation` memakai state global yang bisa saling menimpa. Syarat aktivasi ulang ada di `_shadow/observability/README.md`.
+
+**Catatan:** `.github/workflows/cron-reconcile.yml` memanggil `/api/cron/scan` (seharusnya `/api/cron/reconcile`); jadwalnya nonaktif, hanya manual. Belum diperbaiki.

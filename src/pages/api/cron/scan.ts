@@ -81,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const cycleStartedAt = Date.now();
 
-    const { summary, trading, aiCalibration } = await runScanCycle();
+    const { summary, trading, aiCalibration, phasesMs } = await runScanCycle();
 
     // Heartbeat di akhir siklus SUKSES (best-effort, tidak pernah
     // menggagalkan scan). Pemanggilan ini sempat hilang di commit
@@ -91,6 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await recordHeartbeat({
       durationMs: Date.now() - cycleStartedAt,
       qualifiedCount: summary.qualifiedCount,
+      phasesMs,
     });
 
     return res.status(200).json({
@@ -99,6 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       summary,
       trading,
       aiCalibration,
+      phasesMs,
     });
 
   } catch (error) {

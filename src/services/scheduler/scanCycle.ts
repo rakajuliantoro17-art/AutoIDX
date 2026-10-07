@@ -34,6 +34,10 @@ import {
   recordCalibrationSnapshots,
   evaluateDueCalibrations,
 } from "@/services/analytics/aiCalibration";
+import {
+  PhaseTimer,
+  type PhaseDurationsMs,
+} from "@/services/observability";
 import type { MarketScanSummary } from "@/services/scanner/types";
 import type { CronResult } from "@/services/scheduler/cron";
 
@@ -65,6 +69,8 @@ export interface ScanCycleResult {
     correctThisCycle: number;
     newSnapshots: number;
   };
+  /** Durasi per tahap siklus (ms) -- lihat observability/phaseTimer.ts */
+  phasesMs: PhaseDurationsMs;
 }
 
 /**
@@ -80,17 +86,20 @@ export interface ScanCycleResult {
  */
 export async function runScanCycle(): Promise<ScanCycleResult> {
   const startedAt = Date.now();
+  const timer = new PhaseTimer();
 
-  const summary = await marketScanner.scanMarket();
+  const summary = await timer.run("scan", () => marketScanner.scanMarket());
 
-  await adminDb.collection("scannerResults").doc("latest").set({
-    ...summary,
-    durationMs: Date.now() - startedAt,
-  });
+  await timer.run("persist", async () => {
+    await adminDb.collection("scannerResults").doc("latest").set({
+      ...summary,
+      durationMs: Date.now() - startedAt,
+    });
 
-  await adminDb.collection("scannerHistory").add({
-    ...summary,
-    durationMs: Date.now() - startedAt,
+    await adminDb.collection("scannerHistory").add({
+      ...summary,
+      durationMs: Date.now() - startedAt,
+    });
   });
 
   console.log(
@@ -103,9 +112,14 @@ export async function runScanCycle(): Promise<ScanCycleResult> {
   // --- AI Score Calibration Tracker (lihat catatan FIX REGRESI di
   // atas) -- fail-safe sepenuhnya di dalam aiCalibration.ts, tidak
   // pernah mengganggu siklus scan/trading di bawah kalau gagal.
-  const calibrationEvaluation = await evaluateDueCalibrations();
-  const calibrationRecording = await recordCalibrationSnapshots(
-    summary.topOpportunities
+  const { calibrationEvaluation, calibrationRecording } = await timer.run(
+    "calibration",
+    async () => ({
+      calibrationEvaluation: await evaluateDueCalibrations(),
+      calibrationRecording: await recordCalibrationSnapshots(
+        summary.topOpportunities
+      ),
+    })
   );
 
   if (calibrationEvaluation.evaluated > 0) {
@@ -125,7 +139,9 @@ export async function runScanCycle(): Promise<ScanCycleResult> {
     );
   }
 
-  const trading = await executeCron(candidatePairs);
+  const trading = await timer.run("trading", () =>
+    executeCron(candidatePairs)
+  );
 
   console.log("[SCAN CYCLE] Trading engine:", trading);
 
@@ -137,5 +153,6 @@ export async function runScanCycle(): Promise<ScanCycleResult> {
       correctThisCycle: calibrationEvaluation.correct,
       newSnapshots: calibrationRecording.written,
     },
+    phasesMs: timer.snapshot(),
   };
 }

@@ -67,6 +67,8 @@ export interface CronHeartbeatState {
 export async function recordHeartbeat(meta: {
   durationMs: number;
   qualifiedCount: number;
+  /** Durasi per tahap siklus (ms), opsional -- untuk diagnosis CPU. */
+  phasesMs?: Record<string, number>;
 }): Promise<void> {
 
   try {
@@ -75,6 +77,7 @@ export async function recordHeartbeat(meta: {
       lastRunAt: Date.now(),
       lastDurationMs: meta.durationMs,
       lastQualifiedCount: meta.qualifiedCount,
+      lastPhasesMs: meta.phasesMs ?? null,
     });
 
   } catch (error) {
