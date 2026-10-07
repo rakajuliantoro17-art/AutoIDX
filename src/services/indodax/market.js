@@ -73,23 +73,30 @@ class IndodaxMarketService {
    */
   async getPriceSeries(pair = 'btc_idr', limit = 50) {
     try {
-      const rawTrades = await indodaxApi.getTrades(pair);
-
-      if (!Array.isArray(rawTrades) || rawTrades.length === 0) {
-        return [];
-      }
-
-      // Potong sesuai limit, lalu urutkan dari transaksi terlama ke terbaru
-      const priceSeries = rawTrades
-        .slice(0, limit)
-        .reverse()
-        .map((trade) => parseFloat(trade.price));
-
-      return priceSeries;
+      return await this.getPriceSeriesOrThrow(pair, limit);
     } catch (error) {
       console.error(`[Market Service Error] Failed to build price series: ${error.message}`);
       return [];
     }
+  }
+
+  /**
+   * Varian getPriceSeries() yang melempar error untuk kegagalan transien
+   * (lihat indodaxApi.getTradesOrThrow) -- dipakai scanner di dalam
+   * CircuitBreaker supaya breaker benar-benar melihat gangguan Indodax.
+   */
+  async getPriceSeriesOrThrow(pair = 'btc_idr', limit = 50) {
+    const rawTrades = await indodaxApi.getTradesOrThrow(pair);
+
+    if (!Array.isArray(rawTrades) || rawTrades.length === 0) {
+      return [];
+    }
+
+    // Potong sesuai limit, lalu urutkan dari transaksi terlama ke terbaru
+    return rawTrades
+      .slice(0, limit)
+      .reverse()
+      .map((trade) => parseFloat(trade.price));
   }
 
   /**

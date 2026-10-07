@@ -170,11 +170,34 @@ class IndodaxService {
    */
   async getTrades(pair = 'btc_idr') {
     try {
-      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/${pair}/trades`);
-      return await response.json();
+      return await this.getTradesOrThrow(pair);
     } catch (error) {
       console.error(`[Indodax API Error] Failed to fetch trades (${pair}):`, error.message);
       return [];
+    }
+  }
+
+  /**
+   * Varian getTrades() yang MELEMPAR error untuk kegagalan transien
+   * (jaringan, timeout, HTTP 429, HTTP 5xx, antrean limiter penuh) --
+   * dipakai scanner di dalam CircuitBreaker. getTrades() biasa menelan
+   * semua error jadi [], sehingga breaker tidak pernah melihat
+   * kegagalan dan tidak pernah trip. HTTP 4xx lain (mis. 404 pair
+   * tidak ada) BUKAN gangguan layanan, jadi tetap dikembalikan [] dan
+   * tidak ikut menghitung kegagalan breaker.
+   * @param {string} pair
+   */
+  async getTradesOrThrow(pair = 'btc_idr') {
+    try {
+      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/${pair}/trades`);
+      return await response.json();
+    } catch (error) {
+      // Error dari retryExecutor dibungkus RetryError -- status HTTP asli ada di .cause.
+      const status = error && (typeof error.status === 'number' ? error.status : error.cause && error.cause.status);
+      if (typeof status === 'number' && status >= 400 && status < 500 && status !== 429) {
+        return [];
+      }
+      throw error;
     }
   }
 

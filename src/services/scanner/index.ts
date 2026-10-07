@@ -73,7 +73,10 @@ import { getCandles } from "../indodax/candles";
 // tetap mencoba network call yang pasti gagal untuk puluhan pair
 // berikutnya -- menghemat waktu & kuota rate-limit untuk outage yang
 // sama.
-import { CircuitBreaker } from "../resilience/circuitBreaker";
+import {
+  CircuitBreaker,
+  CircuitBreakerOpenError,
+} from "../resilience/circuitBreaker";
 
 const aiPredictionEngine = new PredictionEngine(new BasicPredictionModel());
 
@@ -247,6 +250,9 @@ export class MarketScanner {
     // route berikutnya). Ini scoped ke SATU siklus, bukan proteksi
     // permanen lintas waktu -- lihat catatan impor di atas.
     const breaker = new CircuitBreaker();
+    // Jumlah pair yang dilewati karena breaker OPEN (dilog SATU baris di
+    // akhir, bukan satu baris error per pair).
+    let skippedByBreaker = 0;
 
     // Skor SEMUA kandidat yang berhasil dianalisa (bukan cuma yang
     // qualified) -- dipakai untuk scoreStats di bawah, supaya bisa
@@ -260,7 +266,7 @@ export class MarketScanner {
     await mapWithConcurrency(candidates, TRADES_CONCURRENCY, async (ticker) => {
       try {
         const prices = await breaker.execute(() =>
-          indodaxMarketService.getPriceSeries(ticker.pair, 50)
+          indodaxMarketService.getPriceSeriesOrThrow(ticker.pair, 50)
         );
 
         if (prices.length < 25) {
@@ -401,9 +407,20 @@ export class MarketScanner {
           priceRangePercent,
         });
       } catch (error) {
+        if (error instanceof CircuitBreakerOpenError) {
+          skippedByBreaker++;
+          return;
+        }
         console.error("Scanner failed", ticker.pair, error);
       }
     });
+
+    if (skippedByBreaker > 0) {
+      console.warn(
+        `[SCANNER] Circuit breaker OPEN: ${skippedByBreaker} pair dilewati cepat ` +
+          `(gangguan Indodax terdeteksi, ${breaker.getFailureCount()} kegagalan beruntun).`
+      );
+    }
 
     qualified.sort((a, b) => b.opportunityScore - a.opportunityScore);
 
