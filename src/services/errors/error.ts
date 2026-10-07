@@ -20,6 +20,7 @@ import type {
     ErrorMetadata,
 } from "./errorMetadata";
 
+import { inferLegacyErrorCode } from "./legacyErrorAdapter";
 import type {
     ErrorSeverity,
 } from "./errorSeverity";
@@ -532,6 +533,13 @@ export function normalizeAURAError(
         return new AURAError(
             error.message,
             {
+
+                // Penyatuan error lama (exchange/indodax/AppError/Node) ke
+                // ErrorCode terpusat -- lihat legacyErrorAdapter.ts.
+                code:
+                    inferLegacyErrorCode(
+                        error,
+                    ),
 
                 cause:
                     error,
