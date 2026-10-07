@@ -28,9 +28,9 @@ export * from "./audit/auditSerializer";
 // export ini dikembalikan.
 export * from "./recovery/recoveryManager";
 
-export * from "./runtime/health";
-export * from "./runtime/runtime";
-export * from "./runtime/bootstrap";
+// runtime/health, runtime/runtime, runtime/bootstrap dipindah ke
+// _shadow/runtime/ (state di memori, hanya bermakna di server fisik).
+export * from "./runtime";
 
 export * from "./validation/invariant";
 export * from "./validation/validator";

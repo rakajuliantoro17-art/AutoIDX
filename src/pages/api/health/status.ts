@@ -26,6 +26,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getCronHeartbeatStatus } from "@/services/scheduler/cronHeartbeat";
 import { getReconciliationStatus } from "@/services/firebase/reconciliationStatus";
 import { checkRateLimit } from "@/services/security/rateLimitStore";
+import { detectRuntimeEnvironment } from "@/services/runtime";
 
 const RATE_LIMIT = 60;
 const RATE_WINDOW_MS = 60 * 1000;
@@ -78,6 +79,9 @@ export default async function handler(
         lastCheckedAgoMs:
           reconciliation !== null ? Date.now() - reconciliation.checkedAt : null,
       },
+      // Lingkungan terdeteksi (serverless/container/cloud/local) --
+      // penanda bahwa kode berjalan di Vercel atau server fisik.
+      deployment: detectRuntimeEnvironment().deployment,
       checkedAt: new Date().toISOString(),
     });
 

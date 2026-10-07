@@ -1,75 +1,17 @@
 /**
-==========================================================
-AURA Trade OS
-Runtime Module
-Version : 0.3.0 Alpha
-==========================================================
-Public Runtime API
-==========================================================
-*/
-
-/*
-==========================================================
-Environment
-==========================================================
-*/
+ * AURA Trade OS -- Runtime
+ *
+ * Aktif: definisi tipe lingkungan + detectRuntimeEnvironment()
+ * (serverless/container/cloud/local) dan tipe info/flags/profile/metrics.
+ *
+ * Mesin status berbasis memori (Runtime, Health, bootstrap), diagnostics,
+ * inspector, optimizer, dan manager dipindah ke _shadow/runtime/ -- hanya
+ * bermakna di proses berumur panjang (server fisik/container), tidak di
+ * serverless. Lihat _shadow/runtime/README.md.
+ */
 
 export * from "./runtimeEnvironment";
-
-/*
-==========================================================
-Information
-==========================================================
-*/
-
 export * from "./runtimeInfo";
-
-/*
-==========================================================
-Flags
-==========================================================
-*/
-
 export * from "./runtimeFlags";
-
-/*
-==========================================================
-Profile
-==========================================================
-*/
-
 export * from "./runtimeProfile";
-
-/*
-==========================================================
-Metrics
-==========================================================
-*/
-
 export * from "./runtimeMetrics";
-
-/*
-==========================================================
-Inspector
-==========================================================
-*/
-
-export * from "./runtimeInspector";
-
-/*
-==========================================================
-Optimizer
-==========================================================
-*/
-
-export * from "./runtimeOptimizer";
-
-/*
-==========================================================
-Manager
-==========================================================
-*/
-
-export * from "./runtimeManager";
-
-
