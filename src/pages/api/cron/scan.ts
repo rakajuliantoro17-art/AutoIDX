@@ -24,6 +24,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { runScanCycle } from "@/services/scheduler/scanCycle";
 import { acquireCronLock, getScanMinIntervalMs } from "@/services/scheduler/cronLock";
 import { recordHeartbeat } from "@/services/scheduler/cronHeartbeat";
+import { handleError } from "@/services/errors/errorHandler";
+import { recordLog } from "@/services/firebase/logService";
 
 export const config = {
   maxDuration: 60,
@@ -105,7 +107,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error) {
     console.error("[CRON SCAN ERROR]", error);
-    return res.status(500).json({ error: "Scan failed" });
+
+    // Log Vercel Hobby hanya disimpan singkat, jadi kegagalan scan juga
+    // dicatat ke log Firestore (pola sama dengan cron/reconcile.ts).
+    // Best-effort: pencatatan gagal tidak boleh mengubah respons.
+    const handled = handleError(error, { source: "cron/scan" });
+    try {
+      await recordLog(
+        "SYSTEM",
+        "danger",
+        `[Scan] Siklus gagal [${handled.category}${handled.retryable ? ", retryable" : ""}]: ${handled.error.message}`
+      );
+    } catch {
+      /* abaikan */
+    }
+
+    return res.status(500).json({
+      error: "Scan failed",
+      category: handled.category,
+      retryable: handled.retryable,
+    });
   } finally {
     await lock.release();
   }
