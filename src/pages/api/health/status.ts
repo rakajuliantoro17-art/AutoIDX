@@ -27,6 +27,12 @@ import { getCronHeartbeatStatus } from "@/services/scheduler/cronHeartbeat";
 import { getReconciliationStatus } from "@/services/firebase/reconciliationStatus";
 import { checkRateLimit } from "@/services/security/rateLimitStore";
 import { detectRuntimeEnvironment } from "@/services/runtime";
+import { getBotControl } from "@/services/firebase/botControl";
+import {
+  evaluateHealth,
+  getReconciliationMaxAgeMs,
+  type HealthBotMode,
+} from "@/services/health/statusVerdict";
 
 const RATE_LIMIT = 60;
 const RATE_WINDOW_MS = 60 * 1000;
@@ -58,27 +64,30 @@ export default async function handler(
 
   try {
 
-    const [heartbeat, reconciliation] = await Promise.all([
+    const [heartbeat, reconciliation, mode] = await Promise.all([
       getCronHeartbeatStatus(),
       getReconciliationStatus(),
+      // Gagal baca mode -> "unknown" -> diperlakukan LIVE (fail-closed).
+      getBotControl()
+        .then((c): HealthBotMode => (c.mode === "paper" ? "paper" : "live"))
+        .catch((): HealthBotMode => "unknown"),
     ]);
 
-    const reconciliationOk =
-      reconciliation !== null && reconciliation.consistent;
+    const verdict = evaluateHealth({
+      scanStatus: heartbeat.status,
+      reconciliation,
+      mode,
+      reconciliationMaxAgeMs: getReconciliationMaxAgeMs(),
+      now: Date.now(),
+    });
 
-    const overallOk = heartbeat.status === "ALIVE" && reconciliationOk;
-
-    return res.status(overallOk ? 200 : 503).json({
-      ok: overallOk,
+    return res.status(verdict.ok ? 200 : 503).json({
+      ok: verdict.ok,
       cronScan: {
         status: heartbeat.status,
         lastRunAgoMs: heartbeat.ageMs,
       },
-      reconciliation: {
-        consistent: reconciliation?.consistent ?? null,
-        lastCheckedAgoMs:
-          reconciliation !== null ? Date.now() - reconciliation.checkedAt : null,
-      },
+      reconciliation: verdict.reconciliation,
       // Lingkungan terdeteksi (serverless/container/cloud/local) --
       // penanda bahwa kode berjalan di Vercel atau server fisik.
       deployment: detectRuntimeEnvironment().deployment,
