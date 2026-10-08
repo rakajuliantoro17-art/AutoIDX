@@ -1080,3 +1080,10 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Baru `lib/auth/operatorAuth.ts` (`verifyOperatorAccess`): terima `Authorization: Bearer` berisi CRON_SECRET ATAU Firebase ID token; selain itu 401. Fail-closed (tanpa header = ditolak; CRON_SECRET belum di-set tidak membuka akses).
 - Diterapkan ke `/api/backtest/run` dan `/api/backtest/batch` (sebelumnya terbuka tanpa auth). 4 skenario lulus (tanpa header, secret benar, token salah, tanpa prefix Bearer).
 - Catatan: `src/pages/api/backtest/page.tsx` (UI lama, berada di folder api) melakukan fetch tanpa token sehingga tidak akan lolos; bukan jalur yang dipakai.
+
+### Session Log 36 - Audit UI/UX + perbaikan (2026-10-08)
+- Verifikasi: `tsc`, `next build` lolos; 18 rute UI dibuka di Chromium headless (tanpa login semuanya redirect ke /login = gerbang auth bekerja). Firebase memakai env dummy sehingga data nyata tidak teruji.
+- Regresi buatan sendiri diperbaiki: halaman `/backtest` memanggil `/api/backtest/run` tanpa token (kena 401 setelah proteksi) -> kini kirim Firebase ID token, atau pesan "login dulu".
+- Bug hidrasi React #418: `ThemeToggleButton` merender ikon sesuai tema client saat server selalu "dark" -> pakai nilai server sampai mounted.
+- Bug CSS (pre-existing): `.glass-nav {position:relative}` dan `.nav-pill {display:block; padding}` menimpa utilitas Tailwind (`fixed`/`sticky`, `flex`, `px-0`) -> pindah ke `:where()` (spesifisitas 0). Efek: kartu login di HP tidak lagi terdorong ke kanan (lebar 147px -> 358px), sidebar desktop rapat di bawah header, ikon nav sejajar dengan label.
+- Catatan proses: `pkill -f "next dev"` pada shell yang sama membunuh shell sendiri; gunakan pola `[n]ext-server`.

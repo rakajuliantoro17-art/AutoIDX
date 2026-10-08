@@ -15,6 +15,7 @@ Indodax, dan menampilkan hasil simulasi sesungguhnya.
 "use client";
 
 import { useState } from "react";
+import { useAuth } from "@/services/auth/AuthContext";
 import { formatIDR, POPULAR_PAIRS } from "@/utils";
 
 interface BacktestReport {
@@ -104,15 +105,25 @@ export default function BacktestPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<RunResponse | null>(null);
+  const { user } = useAuth();
 
   async function runBacktest() {
     setLoading(true);
     setError(null);
 
     try {
+      // Endpoint backtest butuh login (lib/auth/operatorAuth.ts).
+      if (!user) {
+        throw new Error("Silakan login dulu untuk menjalankan backtest.");
+      }
+      const idToken = await user.getIdToken();
+
       const response = await fetch("/api/backtest/run", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
         body: JSON.stringify({
           pair,
           timeframe,

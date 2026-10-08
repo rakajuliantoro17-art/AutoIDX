@@ -19,11 +19,19 @@ dan aktif. Ditulis ulang di sini sesuai nama & tujuan filenya.
 ==========================================================
 */
 
+import { useEffect, useState } from "react";
 import { useTheme } from "@/services/theme/ThemeContext";
 import { IconSun, IconMoon } from "@/components/icons";
 
 export default function ThemeToggleButton() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme: currentTheme, toggleTheme } = useTheme();
+
+  // Server selalu merender tema "dark"; tema asli (localStorage /
+  // prefers-color-scheme) baru diketahui di browser. Pakai nilai server
+  // sampai mounted supaya HTML hydration cocok (hindari React error #418).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const theme = mounted ? currentTheme : "dark";
 
   return (
     <button
