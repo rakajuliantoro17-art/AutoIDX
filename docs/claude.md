@@ -1044,3 +1044,7 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 ### Session Log 28 - serialization dihapus (2026-10-08)
 - `src/services/serialization/` (6 file, 273 baris) dihapus: hanya interface kosong (Binary/Encryption/Compression) + `JsonSerializer` pembungkus tipis `JSON.stringify/parse`; nol importer. Pemakai nyata punya serializer sendiri (`errors/errorSerializer`, `audit/auditSerializer`).
 - Pulihkan: `git show f42560c8:src/services/serialization/<file>`.
+
+### Session Log 29 - jobs -> shadow (2026-10-08)
+- `src/services/jobs/` (5 file) dipindah ke `_shadow/jobs/`: pembungkus dengan flag di memori, tanpa penjadwal; heartbeatJob digantikan `cronHeartbeat` (Firestore); cleanupJob hanya membersihkan cache memori.
+- Kebutuhan nyata tercatat di README: retensi data Firestore via route cron.
