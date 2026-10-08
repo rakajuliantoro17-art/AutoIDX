@@ -31,6 +31,7 @@ pair yang diuji cukup banyak.
 */
 
 import type { NextApiRequest, NextApiResponse } from "next";
+import { verifyOperatorAccess } from "@/lib/auth/operatorAuth";
 
 import { getCandles } from "@/services/indodax/candles";
 import backtestRunner from "@/services/backtest/runner";
@@ -117,6 +118,12 @@ export default async function handler(
 ) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Endpoint berat (banyak request ke Indodax + CPU): wajib CRON_SECRET
+  // atau Firebase ID token (lihat lib/auth/operatorAuth.ts).
+  if (!(await verifyOperatorAccess(req, "BACKTEST BATCH"))) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {

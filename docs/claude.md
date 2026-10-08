@@ -1075,3 +1075,8 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - `recommendedPairs` hanya SARAN: tidak pernah menulis `bot_control.priorityPairs` otomatis (checklist tetap dicentang manual di panel / POST /api/bot/control).
 - Catatan: MAX_CANDLES=1000 -> 1h hanya ~41 hari, 4h ~166 hari; 365 hari penuh hanya di 1d. Lihat `coveredDays`.
 - Indodax tidak terjangkau dari sandbox, jadi backtest nyata harus dijalankan dari app yang sudah deploy.
+
+### Session Log 35 - Proteksi endpoint backtest (2026-10-08)
+- Baru `lib/auth/operatorAuth.ts` (`verifyOperatorAccess`): terima `Authorization: Bearer` berisi CRON_SECRET ATAU Firebase ID token; selain itu 401. Fail-closed (tanpa header = ditolak; CRON_SECRET belum di-set tidak membuka akses).
+- Diterapkan ke `/api/backtest/run` dan `/api/backtest/batch` (sebelumnya terbuka tanpa auth). 4 skenario lulus (tanpa header, secret benar, token salah, tanpa prefix Bearer).
+- Catatan: `src/pages/api/backtest/page.tsx` (UI lama, berada di folder api) melakukan fetch tanpa token sehingga tidak akan lolos; bukan jalur yang dipakai.
