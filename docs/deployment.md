@@ -597,3 +597,28 @@ Deployment AURA Trade OS harus memenuhi prinsip:
 * Easy Rollback
 * Enterprise Grade
 
+
+---
+
+## Menjalankan di Server Fisik / VPS (non-serverless)
+
+Logika siklus ada di `src/services/scheduler/runCycle.ts` (tanpa
+dependensi Next/Vercel) dan dipanggil lewat endpoint yang sama di
+kedua mode, jadi tidak ada kode yang perlu dicabang.
+
+1. Build & jalankan aplikasi: `npm run build && npm start`
+   (dijaga PM2 / systemd / Docker).
+2. Set env di server: `CRON_SECRET`, kredensial Firebase, dst.
+   (lihat `docs/environment-variables.md`).
+3. Jalankan scheduler lokal pengganti cron-job.org / GitHub Actions:
+   `pm2 start scripts/local-scheduler.mjs --name autoidx-scheduler`
+   (atau `node scripts/local-scheduler.mjs` di service systemd).
+   Env opsional: `APP_BASE_URL`, `SCHEDULER_SCAN_INTERVAL_SECONDS`,
+   `SCHEDULER_RECONCILE_INTERVAL_SECONDS`.
+4. Lock terdistribusi tetap di Firestore (`systemLocks/cronScan`),
+   jadi aman walau ada lebih dari satu instance. TTL lock diatur
+   `CRON_LOCK_TTL_SECONDS` (default 90, minimum 30) dan HARUS lebih
+   besar dari durasi siklus terpanjang.
+5. Batas `maxDuration` 60 detik hanya berlaku di Vercel; di server
+   fisik siklus boleh lebih lama, tapi naikkan
+   `CRON_LOCK_TTL_SECONDS` sesuai.

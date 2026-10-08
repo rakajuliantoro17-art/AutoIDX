@@ -29,7 +29,22 @@ import { Timestamp } from "firebase-admin/firestore";
 const LOCK_COLLECTION = "systemLocks";
 const LOCK_DOC_ID = "cronScan";
 
-const LOCK_TTL_MS = 25_000;
+/**
+ * TTL lock (detik di env CRON_LOCK_TTL_SECONDS, default 90, minimum 30).
+ *
+ * HARUS lebih besar dari durasi siklus terpanjang yang masih
+ * diizinkan (maxDuration 60 detik di Vercel, atau batas proses di
+ * server fisik). Sebelumnya TTL tetap 25 detik -- lebih pendek dari
+ * maxDuration -- sehingga siklus yang berjalan >25 detik dianggap
+ * "basi" dan siklus kedua bisa mulai bersamaan (risiko double BUY).
+ * Kalau 1 eksekusi crash tanpa release, lock otomatis bebas setelah
+ * TTL ini.
+ */
+export function getLockTtlMs(): number {
+  const raw = Number(process.env.CRON_LOCK_TTL_SECONDS);
+  const seconds = Number.isFinite(raw) && raw > 0 ? raw : 90;
+  return Math.max(30, seconds) * 1000;
+}
 
 /**
  * Jarak minimum antar-siklus scan (detik di env
@@ -91,7 +106,7 @@ export async function acquireCronLock(
           : 0;
 
       const released = data?.released === true;
-      const isStale = now - lockedAtMs > LOCK_TTL_MS;
+      const isStale = now - lockedAtMs > getLockTtlMs();
 
       if (!released && !isStale) {
         reason = "running";
