@@ -1040,3 +1040,7 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 ### Session Log 27 - core -> shadow (2026-10-08)
 - `src/services/core/` (6 file, kernel proses/shutdown/applicationContext/health/version/metadata) dipindah ke `_shadow/core/`; `maintenance/maintenanceManager.ts` ikut ke `_shadow/maintenance/` (satu-satunya pemakai applicationContext, flag maintenance di memori tidak berlaku di serverless).
 - `/api/health/status` kini juga mengembalikan `build` (7 karakter `VERCEL_GIT_COMMIT_SHA`), pengganti versi hardcode `version.ts`.
+
+### Session Log 28 - serialization dihapus (2026-10-08)
+- `src/services/serialization/` (6 file, 273 baris) dihapus: hanya interface kosong (Binary/Encryption/Compression) + `JsonSerializer` pembungkus tipis `JSON.stringify/parse`; nol importer. Pemakai nyata punya serializer sendiri (`errors/errorSerializer`, `audit/auditSerializer`).
+- Pulihkan: `git show f42560c8:src/services/serialization/<file>`.
