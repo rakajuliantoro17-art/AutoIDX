@@ -91,6 +91,7 @@ export default async function handler(
       // Lingkungan terdeteksi (serverless/container/cloud/local) --
       // penanda bahwa kode berjalan di Vercel atau server fisik.
       deployment: detectRuntimeEnvironment().deployment,
+      build: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
       checkedAt: new Date().toISOString(),
     });
 

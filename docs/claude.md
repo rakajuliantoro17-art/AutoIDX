@@ -1036,3 +1036,7 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - `src/services/events/` (25 file) dan `src/services/commands/` (19 file) dipindah ke `_shadow/messaging/` (nol importer, singleton ber-state, handler berurutan tanpa timeout).
 - Duplikasi terukur: Serializer (1 baris beda), Registry (6) -> rencana basis generik di `_shadow/messaging/README.md`.
 - `tsc --noEmit` lolos. Pulihkan dari git bila perlu.
+
+### Session Log 27 - core -> shadow (2026-10-08)
+- `src/services/core/` (6 file, kernel proses/shutdown/applicationContext/health/version/metadata) dipindah ke `_shadow/core/`; `maintenance/maintenanceManager.ts` ikut ke `_shadow/maintenance/` (satu-satunya pemakai applicationContext, flag maintenance di memori tidak berlaku di serverless).
+- `/api/health/status` kini juga mengembalikan `build` (7 karakter `VERCEL_GIT_COMMIT_SHA`), pengganti versi hardcode `version.ts`.
