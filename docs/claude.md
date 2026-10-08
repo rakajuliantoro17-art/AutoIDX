@@ -1063,3 +1063,8 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Baru: `src/services/firebase/featureFlags.ts`. Dokumen `bot_control/flags` { aiShadowPrediction, aiAdvancedLabeling, eventBus } -> boolean. Fail-closed (default semua false, error/Firestore down/nilai non-boolean = mati), hanya baca (tidak seed), cache memori TTL 60 dtk, hanya flag terdaftar.
 - API: `getFeatureFlags()`, `isFeatureEnabled(name)`, `resolveFeatureFlags(raw)` (murni, 6 skenario lulus). Belum ada pemakai; pemakai pertama: shadow prediction Fase 3.
 - Aturan: flag tidak boleh melonggarkan gate live (mode live + BOT_LIVE_CONFIRM).
+
+### Session Log 33 - automation (2026-10-08)
+- Deteksi graf import ulang: aktif hanya `dispatcher.ts` (webhook) dan `notifier.ts` (Telegram; trading/engine + cron/reconcile). 8 orphan (engine, health, index, lifecycle, monitor, queue, scheduler, worker; 1762 baris; antrean array memori, setInterval, state proses panjang) dipindah ke `_shadow/automation/`.
+- `notifier.telegram()` diberi `AbortSignal.timeout(5000)` (sebelumnya tanpa timeout, padahal di-await dari alur trading/reconcile dengan batas cron 30 dtk).
+- Belum ditangani: tidak ada deduplikasi/cooldown notifikasi; error reconcile yang menetap bisa mengirim alert tiap 15 menit.

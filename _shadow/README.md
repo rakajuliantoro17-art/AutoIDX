@@ -5,7 +5,7 @@ Kode di sini **di luar build** (`tsconfig.json` -> `exclude`), tersimpan untuk m
 | Area | Nilai masa depan | Tergantung |
 |---|---|---|
 | observability, resilience | tracing/retry-recovery lanjut | batas memori, konteks per request |
-| runtime, core, bootstrap, maintenance, jobs | server fisik / proses panjang | penjadwal proses, DI per siklus |
+| runtime, core, bootstrap, maintenance, jobs, automation (runner) | server fisik / proses panjang | penjadwal proses, DI per siklus |
 | messaging (events+commands) | memisahkan log/notifikasi/metrik dari jalur trade | bus per siklus, timeout handler, mode paper |
 | network | proxy IP tetap bila kunci Indodax di-whitelist | keputusan infrastruktur |
 | plugins | strategi sinyal yang dapat dipasang | isolasi nyata |

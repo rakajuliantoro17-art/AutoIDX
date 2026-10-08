@@ -245,6 +245,9 @@ export class AutomationNotifier {
           text,
           parse_mode: "HTML",
         }),
+        // Notifikasi di-await dari alur trading/reconcile (batas cron
+        // 30 dtk): Telegram yang menggantung tidak boleh menahan siklus.
+        signal: AbortSignal.timeout(5000),
       }
     );
 
