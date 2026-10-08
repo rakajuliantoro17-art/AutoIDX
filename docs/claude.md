@@ -1048,3 +1048,8 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 ### Session Log 29 - jobs -> shadow (2026-10-08)
 - `src/services/jobs/` (5 file) dipindah ke `_shadow/jobs/`: pembungkus dengan flag di memori, tanpa penjadwal; heartbeatJob digantikan `cronHeartbeat` (Firestore); cleanupJob hanya membersihkan cache memori.
 - Kebutuhan nyata tercatat di README: retensi data Firestore via route cron.
+
+### Session Log 30 - maintenance, bootstrap, plugins -> shadow (2026-10-08)
+- `maintenance/` (5 file), `bootstrap/` (6), `plugins/` (10) dipindah ke `_shadow/` (nol importer; semua state memori/proses panjang). README tiap folder + indeks `_shadow/README.md` berisi arah pengembangan.
+- Catatan keamanan: `PluginSandbox` hanya daftar izin, bukan isolasi nyata.
+- `tsc` dan `next build` lolos.
