@@ -1068,3 +1068,10 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Deteksi graf import ulang: aktif hanya `dispatcher.ts` (webhook) dan `notifier.ts` (Telegram; trading/engine + cron/reconcile). 8 orphan (engine, health, index, lifecycle, monitor, queue, scheduler, worker; 1762 baris; antrean array memori, setInterval, state proses panjang) dipindah ke `_shadow/automation/`.
 - `notifier.telegram()` diberi `AbortSignal.timeout(5000)` (sebelumnya tanpa timeout, padahal di-await dari alur trading/reconcile dengan batas cron 30 dtk).
 - Belum ditangani: tidak ada deduplikasi/cooldown notifikasi; error reconcile yang menetap bisa mengirim alert tiap 15 menit.
+
+### Session Log 34 - Benchmark buy & hold + rekomendasi pair berbasis bukti (2026-10-08)
+- Baru `services/backtest/benchmark.ts` (murni): `calculateBuyAndHold` (fee+slippage sama dengan strategi) dan `evaluateEvidence` -> TERBUKTI / TIDAK_MENGALAHKAN_BUY_HOLD / RUGI / DATA_KURANG (min 10 transaksi). 7 skenario lulus.
+- `/api/backtest/run` kini mengembalikan `benchmark` + `coveredDays`; `/api/backtest/batch` mengembalikan per pair `buyHoldReturnPercent`, `excessReturnPercent`, `verdict`, plus `recommendedPairs` (hanya TERBUKTI, urut selisih) dan `coveredDays`.
+- `recommendedPairs` hanya SARAN: tidak pernah menulis `bot_control.priorityPairs` otomatis (checklist tetap dicentang manual di panel / POST /api/bot/control).
+- Catatan: MAX_CANDLES=1000 -> 1h hanya ~41 hari, 4h ~166 hari; 365 hari penuh hanya di 1d. Lihat `coveredDays`.
+- Indodax tidak terjangkau dari sandbox, jadi backtest nyata harus dijalankan dari app yang sudah deploy.

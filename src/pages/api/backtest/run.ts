@@ -15,6 +15,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getCandles } from "@/services/indodax/candles";
 import backtestRunner from "@/services/backtest/runner";
 import backtestReport from "@/services/backtest/report";
+import { calculateBuyAndHold, evaluateEvidence } from "@/services/backtest/benchmark";
 import metricsEngine from "@/services/backtest/metrics";
 import type {
   BacktestCandle,
@@ -189,8 +190,33 @@ export default async function handler(
 
     const report = backtestReport.generate(result);
 
+    // Pembanding buy & hold + vonis bukti (lihat backtest/benchmark.ts).
+    const buyHold = calculateBuyAndHold(
+      candles,
+      config.initialCapital,
+      config.feeRate,
+      config.slippage
+    );
+    const strategyReturnPercent =
+      config.initialCapital > 0
+        ? Math.round((result.profitLoss / config.initialCapital) * 10000) / 100
+        : 0;
+    const benchmark = {
+      buyHoldReturnPercent: buyHold.returnPercent,
+      buyHoldFinalCapital: buyHold.finalCapital,
+      strategyReturnPercent,
+      ...evaluateEvidence({
+        strategyReturnPercent,
+        benchmarkReturnPercent: buyHold.returnPercent,
+        totalTrades: metrics.totalTrades,
+      }),
+    };
+
     return res.status(200).json({
       report,
+      benchmark,
+      // Batas MAX_CANDLES bisa memotong rentang yang diminta (mis. 1h x 365 hari).
+      coveredDays: Math.round((candles.length / perDay) * 10) / 10,
       trades: result.trades,
       candleCount: candles.length,
       durationMs: duration,

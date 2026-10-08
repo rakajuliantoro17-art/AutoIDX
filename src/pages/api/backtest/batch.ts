@@ -35,6 +35,11 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getCandles } from "@/services/indodax/candles";
 import backtestRunner from "@/services/backtest/runner";
 import metricsEngine from "@/services/backtest/metrics";
+import {
+  calculateBuyAndHold,
+  evaluateEvidence,
+  type EvidenceVerdict,
+} from "@/services/backtest/benchmark";
 import type { BacktestCandle, BacktestConfig } from "@/services/backtest/types";
 import marketScanner from "@/services/scanner";
 import {
@@ -79,6 +84,9 @@ interface BatchPairResult {
   maxDrawdown?: number;
   profitFactor?: number;
   sharpeRatio?: number;
+  buyHoldReturnPercent?: number;
+  excessReturnPercent?: number;
+  verdict?: EvidenceVerdict;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -225,9 +233,24 @@ export default async function handler(
                 ) / 100
               : 0;
 
+          const buyHold = calculateBuyAndHold(
+            candles,
+            config.initialCapital,
+            config.feeRate,
+            config.slippage
+          );
+          const evidence = evaluateEvidence({
+            strategyReturnPercent: returnPercent,
+            benchmarkReturnPercent: buyHold.returnPercent,
+            totalTrades: metrics.totalTrades,
+          });
+
           return {
             pair,
             status: "OK",
+            buyHoldReturnPercent: buyHold.returnPercent,
+            excessReturnPercent: evidence.excessReturnPercent,
+            verdict: evidence.verdict,
             candleCount: candles.length,
             initialCapital: config.initialCapital,
             finalCapital,
@@ -281,11 +304,23 @@ export default async function handler(
           }
         : null;
 
+    // Kandidat checklist prioritas: hanya yang TERBUKTI (positif, mengalahkan
+    // buy & hold, cukup transaksi), urut dari selisih terbesar. Ini SARAN
+    // saja -- tidak pernah menulis ke bot_control otomatis. Untuk memakainya:
+    // POST /api/bot/control { "priorityPairs": [...] } (atau centang di panel).
+    const recommendedPairs = ok
+      .filter((r) => r.verdict === "TERBUKTI")
+      .sort((a, b) => (b.excessReturnPercent ?? 0) - (a.excessReturnPercent ?? 0))
+      .map((r) => r.pair);
+
     return res.status(HTTP_OK).json({
       strategy,
       timeframe,
       days,
       pairSource,
+      recommendedPairs,
+      // Batas MAX_CANDLES bisa memotong rentang yang diminta (mis. 1h x 365 hari).
+      coveredDays: Math.round((limit / perDay) * 10) / 10,
       truncatedToMax: truncated ? MAX_PAIRS_PER_BATCH : undefined,
       results,
       aggregate,
