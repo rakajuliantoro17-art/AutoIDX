@@ -45,6 +45,7 @@ export interface IndodaxAuthConfig {
 export interface IndodaxAuthHeaders {
   Key: string;
   Sign: string;
+  [key: string]: string;
 }
 
 export interface IndodaxSignedRequest {
