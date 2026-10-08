@@ -1058,3 +1058,8 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - `persistence/` (5 file, hanya interface repository) dan `configuration/` (9 file, config & feature flag di memori) dipindah ke `_shadow/`; barrel `services/index.ts` dibersihkan dari 5 re-export persistence.
 - Peluang prioritas tinggi dicatat: feature flag berbasis Firestore (`bot_control/flags`, TTL cache 30-60 dtk) memakai API `FeatureFlags` dari shadow.
 - `tsc` lolos.
+
+### Session Log 32 - Feature flag Firestore (2026-10-08)
+- Baru: `src/services/firebase/featureFlags.ts`. Dokumen `bot_control/flags` { aiShadowPrediction, aiAdvancedLabeling, eventBus } -> boolean. Fail-closed (default semua false, error/Firestore down/nilai non-boolean = mati), hanya baca (tidak seed), cache memori TTL 60 dtk, hanya flag terdaftar.
+- API: `getFeatureFlags()`, `isFeatureEnabled(name)`, `resolveFeatureFlags(raw)` (murni, 6 skenario lulus). Belum ada pemakai; pemakai pertama: shadow prediction Fase 3.
+- Aturan: flag tidak boleh melonggarkan gate live (mode live + BOT_LIVE_CONFIRM).
