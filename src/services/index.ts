@@ -10,11 +10,6 @@ export * from "./reconciliation/reconciliationResult";
 export * from "./reconciliation/reconciliationEngine";
 export * from "./reconciliation/reconciliationScheduler";
 
-export * from "./persistence/executionRecord";
-export * from "./persistence/executionRepository";
-export * from "./persistence/orderRepository";
-export * from "./persistence/positionRepository";
-export * from "./persistence/persistenceManager";
 
 export * from "./audit/auditEvent";
 export * from "./audit/auditLogger";

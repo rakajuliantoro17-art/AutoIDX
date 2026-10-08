@@ -1053,3 +1053,8 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - `maintenance/` (5 file), `bootstrap/` (6), `plugins/` (10) dipindah ke `_shadow/` (nol importer; semua state memori/proses panjang). README tiap folder + indeks `_shadow/README.md` berisi arah pengembangan.
 - Catatan keamanan: `PluginSandbox` hanya daftar izin, bukan isolasi nyata.
 - `tsc` dan `next build` lolos.
+
+### Session Log 31 - persistence, configuration -> shadow (2026-10-08)
+- `persistence/` (5 file, hanya interface repository) dan `configuration/` (9 file, config & feature flag di memori) dipindah ke `_shadow/`; barrel `services/index.ts` dibersihkan dari 5 re-export persistence.
+- Peluang prioritas tinggi dicatat: feature flag berbasis Firestore (`bot_control/flags`, TTL cache 30-60 dtk) memakai API `FeatureFlags` dari shadow.
+- `tsc` lolos.
