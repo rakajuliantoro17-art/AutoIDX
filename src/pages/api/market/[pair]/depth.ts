@@ -21,10 +21,18 @@ export default async function handler(
   }
 
   const { pair } = req.query;
-  const activePair = typeof pair === "string" ? pair : "btc_idr";
+  const activePair = typeof pair === "string" ? pair.toLowerCase() : "btc_idr";
+
+  // Hanya pola pair Indodax (mis. btc_idr); cegah path sembarang diteruskan
+  // ke indodax.com.
+  if (!/^[a-z0-9]{2,12}_[a-z]{2,6}$/.test(activePair)) {
+    return res.status(400).json({ error: "Invalid pair" });
+  }
 
   try {
-    const response = await fetch(`https://indodax.com/api/${activePair}/depth`);
+    const response = await fetch(`https://indodax.com/api/${activePair}/depth`, {
+      signal: AbortSignal.timeout(8000),
+    });
     if (!response.ok) {
       throw new Error("Indodax API failed");
     }

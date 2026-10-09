@@ -1093,3 +1093,10 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Baru: flag `fixedTakeProfit` (Firestore bot_control/flags, default MATI). Nyala: TP = persis slider (jepit 1-5%) dari harga beli; SL tetap ATR. Mati: perilaku lama identik (diuji). `calculateAtrStopLevels(..., fixedTakeProfitPercent?)`; engine memanggil `isFeatureEnabled` hanya saat BUY.
 - UI /settings/risk: Take Profit kini slider 1-5% step 0.1 (nilai tersimpan di luar rentang ditampilkan terjepit, tersimpan hanya bila digeser). Server tetap menerima 0.1-50.
 - Uji: 6 skenario (lama, flag mati identik, TP tetap 2%, pair volatil 18%->5%, fallback ATR=0, fixed 0 diabaikan). tsc + next build lolos.
+
+### Session Log 38 - Audit menyeluruh & penutupan endpoint terbuka (2026-10-10)
+- Audit auth semua API: ditemukan TERBUKA tanpa login -> `PUT/GET /api/settings` (siapa pun bisa ubah trade amount/SL/TP/posisi maks), `GET /api/paper-trading/status`, `GET /api/market` (scan penuh publik, tanpa batas), `GET /api/market/[pair]/depth` (pair tak divalidasi, tanpa timeout).
+- Perbaikan: `/api/settings` (GET+PUT) dan `/api/paper-trading/status` wajib Firebase ID token (`verifyBearerToken` baru di `lib/auth/verifyApiAuth.ts`); halaman settings/bot|risk|strategy dan dashboard/paper-trading memakai `utils/authedFetch.ts`; `/api/market` dibatasi 12 req/menit/IP; depth divalidasi regex pair + timeout 8 dtk. Endpoint publik by design (dibiarkan): `/api/health`, `/api/bot/control` GET, `/api/scanner/candidates`, `/api/logs`-style sudah ber-token.
+- Diuji tanpa kredensial: settings GET/PUT 401, paper-trading 401, backtest 401, depth pair berbahaya 400.
+- `.github/workflows/cron-reconcile.yml` memanggil /api/cron/scan (salinan workflow scan) -> diperbaiki ke /api/cron/reconcile (manual dispatch saja).
+- Belum teruji: alur setelah login (tidak ada Firebase asli di sandbox).

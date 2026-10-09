@@ -28,6 +28,8 @@ dari engine.ts, bukan fallback implisit lagi).
 */
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/services/auth/AuthContext";
+import { authedFetch } from "@/utils/authedFetch";
 import { formatIDR } from "@/utils";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
@@ -77,6 +79,7 @@ type FieldKey =
   | "maxOpenPositions";
 
 export default function RiskSettings() {
+  const { user } = useAuth();
   const [settings, setSettings] = useState<BotSettings | null>(null);
   const [tradeAmount, setTradeAmount] = useState(TRADE_AMOUNT_MIN);
   const [stopLoss, setStopLoss] = useState(1);
@@ -94,7 +97,7 @@ export default function RiskSettings() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/settings");
+        const res = await authedFetch(user, "/api/settings");
         if (!res.ok) throw new Error(`Gagal memuat settings: ${res.status}`);
         const json = await res.json();
         const data: BotSettings = json.data;
@@ -112,8 +115,8 @@ export default function RiskSettings() {
         setLoading(false);
       }
     }
-    load();
-  }, []);
+    if (user) load();
+  }, [user]);
 
   async function handleSave(field: FieldKey, value: number) {
     setSavingField(field);
@@ -121,7 +124,7 @@ export default function RiskSettings() {
     setError(null);
 
     try {
-      const res = await fetch("/api/settings", {
+      const res = await authedFetch(user, "/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [field]: value }),

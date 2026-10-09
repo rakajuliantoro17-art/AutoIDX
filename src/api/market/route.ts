@@ -21,11 +21,21 @@ Query params:
 
 import { NextRequest, NextResponse } from "next/server";
 import MarketScanner from "@/services/scanner";
+import { checkRateLimit } from "@/services/security/rateLimitStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  // Endpoint publik yang menjalankan scan penuh (berat): batasi per IP
+  // supaya tidak jadi celah beban ke Vercel/Indodax.
+  const forwarded = request.headers.get("x-forwarded-for");
+  const ip = forwarded?.split(",")[0]?.trim() || "unknown";
+  const rate = await checkRateLimit(`market:${ip}`, 12, 60_000);
+  if (!rate.allowed) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
   const params = request.nextUrl.searchParams;
 
   const pairsParam = params.get("pairs");

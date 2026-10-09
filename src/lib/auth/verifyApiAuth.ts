@@ -40,7 +40,19 @@ export async function verifyApiAuth(
 
 ): Promise<VerifiedApiUser | null> {
 
-  const header = req.headers.authorization;
+  return verifyBearerToken(req.headers.authorization);
+
+}
+
+/**
+ * Sama dengan verifyApiAuth, tapi menerima nilai header mentah
+ * (untuk App Router / Request standar yang tidak punya NextApiRequest).
+ */
+export async function verifyBearerToken(
+
+  header: string | null | undefined
+
+): Promise<VerifiedApiUser | null> {
 
   if (!header || !header.startsWith("Bearer ")) {
 

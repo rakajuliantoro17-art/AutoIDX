@@ -1,7 +1,7 @@
-name: AURA Trade OS - Market Scan Cron
+name: AURA Trade OS - Reconcile Cron
 
 # BACKUP DARURAT SAJA -- cron-job.org sekarang jadi trigger UTAMA
-# untuk /api/cron/scan (terbukti sukses konsisten, lihat riwayat
+# untuk /api/cron/reconcile (terbukti sukses konsisten, lihat riwayat
 # eksekusi di cron-job.org dashboard). Jadwal otomatis di sini
 # SENGAJA dinonaktifkan (schedule: dikomentari) supaya tidak ada
 # 2 sumber sekaligus memicu endpoint yang sama tiap 5 menit.
@@ -15,10 +15,10 @@ on:
   workflow_dispatch: {}     # trigger manual untuk backup darurat
 
 jobs:
-  trigger-scan:
+  trigger-reconcile:
     runs-on: ubuntu-latest
     steps:
-      - name: Call scan endpoint
+      - name: Call reconcile endpoint
         run: |
-          curl -f -X POST https://auto-idx.vercel.app/api/cron/scan \
+          curl -f -X POST https://auto-idx.vercel.app/api/cron/reconcile \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

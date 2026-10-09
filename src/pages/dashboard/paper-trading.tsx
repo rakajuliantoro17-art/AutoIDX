@@ -8,6 +8,8 @@ Version : 0.0.3 Alpha
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/services/auth/AuthContext";
+import { authedFetch } from "@/utils/authedFetch";
 import { formatIDR, formatPercent, formatFullDateTime } from "@/utils";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import StatusCard from "@/components/StatusCard";
@@ -46,13 +48,14 @@ interface PaperTradingStatus {
 }
 
 export default function PaperTradingPage() {
+  const { user } = useAuth();
   const [status, setStatus] = useState<PaperTradingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function loadStatus() {
     try {
-      const res = await fetch("/api/paper-trading/status");
+      const res = await authedFetch(user, "/api/paper-trading/status");
       if (!res.ok) throw new Error(`Status API failed: ${res.status}`);
       const json = await res.json();
       setStatus(json);
@@ -66,10 +69,12 @@ export default function PaperTradingPage() {
   }
 
   useEffect(() => {
+    if (!user) return;
     loadStatus();
     const interval = setVisibleInterval(loadStatus, 30_000); // auto-refresh tiap 30 detik
     return () => interval();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const portfolio = status?.portfolio;
   const pnlPercent = portfolio

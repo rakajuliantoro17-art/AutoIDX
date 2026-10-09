@@ -19,6 +19,8 @@ AGGRESSIVE -> strategi MOMENTUM
 */
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/services/auth/AuthContext";
+import { authedFetch } from "@/utils/authedFetch";
 import DashboardLayout from "@/layouts/DashboardLayout";
 
 type StrategyMode = "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE";
@@ -56,6 +58,7 @@ const MODE_INFO: Record<
 };
 
 export default function StrategySettings() {
+  const { user } = useAuth();
   const [current, setCurrent] = useState<StrategyMode>("BALANCED");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -65,7 +68,7 @@ export default function StrategySettings() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/settings");
+        const res = await authedFetch(user, "/api/settings");
         if (!res.ok) throw new Error(`Gagal memuat settings: ${res.status}`);
         const json = await res.json();
         const data: BotSettings = json.data;
@@ -77,8 +80,8 @@ export default function StrategySettings() {
         setLoading(false);
       }
     }
-    load();
-  }, []);
+    if (user) load();
+  }, [user]);
 
   async function handleSelect(mode: StrategyMode) {
     if (mode === current) return;
@@ -92,7 +95,7 @@ export default function StrategySettings() {
     setCurrent(mode);
 
     try {
-      const res = await fetch("/api/settings", {
+      const res = await authedFetch(user, "/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ strategyMode: mode }),

@@ -11,11 +11,24 @@ import { AppError } from "@/lib/error/AppError";
 import { ApiError } from "@/lib/error/ApiError";
 import { ApiValidator } from "@/lib/validators/api";
 import type { BotSettings } from "./types";
+import { verifyBearerToken } from "@/lib/auth/verifyApiAuth";
+
+function unauthorized() {
+    return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+    );
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(request: Request) {
+    // Pengaturan trading: wajib login (Firebase ID token).
+    if (!(await verifyBearerToken(request.headers.get("authorization")))) {
+        return unauthorized();
+    }
+
     const settings = await getSettings();
     return NextResponse.json({
         success: true,
@@ -25,6 +38,11 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+    // Mengubah trade amount/SL/TP/posisi maksimum: wajib login.
+    if (!(await verifyBearerToken(request.headers.get("authorization")))) {
+        return unauthorized();
+    }
+
     try {
         // SEBELUMNYA: `await request.json()` langsung -- body yang
         // bukan JSON valid (mis. kosong/typo) ketangkap catch umum

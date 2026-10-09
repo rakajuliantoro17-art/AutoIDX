@@ -7,10 +7,16 @@ Version : 0.0.3 Alpha
 */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { adminDb } from "@/services/firebase/admin";
+import { verifyApiAuth } from "@/lib/auth/verifyApiAuth";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Data portofolio/posisi: wajib login (Firebase ID token).
+  if (!(await verifyApiAuth(req))) {
+    return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {

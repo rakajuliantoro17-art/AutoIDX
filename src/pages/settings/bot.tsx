@@ -16,6 +16,8 @@ BotControlPanel.tsx dulu.
 */
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/services/auth/AuthContext";
+import { authedFetch } from "@/utils/authedFetch";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import BotControlPanel from "@/components/BotControlPanel";
 
@@ -25,6 +27,7 @@ interface BotSettings {
 }
 
 export default function BotSettingsPage() {
+  const { user } = useAuth();
   const [scanInterval, setScanInterval] = useState(5);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,7 +37,7 @@ export default function BotSettingsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/settings");
+        const res = await authedFetch(user, "/api/settings");
         if (!res.ok) throw new Error(`Gagal memuat settings: ${res.status}`);
 
         const json = await res.json();
@@ -47,15 +50,15 @@ export default function BotSettingsPage() {
         setLoading(false);
       }
     }
-    load();
-  }, []);
+    if (user) load();
+  }, [user]);
 
   async function handleSaveInterval() {
     setSaving(true);
     setSaved(false);
     setError(null);
     try {
-      const res = await fetch("/api/settings", {
+      const res = await authedFetch(user, "/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ scanIntervalMinutes: scanInterval }),
