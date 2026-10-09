@@ -80,7 +80,13 @@ class RiskManager {
     entryPrice: number,
     atr: number,
     baseStopLossPercent: number = RISK_CONFIG.stopLossPercent,
-    baseTargetProfitPercent: number = RISK_CONFIG.targetProfitPercent
+    baseTargetProfitPercent: number = RISK_CONFIG.targetProfitPercent,
+    /**
+     * Opsional: bila > 0, take-profit DIPAKSA tepat persen ini dari harga
+     * entry (tanpa dikali ATR). Stop-loss tetap berbasis ATR. Dipakai
+     * lewat feature flag `fixedTakeProfit` (lihat trading/engine.ts).
+     */
+    fixedTakeProfitPercent?: number
   ): AtrStopLevels {
 
     const fallbackRatio =
@@ -93,11 +99,15 @@ class RiskManager {
       // Data ATR tidak valid -- fallback ke persentase statis
       // (baseStopLossPercent/baseTargetProfitPercent) supaya
       // posisi tetap punya perlindungan.
+      const fallbackTakeProfit =
+        fixedTakeProfitPercent && fixedTakeProfitPercent > 0
+          ? fixedTakeProfitPercent
+          : baseTargetProfitPercent;
       return {
         stopLossPercent: baseStopLossPercent,
-        takeProfitPercent: baseTargetProfitPercent,
+        takeProfitPercent: fallbackTakeProfit,
         stopLossPrice: entryPrice * (1 - baseStopLossPercent / 100),
-        takeProfitPrice: entryPrice * (1 + baseTargetProfitPercent / 100),
+        takeProfitPrice: entryPrice * (1 + fallbackTakeProfit / 100),
       };
 
     }
@@ -111,7 +121,10 @@ class RiskManager {
       Math.max(MIN_STOP_LOSS_PERCENT, rawStopLossPercent)
     );
 
-    const takeProfitPercent = stopLossPercent * fallbackRatio;
+    const takeProfitPercent =
+      fixedTakeProfitPercent && fixedTakeProfitPercent > 0
+        ? fixedTakeProfitPercent
+        : stopLossPercent * fallbackRatio;
 
     return {
       stopLossPercent: Number(stopLossPercent.toFixed(2)),

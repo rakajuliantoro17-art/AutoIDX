@@ -1087,3 +1087,9 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Bug hidrasi React #418: `ThemeToggleButton` merender ikon sesuai tema client saat server selalu "dark" -> pakai nilai server sampai mounted.
 - Bug CSS (pre-existing): `.glass-nav {position:relative}` dan `.nav-pill {display:block; padding}` menimpa utilitas Tailwind (`fixed`/`sticky`, `flex`, `px-0`) -> pindah ke `:where()` (spesifisitas 0). Efek: kartu login di HP tidak lagi terdorong ke kanan (lebar 147px -> 358px), sidebar desktop rapat di bawah header, ikon nav sejajar dengan label.
 - Catatan proses: `pkill -f "next dev"` pada shell yang sama membunuh shell sendiri; gunakan pola `[n]ext-server`.
+
+### Session Log 37 - Slider Take Profit 1-5% + TP tetap lewat flag (2026-10-10)
+- Temuan: "Take Profit (%)" (default 3 via BOT_TARGET_PROFIT) BUKAN TP asli; hanya pembilang rasio TP/SL. TP asli = SL ATR (ATR% x 1.5, jepit 0.5-8%) x rasio (3/1=3) -> 1.5%-24%; mis. ATR 4% => TP 18%. TP dihitung sekali saat BUY (calculateAtrStopLevels) lalu disimpan di bot_state. Tidak ada target "per siklus".
+- Baru: flag `fixedTakeProfit` (Firestore bot_control/flags, default MATI). Nyala: TP = persis slider (jepit 1-5%) dari harga beli; SL tetap ATR. Mati: perilaku lama identik (diuji). `calculateAtrStopLevels(..., fixedTakeProfitPercent?)`; engine memanggil `isFeatureEnabled` hanya saat BUY.
+- UI /settings/risk: Take Profit kini slider 1-5% step 0.1 (nilai tersimpan di luar rentang ditampilkan terjepit, tersimpan hanya bila digeser). Server tetap menerima 0.1-50.
+- Uji: 6 skenario (lama, flag mati identik, TP tetap 2%, pair volatil 18%->5%, fallback ATR=0, fixed 0 diabaikan). tsc + next build lolos.

@@ -82,6 +82,7 @@ import LiveTradingService from "./live";
 import RiskManager from "./risk";
 
 import automationNotifier from "@/services/automation/notifier";
+import { isFeatureEnabled } from "@/services/firebase/featureFlags";
 
 import { auditLogger } from "@/services/audit/firestoreAudit";
 import { handleError } from "@/services/errors/errorHandler";
@@ -1149,11 +1150,19 @@ export class TradingEngine {
 
           });
 
+          // Feature flag `fixedTakeProfit` (Firestore bot_control/flags,
+          // default MATI): TP tetap 1-5% dari harga beli sesuai slider
+          // Take Profit. Mati = perilaku lama (TP = rasio x SL ATR).
+          const fixedTakeProfitPercent = (await isFeatureEnabled("fixedTakeProfit"))
+            ? Math.min(5, Math.max(1, effectiveConfig.targetProfitPercent))
+            : undefined;
+
           const atrLevels = RiskManager.calculateAtrStopLevels(
             result.price,
             input.features.atr,
             effectiveConfig.stopLossPercent,
-            effectiveConfig.targetProfitPercent
+            effectiveConfig.targetProfitPercent,
+            fixedTakeProfitPercent
           );
 
           await updateBotState({

@@ -32,6 +32,12 @@ export const FEATURE_FLAG_DEFAULTS = {
   aiAdvancedLabeling: false,
   /** Jalur event/notification terpisah (messaging) -- belum aktif. */
   eventBus: false,
+  /**
+   * Take-profit TETAP per posisi (persen dari harga beli, 1-5%) memakai
+   * nilai slider Take Profit; stop-loss tetap berbasis ATR. Mati =
+   * perilaku lama (TP = rasio TP/SL x lebar SL ATR).
+   */
+  fixedTakeProfit: false,
 } as const;
 
 export type FeatureFlagName = keyof typeof FEATURE_FLAG_DEFAULTS;

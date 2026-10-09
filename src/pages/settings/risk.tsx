@@ -51,8 +51,10 @@ const TRADE_AMOUNT_STEP = 5_000;
 // menjanjikan rentang yang beda dari yang sebenarnya di-clamp.
 const STOP_LOSS_MIN = 0.1;
 const STOP_LOSS_MAX = 20;
-const TARGET_PROFIT_MIN = 0.1;
-const TARGET_PROFIT_MAX = 50;
+// Slider Take Profit dibatasi 1-5% (permintaan pemilik). Server tetap
+// menerima 0.1-50 (lihat services/trading/effectiveConfig.ts).
+const TARGET_PROFIT_MIN = 1;
+const TARGET_PROFIT_MAX = 5;
 const MAX_POSITIONS_MIN = 1;
 
 interface BotSettings {
@@ -79,6 +81,10 @@ export default function RiskSettings() {
   const [tradeAmount, setTradeAmount] = useState(TRADE_AMOUNT_MIN);
   const [stopLoss, setStopLoss] = useState(1);
   const [targetProfit, setTargetProfit] = useState(3);
+  const targetProfitShown = Math.min(
+    TARGET_PROFIT_MAX,
+    Math.max(TARGET_PROFIT_MIN, targetProfit)
+  );
   const [maxPositions, setMaxPositions] = useState(1);
   const [loading, setLoading] = useState(true);
   const [savingField, setSavingField] = useState<FieldKey | null>(null);
@@ -215,21 +221,48 @@ export default function RiskSettings() {
           onCommit={(v) => handleSave("stopLossPercent", v)}
         />
 
-        {/* Take Profit - sekarang editable */}
-        <NumberField
-          label="Take Profit (%)"
-          hint="Dasar rasio ATR take-profit."
-          value={targetProfit}
-          min={TARGET_PROFIT_MIN}
-          max={TARGET_PROFIT_MAX}
-          step={0.1}
-          disabled={loading}
-          saving={savingField === "targetProfitPercent"}
-          saved={savedField === "targetProfitPercent"}
-          accent="text-emerald-400"
-          onChange={setTargetProfit}
-          onCommit={(v) => handleSave("targetProfitPercent", v)}
-        />
+        {/* Take Profit - slider 1-5%. Nilai tersimpan di luar 1-5 (mis. dari
+            env/pengaturan lama) hanya ditampilkan terjepit; baru tersimpan
+            bila slider digeser. */}
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-[var(--text-secondary)] text-sm">Take Profit (%)</p>
+            <p className="text-emerald-400 font-bold">
+              {loading ? "..." : `${targetProfitShown.toFixed(1)}%`}
+            </p>
+          </div>
+
+          <input
+            type="range"
+            min={TARGET_PROFIT_MIN}
+            max={TARGET_PROFIT_MAX}
+            step={0.1}
+            value={targetProfitShown}
+            disabled={loading || savingField === "targetProfitPercent"}
+            onChange={(e) => setTargetProfit(Number(e.target.value))}
+            onMouseUp={(e) =>
+              handleSave("targetProfitPercent", Number((e.target as HTMLInputElement).value))
+            }
+            onTouchEnd={(e) =>
+              handleSave("targetProfitPercent", Number((e.target as HTMLInputElement).value))
+            }
+            className="w-full accent-emerald-500"
+          />
+
+          <div className="flex justify-between text-xs text-[var(--text-muted)] mt-1">
+            <span>{TARGET_PROFIT_MIN}%</span>
+            <span>{TARGET_PROFIT_MAX}%</span>
+          </div>
+
+          <p className="text-xs text-[var(--text-muted)] mt-2">
+            Target profit per posisi, dihitung dari harga beli (bukan per siklus).
+            Dengan feature flag <code>fixedTakeProfit</code> menyala, posisi BUY baru
+            ditutup tepat di target ini. Bila flag mati, nilai ini hanya menjadi dasar
+            rasio ATR (take-profit asli mengikuti volatilitas pair).
+          </p>
+
+          <SaveStatus field="targetProfitPercent" savingField={savingField} savedField={savedField} />
+        </div>
 
         {/* Max Position - sekarang editable, dipakai gate jumlah posisi terbuka */}
         <NumberField
