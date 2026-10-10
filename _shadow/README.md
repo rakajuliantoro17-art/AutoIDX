@@ -20,6 +20,7 @@ Kode di sini **di luar build** (`tsconfig.json` -> `exclude`), tersimpan untuk m
 | logger (sink file/remote), cache (cache in-memory berlapis) | worker panjang; kasus cache terukur | lihat README masing-masing |
 | analytics (kelas in-memory), portfolio (manajer posisi in-memory) | snapshot ekuitas historis | lihat README masing-masing |
 | execution (mesin eksekusi paralel) | order limit/stop untuk strategi baru | lihat README |
+| errors (kelas error domain tak terpakai) | kelas baru bila diperlukan | lihat README |
 | validation | pipeline aturan | dipakai saat validator live disatukan |
 
 ## Arah (urutan nilai/risiko)
