@@ -1131,3 +1131,10 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Indodax: 15 orphan -> `_shadow/indodax/`. Auth orphan memakai nonce (lama) vs klien live timestamp+recvWindow; sengaja tidak dipasang ke jalur order.
 - Tiga klien Indodax masih hidup (api.js, liveTrading/exchange/indodaxClient, services/exchange) - konsolidasi = pekerjaan terpisah.
 - tsc + next build lolos.
+
+### Session Log 44 - pipeline & security (2026-10-10)
+- `pipeline/` (9 file) -> `_shadow/pipeline/`: kerangka generik tanpa stage terdaftar; alur bot sudah eksplisit di cron.ts -> engine.ts.
+- `security/`: 10 orphan -> `_shadow/security/` (guard in-memory, sistem token/peran ganda, csrf, ipGuard, signature, secretManager). Aktif: `encryption.ts`, `rateLimitStore.ts`.
+- Tinjauan jalur aktif: AES-256-GCM benar; cronAuth + verifikasi webhook waktu-konstan; rate limit fail-open sengaja. Tidak ada perubahan kode aktif.
+- Gap nyata yang tercatat: belum ada jejak audit perubahan setelan/mode bot (opsi: koleksi Firestore `audit_logs`).
+- tsc + next build lolos.
