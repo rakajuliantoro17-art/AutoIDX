@@ -56,6 +56,11 @@ export const FEATURE_FLAG_DEFAULTS = {
    * total. Mati = hanya cek per-trade seperti sebelumnya.
    */
   portfolioExposureLimit: false,
+  /**
+   * Trailing stop: stop-loss posisi terbuka hanya naik mengikuti harga
+   * (TRAILING_STOP_PERCENT). Butuh juga env TRAILING_STOP_ENABLED=true.
+   */
+  trailingStop: false,
 } as const;
 
 export type FeatureFlagName = keyof typeof FEATURE_FLAG_DEFAULTS;

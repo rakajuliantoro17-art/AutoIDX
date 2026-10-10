@@ -83,6 +83,7 @@ import RiskManager from "./risk";
 
 import automationNotifier from "@/services/automation/notifier";
 import { isFeatureEnabled } from "@/services/firebase/featureFlags";
+import { calculateTrailingStop } from "@/services/trading/trailingStop";
 import { checkPortfolioExposure } from "@/services/trading/exposure";
 import { MAX_EXPOSURE_PERCENT as ABSOLUTE_MAX_EXPOSURE_PERCENT } from "@/config/limits";
 
@@ -712,6 +713,39 @@ export class TradingEngine {
 
       if (state.inPosition) {
 
+        // Trailing stop (flag `trailingStop` DAN env TRAILING_STOP_ENABLED):
+        // stop-loss hanya naik saat harga di atas harga beli, tersimpan di
+        // bot_state supaya siklus berikutnya melanjutkan. Mati = perilaku lama.
+        let activeStopLossPrice = state.stopLossPrice;
+
+        if (
+          RISK_CONFIG.trailingStop.enabled &&
+          state.stopLossPrice > 0 &&
+          (await isFeatureEnabled("trailingStop"))
+        ) {
+          const raised = calculateTrailingStop(
+            state.entryPrice,
+            input.price,
+            state.stopLossPrice,
+            RISK_CONFIG.trailingStop.percent
+          );
+
+          if (raised !== null) {
+            activeStopLossPrice = raised;
+
+            try {
+              await updateBotState({ pair: input.pair, stopLossPrice: raised });
+              await recordLog(
+                "RISK",
+                "info",
+                `[Trailing Stop ${input.pair.toUpperCase()}] Stop-loss naik ${state.stopLossPrice.toFixed(2)} -> ${raised.toFixed(2)} (harga ${input.price}).`
+              );
+            } catch (trailError) {
+              console.error("[Trailing Stop]", trailError);
+            }
+          }
+        }
+
         const riskEval = RiskManager.evaluateWithLevels(
 
           state.entryPrice,
@@ -720,7 +754,7 @@ export class TradingEngine {
 
           true,
 
-          state.stopLossPrice,
+          activeStopLossPrice,
 
           state.takeProfitPrice
 
