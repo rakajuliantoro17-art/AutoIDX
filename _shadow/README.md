@@ -21,6 +21,7 @@ Kode di sini **di luar build** (`tsconfig.json` -> `exclude`), tersimpan untuk m
 | analytics (kelas in-memory), portfolio (manajer posisi in-memory) | snapshot ekuitas historis | lihat README masing-masing |
 | execution (mesin eksekusi paralel) | order limit/stop untuk strategi baru | lihat README |
 | errors (kelas error domain tak terpakai) | kelas baru bila diperlukan | lihat README |
+| transaction, orchestration, integration (kerangka generik tanpa sumber data) | worker panjang; checklist go-live nyata | lihat README masing-masing |
 | validation | pipeline aturan | dipakai saat validator live disatukan |
 
 ## Arah (urutan nilai/risiko)
