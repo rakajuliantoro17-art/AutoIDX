@@ -420,6 +420,28 @@ export async function getOpenPositionsCount(): Promise<number> {
 }
 
 /**
+ * Total nilai beli (entryPrice x coinAmount) semua posisi terbuka.
+ * Fail-safe: bila query gagal, kembalikan angka sangat besar supaya
+ * pengecek exposure total MEMBLOKIR BUY baru (bukan melonggarkan).
+ */
+export async function getOpenExposureIdr(): Promise<number> {
+  try {
+    const snapshot = await adminDb
+      .collection(STATE_COLLECTION)
+      .where("inPosition", "==", true)
+      .get();
+
+    return snapshot.docs.reduce((sum, doc) => {
+      const d = doc.data() as { entryPrice?: number; coinAmount?: number };
+      return sum + Number(d.entryPrice ?? 0) * Number(d.coinAmount ?? 0);
+    }, 0);
+  } catch (error) {
+    console.error("[BOT STATE OPEN EXPOSURE ERROR]", error);
+    return Number.MAX_SAFE_INTEGER;
+  }
+}
+
+/**
  * Daftar pair yang SAAT INI sedang punya posisi terbuka.
  *
  * Dipakai scheduler (cron) supaya pair yang lagi dipegang tetap

@@ -83,6 +83,8 @@ import RiskManager from "./risk";
 
 import automationNotifier from "@/services/automation/notifier";
 import { isFeatureEnabled } from "@/services/firebase/featureFlags";
+import { checkPortfolioExposure } from "@/services/trading/exposure";
+import { MAX_EXPOSURE_PERCENT as ABSOLUTE_MAX_EXPOSURE_PERCENT } from "@/config/limits";
 
 import { auditLogger } from "@/services/audit/firestoreAudit";
 import { handleError } from "@/services/errors/errorHandler";
@@ -92,6 +94,7 @@ import {
   getBotState,
   updateBotState,
   getOpenPositionsCount,
+  getOpenExposureIdr,
 } from "@/services/firebase/botState";
 
 import {
@@ -1149,6 +1152,38 @@ export class TradingEngine {
 
             };
 
+          }
+
+          // Batas exposure TOTAL portofolio (flag `portfolioExposureLimit`,
+          // default MATI): posisi terbuka + trade baru <= batas absolut
+          // dari ekuitas total. Gagal baca posisi => diblokir (fail-safe).
+          if (await isFeatureEnabled("portfolioExposureLimit")) {
+            const openExposureIdr = await getOpenExposureIdr();
+            const totalCheck = checkPortfolioExposure(
+              openExposureIdr,
+              tradeAmountIdr,
+              portfolio.availableBalance,
+              ABSOLUTE_MAX_EXPOSURE_PERCENT
+            );
+
+            if (!totalCheck.allowed) {
+              await recordLog(
+                "RISK",
+                "warning",
+                `[EXPOSURE TOTAL] BUY ${input.pair.toUpperCase()} diblokir: setelah trade, exposure ${totalCheck.afterTradePercent.toFixed(1)}% dari ekuitas total (batas ${ABSOLUTE_MAX_EXPOSURE_PERCENT}%).`
+              );
+
+              return {
+                success: true,
+                signal: "HOLD",
+                confidence: decision.confidence,
+                reason: `[EXPOSURE TOTAL] Total posisi terbuka + trade baru melebihi ${ABSOLUTE_MAX_EXPOSURE_PERCENT}% ekuitas.`,
+                actionExecuted: false,
+                riskBlocked: true,
+                mode: modeLabel,
+                timestamp: new Date().toISOString(),
+              };
+            }
           }
 
           const result = await tradingService.buy({

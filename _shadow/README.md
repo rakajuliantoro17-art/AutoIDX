@@ -19,6 +19,7 @@ Kode di sini **di luar build** (`tsconfig.json` -> `exclude`), tersimpan untuk m
 | pipeline (stage generik), security (guard in-memory, auth ganda) | alur multi-tahap offline; jejak audit Firestore | lihat README masing-masing |
 | logger (sink file/remote), cache (cache in-memory berlapis) | worker panjang; kasus cache terukur | lihat README masing-masing |
 | analytics (kelas in-memory), portfolio (manajer posisi in-memory) | snapshot ekuitas historis | lihat README masing-masing |
+| execution (mesin eksekusi paralel) | order limit/stop untuk strategi baru | lihat README |
 | validation | pipeline aturan | dipakai saat validator live disatukan |
 
 ## Arah (urutan nilai/risiko)

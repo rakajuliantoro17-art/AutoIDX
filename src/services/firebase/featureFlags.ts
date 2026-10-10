@@ -50,6 +50,12 @@ export const FEATURE_FLAG_DEFAULTS = {
    * LOG_RETENTION_DAYS (batch kecil per run). Mati = log tidak pernah dihapus.
    */
   logRetention: false,
+  /**
+   * BUY juga diblokir bila total nilai posisi terbuka + trade baru melebihi
+   * batas absolut exposure (config/limits MAX_EXPOSURE_PERCENT) dari ekuitas
+   * total. Mati = hanya cek per-trade seperti sebelumnya.
+   */
+  portfolioExposureLimit: false,
 } as const;
 
 export type FeatureFlagName = keyof typeof FEATURE_FLAG_DEFAULTS;
