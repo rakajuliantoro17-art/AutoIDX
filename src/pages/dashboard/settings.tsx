@@ -37,6 +37,13 @@ interface RuntimeConfig {
   slTpMode: string;
   stopLossBaselinePercent: number;
   targetProfitBaselinePercent: number;
+  effective?: {
+    tradeAmountIdr: number;
+    stopLossPercent: number;
+    targetProfitPercent: number;
+    maxOpenPositions: number;
+    fixedTakeProfitActive: boolean;
+  };
   maxOpenPosition: number;
   maxExposurePercent: number;
   maxDailyLossPercent: number;
@@ -182,7 +189,7 @@ export default function SettingsPage() {
             <div>
               <p className="text-xs text-[var(--text-muted)]">Trade Amount</p>
               <p className="font-bold mt-2">
-                {formatIDR(config.tradeAmount)}
+                {formatIDR(config.effective?.tradeAmountIdr ?? config.tradeAmount)}
               </p>
             </div>
             <div>
@@ -190,7 +197,12 @@ export default function SettingsPage() {
                 Target Profit
               </p>
               <p className="font-bold text-emerald-400 mt-2">
-                {config.targetProfitBaselinePercent}%
+                {config.effective?.targetProfitPercent ?? config.targetProfitBaselinePercent}%
+              </p>
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                {config.effective?.fixedTakeProfitActive
+                  ? "TP tetap per posisi"
+                  : "dasar rasio TP/SL (TP aktual = ATR × rasio)"}
               </p>
             </div>
             <div>
@@ -198,12 +210,12 @@ export default function SettingsPage() {
                 Stop Loss
               </p>
               <p className="font-bold text-red-400 mt-2">
-                {config.stopLossBaselinePercent}%
+                {config.effective?.stopLossPercent ?? config.stopLossBaselinePercent}%
               </p>
             </div>
             <div>
               <p className="text-xs text-[var(--text-muted)]">Max Open Position</p>
-              <p className="font-bold mt-2">{config.maxOpenPosition}</p>
+              <p className="font-bold mt-2">{config.effective?.maxOpenPositions ?? config.maxOpenPosition}</p>
             </div>
           </div>
 

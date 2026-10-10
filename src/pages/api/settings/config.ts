@@ -28,6 +28,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { adminAuth } from "@/services/firebase/admin";
 import { BOT_CONFIG } from "@/config/bot";
 import { RISK_CONFIG } from "@/config/risk";
+import { getEffectiveTradingConfig } from "@/services/trading/effectiveConfig";
+import { isFeatureEnabled } from "@/services/firebase/featureFlags";
 import { TRADING_CONFIG } from "@/config/trading";
 import { getBotControl } from "@/services/firebase/botControl";
 import EnvValidator from "@/lib/validators/env";
@@ -111,7 +113,21 @@ export default async function handler(
     const effectiveMode: "paper" | "live" =
       control.mode === "live" && liveConfirmed ? "live" : "paper";
 
+    // Nilai YANG DIPAKAI bot (pengaturan tersimpan dari /settings/risk,
+    // sudah di-clamp batas aman). Sebelumnya halaman hanya menampilkan
+    // baseline env sehingga tidak sinkron dengan yang diedit operator.
+    const effective = await getEffectiveTradingConfig();
+    const fixedTakeProfitActive = await isFeatureEnabled("fixedTakeProfit");
+
     return res.status(200).json({
+
+      effective: {
+        tradeAmountIdr: effective.tradeAmountIdr,
+        stopLossPercent: effective.stopLossPercent,
+        targetProfitPercent: effective.targetProfitPercent,
+        maxOpenPositions: effective.maxOpenPositions,
+        fixedTakeProfitActive,
+      },
 
       requestedMode: control.mode,
 

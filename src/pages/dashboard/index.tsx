@@ -42,6 +42,7 @@ interface DashboardData {
   position: string;
   stopLoss: number;
   takeProfit: number;
+  riskSource: "position" | "settings";
   loading: boolean;
   error: string | null;
 }
@@ -75,8 +76,9 @@ export default function DashboardPage() {
     price: 0,
     signal: "HOLD",
     position: "OUT OF POSITION",
-    stopLoss: 1,
-    takeProfit: 3,
+    stopLoss: 0,
+    takeProfit: 0,
+    riskSource: "settings",
     loading: true,
     error: null,
   });
@@ -137,8 +139,9 @@ export default function DashboardPage() {
         price: json.currentPrice ?? 0,
         signal: json.lastSignal ?? "HOLD",
         position: json.inPosition ? "ACTIVE POSITION" : "OUT OF POSITION",
-        stopLoss: json.stopLoss ?? 1,
-        takeProfit: json.takeProfit ?? 3,
+        stopLoss: json.stopLossPercent ?? 0,
+        takeProfit: json.takeProfitPercent ?? 0,
+        riskSource: json.riskSource === "position" ? "position" : "settings",
         loading: false,
         error: null,
       });
@@ -255,8 +258,8 @@ export default function DashboardPage() {
           <StatusCard title="Position" value={data.position} />
           <StatusCard
             title="Risk"
-            value={`${data.stopLoss}% / ${data.takeProfit}%`}
-            subtext="SL / TP"
+            value={data.loading ? "..." : `${data.stopLoss}% / ${data.takeProfit}%`}
+            subtext={data.riskSource === "position" ? "SL / TP posisi aktif" : "SL / TP pengaturan (dasar)"}
           />
         </div>
 
