@@ -2,142 +2,14 @@
 ==========================================================
 AURA Trade OS
 Market Data Service Entry Point
-Version : 0.1.0 Alpha
+Version : 0.2.0
+
+Hanya yang dipakai jalur live: tipe, agregator volume/candle, dan
+filter spread/liquidity (dipakai services/scanner/marketQuality).
+Lapisan streaming (websocket, ticker, orderbook live, feeds,
+snapshots, manager, registry) dipindah ke `_shadow/market/`
+karena butuh proses berumur panjang (tidak cocok di Vercel).
 ==========================================================
 */
-
-
-/**
-==========================================================
-WebSocket Layer
-==========================================================
-*/
-
-
-export {
-
-    default as indodaxSocket,
-
-    IndodaxSocket
-
-} from "./websocket/indodaxSocket";
-
-
-export type {
-
-    MarketTick,
-
-    SocketConfig,
-
-    SocketEvent
-
-} from "./websocket/indodaxSocket";
-
-
-
-
-
-export {
-
-    default as marketSocketManager,
-
-    MarketWebSocketManager
-
-} from "./websocket/manager";
-
-
-export type {
-
-    ConnectionStatus,
-
-    Subscription
-
-} from "./websocket/manager";
-
-
-
-
-
-/**
-==========================================================
-Candle Layer
-==========================================================
-*/
-
-
-export {
-
-    default as candleBuilder,
-
-    CandleBuilder
-
-} from "./candles/candleBuilder";
-
-
-export type {
-
-    Candle,
-
-    CandleTimeframe
-
-} from "./candles/candleBuilder";
-
-
-
-
-
-/**
-==========================================================
-Order Book Layer
-==========================================================
-*/
-
-
-export {
-
-    default as orderBook,
-
-    OrderBookEngine
-
-} from "./orderbook/orderBook";
-
-
-export type {
-
-    OrderBookLevel,
-
-    OrderBookSnapshot,
-
-    OrderBookMetrics
-
-} from "./orderbook/orderBook";
-
-
-
-
-
-/**
-==========================================================
-Ticker Layer
-==========================================================
-*/
-
-
-export {
-
-    default as tickerService,
-
-    TickerService
-
-} from "./ticker/tickerService";
-
-
-export type {
-
-    TickerData,
-
-    PriceUpdate
-
-} from "./ticker/tickerService";
 
 export * from "./types";

@@ -14,6 +14,7 @@ Kode di sini **di luar build** (`tsconfig.json` -> `exclude`), tersimpan untuk m
 | liveTrading (72 file) | lapisan pengaman tambahan jalur live (liveApproval, preflight/verifier) | flag + paper + klien bursa tiruan |
 | indicator (kerangka kelas) | indikator plug-in, registri | satu API saja; uji silang numerik |
 | ml (placeholder, in-memory, labeling alternatif) | label alternatif, seleksi fitur | verdict shadow ML terbukti |
+| market (streaming, filter ekstra), intelligence (jalur AI paralel, kerangka sumber data) | worker panjang; sumber sentimen nyata | lihat README masing-masing |
 | validation | pipeline aturan | dipakai saat validator live disatukan |
 
 ## Arah (urutan nilai/risiko)

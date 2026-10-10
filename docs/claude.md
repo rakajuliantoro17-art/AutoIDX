@@ -1119,3 +1119,8 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Diuji (fungsi murni): naik/turun/datar/belum jatuh tempo/candle kurang/kedaluwarsa + ringkasan. Belum teruji dengan Firestore/Indodax asli (tidak ada di sandbox).
 - Orphan ML lain -> `_shadow/ml/` + README. `services/ml/` 0 orphan. Belum dikerjakan: `services/ai` (75 orphan), training offline.
 - Prasyarat jalan: ada model aktif (`POST /api/ml/train`) lalu nyalakan flag `aiShadowPrediction` di `bot_control/flags`.
+
+### Session Log 42 - intelligence & market: shadow lapisan mati (2026-10-10)
+- Temuan: di `market/`, websocket/ticker/orderbook/candleBuilder tampak aktif hanya karena barrel `index.ts` diimpor sebagai tipe; runtime tidak dipakai. Runtime nyata: `types`, agregator volume/candle, filter spread/liquidity (scanner/marketQuality).
+- `market/`: 20+ file -> `_shadow/market/` + README; `index.ts` kini hanya re-export tipe. `intelligence/`: 23 orphan -> `_shadow/intelligence/` + README (jalur AI paralel, cache in-memory, kerangka sumber data); `fusion/{decision,confidence}` tetap (tipe dipakai explanation.ts).
+- Tidak ada perubahan perilaku trading. tsc + next build lolos.
