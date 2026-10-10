@@ -296,3 +296,34 @@ return [];
 }
 
 }
+
+
+/** Log aktivitas lebih tua dari ini dianggap tidak berguna lagi. */
+export const LOG_RETENTION_DAYS = 30;
+
+/**
+ * Hapus log aktivitas lama (batch, aman untuk dijalankan berulang dari
+ * cron). Dipanggil hanya bila flag `logRetention` menyala. Maks
+ * `maxDelete` dokumen per panggilan supaya tidak menghabiskan waktu cron.
+ */
+export async function pruneOldLogs(
+  retentionDays = LOG_RETENTION_DAYS,
+  maxDelete = 400
+): Promise<number> {
+  const cutoff = new Date(Date.now() - retentionDays * 86_400_000);
+
+  const snapshot = await adminDb
+    .collection(LOGS_COLLECTION)
+    .where("timestamp", "<", cutoff)
+    .orderBy("timestamp", "asc")
+    .limit(maxDelete)
+    .get();
+
+  if (snapshot.empty) return 0;
+
+  const batch = adminDb.batch();
+  snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+  await batch.commit();
+
+  return snapshot.size;
+}

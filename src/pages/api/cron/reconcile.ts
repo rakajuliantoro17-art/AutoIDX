@@ -66,7 +66,7 @@ import { getBotControl, updateBotControl } from "@/services/firebase/botControl"
 import { getBotState, getOpenPositionPairs } from "@/services/firebase/botState";
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
 import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
-import { recordLog } from "@/services/firebase/logService";
+import { recordLog, pruneOldLogs } from "@/services/firebase/logService";
 import { recordReconciliationStatus } from "@/services/firebase/reconciliationStatus";
 import { getCronHeartbeatStatus } from "@/services/scheduler/cronHeartbeat";
 import automationNotifier from "@/services/automation/notifier";
@@ -303,6 +303,16 @@ export default async function handler(
       }
     } catch (shadowError) {
       console.error("[Reconcile] ML shadow scoring gagal:", shadowError);
+    }
+
+    // Retensi log aktivitas (flag `logRetention`, default MATI). Best-effort.
+    try {
+      if (await isFeatureEnabled("logRetention")) {
+        const removed = await pruneOldLogs();
+        if (removed > 0) console.log(`[Reconcile] Log lama dihapus: ${removed}`);
+      }
+    } catch (pruneError) {
+      console.error("[Reconcile] Retensi log gagal:", pruneError);
     }
 
     const control = await getBotControl();

@@ -45,6 +45,11 @@ export const FEATURE_FLAG_DEFAULTS = {
    * tetap menahan pair+side sampai di-resolve manual.
    */
   uncertainOrderReconcile: false,
+  /**
+   * Cron reconcile menghapus log aktivitas Firestore yang lebih tua dari
+   * LOG_RETENTION_DAYS (batch kecil per run). Mati = log tidak pernah dihapus.
+   */
+  logRetention: false,
 } as const;
 
 export type FeatureFlagName = keyof typeof FEATURE_FLAG_DEFAULTS;
