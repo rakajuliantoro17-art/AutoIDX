@@ -1100,3 +1100,9 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Diuji tanpa kredensial: settings GET/PUT 401, paper-trading 401, backtest 401, depth pair berbahaya 400.
 - `.github/workflows/cron-reconcile.yml` memanggil /api/cron/scan (salinan workflow scan) -> diperbaiki ke /api/cron/reconcile (manual dispatch saja).
 - Belum teruji: alur setelah login (tidak ada Firebase asli di sandbox).
+
+### Session Log 39 - liveTrading: shadow 72 orphan + aktifkan uncertainOrderReconciler di balik flag (2026-10-10)
+- Jalur live nyata sudah matang: `liveOrderLock` (idempotensi Firestore, status UNCERTAIN menahan pair+side), `client_order_id`, timeout 6 dtk, kanari, gerbang rekonsiliasi segar. 72 orphan `liveTrading/*` (desain paralel: gate, execution, canary, exchange, engine, monitor, risk, persistence, reconciliation) dipindah ke `_shadow/liveTrading/` + README (padanan aktif & syarat aktivasi). Sisa aktif: 8 file.
+- Diaktifkan (flag `uncertainOrderReconcile`, default MATI, Firestore `bot_control/flags`): `reconcileUncertainOrders()` dipanggil dari `/api/cron/reconcile`. Lock UNCERTAIN otomatis di-resolve HANYA bila riwayat trade DAN open order Indodax membuktikan order tidak tereksekusi; ada trade/open order -> `needsManualReview` + log DANGER; gagal cek -> dilewati. Tambahan pengaman: open order => eskalasi; `markedUncertainAt` hilang => dilewati (tidak menebak). 8 skenario uji lulus (klien bursa tiruan).
+- Sebelum flag dinyalakan di live: uji di paper / dengan lock UNCERTAIN buatan; resolusi otomatis hanya melepas lock, tidak membuka/menutup posisi.
+- tsc + next build lolos.

@@ -11,6 +11,7 @@ Kode di sini **di luar build** (`tsconfig.json` -> `exclude`), tersimpan untuk m
 | plugins | strategi sinyal yang dapat dipasang | isolasi nyata |
 | persistence | kontrak repository (port/adapter) bila ganti DB | adapter nyata + mode paper |
 | configuration | feature flag Firestore (nyalakan shadow tanpa redeploy) | TTL cache baca Firestore |
+| liveTrading (72 file) | lapisan pengaman tambahan jalur live (liveApproval, preflight/verifier) | flag + paper + klien bursa tiruan |
 | validation | pipeline aturan | dipakai saat validator live disatukan |
 
 ## Arah (urutan nilai/risiko)

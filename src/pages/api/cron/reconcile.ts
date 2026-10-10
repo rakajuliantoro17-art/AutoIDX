@@ -70,6 +70,8 @@ import { recordLog } from "@/services/firebase/logService";
 import { recordReconciliationStatus } from "@/services/firebase/reconciliationStatus";
 import { getCronHeartbeatStatus } from "@/services/scheduler/cronHeartbeat";
 import automationNotifier from "@/services/automation/notifier";
+import { isFeatureEnabled } from "@/services/firebase/featureFlags";
+import { reconcileUncertainOrders } from "@/services/liveTrading/reconciliation/uncertainOrderReconciler";
 import { auditLogger } from "@/services/audit/firestoreAudit";
 import { handleError } from "@/services/errors/errorHandler";
 import { SafetyGate } from "@/services/safety/safetyGate";
@@ -298,6 +300,18 @@ export default async function handler(
         executedAt: new Date().toISOString(),
       });
 
+    }
+
+    // Lock order UNCERTAIN (gagal lewat exception network sebelum respons
+    // jelas) menahan pair+side sampai di-resolve. Bila flag
+    // `uncertainOrderReconcile` menyala: resolve otomatis HANYA dengan
+    // bukti (tidak ada trade & tidak ada open order di Indodax), kalau
+    // tidak -> tandai review manual. Tidak pernah melempar error.
+    if (await isFeatureEnabled("uncertainOrderReconcile")) {
+      const uncertain = await reconcileUncertainOrders();
+      if (uncertain.checked > 0) {
+        console.log("[Reconcile] Uncertain orders:", JSON.stringify(uncertain));
+      }
     }
 
     const context = await buildLiveReconciliationContext();

@@ -63,7 +63,7 @@ const CLOCK_SKEW_BUFFER_SECONDS = 30;
  */
 const MAX_LOCKS_PER_CYCLE = 10;
 
-interface LiveOrderLockDoc {
+export interface LiveOrderLockDoc {
   pair: string;
   side: "BUY" | "SELL";
   status: "PENDING" | "COMPLETED" | "FAILED" | "UNCERTAIN";
@@ -113,12 +113,17 @@ function extractTradeMeta(
  * Mengembalikan null kalau pengecekan gagal (network/API error)
  * -- caller akan melewati lock ini, coba lagi siklus berikutnya.
  */
-async function checkAgainstExchange(
-  client: IndodaxClient,
+export async function checkAgainstExchange(
+  client: Pick<IndodaxClient, "tradeHistory" | "openOrders">,
   lock: LiveOrderLockDoc
 ): Promise<{ executed: boolean; evidence: unknown[] } | null> {
 
-  const markedAt = lock.markedUncertainAt ?? Date.now();
+  // Tanpa waktu penandaan yang jelas, jendela pencarian trade tidak bisa
+  // ditentukan dengan benar -> JANGAN simpulkan "tidak tereksekusi".
+  // Lewati (coba lagi / tetap tahan lock), bukan tebak dengan Date.now().
+  if (typeof lock.markedUncertainAt !== "number") return null;
+
+  const markedAt = lock.markedUncertainAt;
   const sinceSeconds =
     Math.floor(markedAt / 1000) - CLOCK_SKEW_BUFFER_SECONDS;
 
@@ -141,9 +146,18 @@ async function checkAgainstExchange(
     );
   });
 
+  // Pengaman tambahan: order yang MASIH TERBUKA di Indodax (belum
+  // jadi trade) tidak muncul di riwayat trade. Bila ada order terbuka
+  // untuk pair ini, JANGAN anggap "terbukti gagal" -- eskalasi ke
+  // review manual. Gagal cek open order -> dilewati (coba lagi nanti).
+  const open = await client.openOrders(lock.pair);
+  if (!open.success) return null;
+
+  const evidence: unknown[] = [...matching, ...open.data];
+
   return {
-    executed: matching.length > 0,
-    evidence: matching,
+    executed: evidence.length > 0,
+    evidence,
   };
 
 }

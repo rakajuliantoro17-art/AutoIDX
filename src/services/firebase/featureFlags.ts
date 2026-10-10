@@ -38,6 +38,13 @@ export const FEATURE_FLAG_DEFAULTS = {
    * perilaku lama (TP = rasio TP/SL x lebar SL ATR).
    */
   fixedTakeProfit: false,
+  /**
+   * Cron reconcile otomatis meresolve lock order UNCERTAIN bila riwayat
+   * trade DAN open order Indodax membuktikan order tidak pernah
+   * tereksekusi (selain itu: tandai review manual). Mati = lock UNCERTAIN
+   * tetap menahan pair+side sampai di-resolve manual.
+   */
+  uncertainOrderReconcile: false,
 } as const;
 
 export type FeatureFlagName = keyof typeof FEATURE_FLAG_DEFAULTS;
