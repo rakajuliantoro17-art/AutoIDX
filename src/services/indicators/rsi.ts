@@ -31,7 +31,9 @@ export function calculateRSI(prices: number[], period: number = 14): number {
     }
   }
 
-  if (avgLoss === 0) return 100;
+  // Harga datar (tanpa gain & loss) = netral 50, BUKAN 100 (overbought palsu
+  // pada pair yang sedang tidak bergerak). 100 hanya bila ada gain tanpa loss.
+  if (avgLoss === 0) return avgGain === 0 ? 50 : 100;
 
   const rs = avgGain / avgLoss;
   const rsi = 100 - 100 / (1 + rs);

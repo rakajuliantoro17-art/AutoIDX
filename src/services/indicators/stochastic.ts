@@ -96,7 +96,8 @@ export function calculateStochastic(
 
       highestHigh === lowestLow
 
-        ? 0
+        // Rentang datar -> netral 50 (bukan 0 = "oversold" palsu).
+        ? 50
 
         : ((close - lowestLow) /
 

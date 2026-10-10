@@ -1106,3 +1106,9 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Diaktifkan (flag `uncertainOrderReconcile`, default MATI, Firestore `bot_control/flags`): `reconcileUncertainOrders()` dipanggil dari `/api/cron/reconcile`. Lock UNCERTAIN otomatis di-resolve HANYA bila riwayat trade DAN open order Indodax membuktikan order tidak tereksekusi; ada trade/open order -> `needsManualReview` + log DANGER; gagal cek -> dilewati. Tambahan pengaman: open order => eskalasi; `markedUncertainAt` hilang => dilewati (tidak menebak). 8 skenario uji lulus (klien bursa tiruan).
 - Sebelum flag dinyalakan di live: uji di paper / dengan lock UNCERTAIN buatan; resolusi otomatis hanya melepas lock, tidak membuka/menutup posisi.
 - tsc + next build lolos.
+
+### Session Log 40 - indicator: uji silang rumus + shadow 14 orphan + perbaikan kasus harga datar (2026-10-10)
+- `services/indicators/` (aktif, jamak) diuji terhadap implementasi buku teks (200 candle acak deterministik): EMA, RSI Wilder, ATR Wilder, Bollinger, Stochastic, MACD, ADX cocok.
+- Dua bug kasus tepi diperbaiki: RSI saat harga datar (avgGain=avgLoss=0) kini 50 (sebelumnya 100 = "jenuh beli"); Stochastic %K saat range high=low kini 50 (sebelumnya 0 = "jenuh jual"). Kedua kasus hanya muncul pada pair tanpa pergerakan.
+- `services/indicator/` (tunggal): 14 orphan duplikat -> `_shadow/indicator/` + README; tetap aktif `trend/sma.ts`, `volume/obv.ts`.
+- tsc + next build lolos.
