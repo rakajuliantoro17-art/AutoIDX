@@ -43,6 +43,14 @@ interface PortfolioSummary {
   totalClosedTrades: number;
   recentTrades: TradeRow[];
   liveBalanceError?: string;
+  /** Metrik kualitas strategi dari trade tertutup (null bila tak terhingga/tidak ada). */
+  advanced?: {
+    profitFactor: number | null;
+    expectancy: number | null;
+    averageWin: number | null;
+    averageLoss: number | null;
+    maximumDrawdownPercent: number | null;
+  };
 }
 
 const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.TICKER_MS;
@@ -263,6 +271,52 @@ export default function PortfolioPage() {
         </div>
 
       </div>
+
+      {/* Kualitas strategi (dari trade tertutup) */}
+
+      {portfolio.advanced && portfolio.totalClosedTrades > 0 && (
+        <div className="card">
+          <h2 className="text-xl font-semibold">Kualitas Strategi</h2>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            Dihitung dari {portfolio.totalClosedTrades} trade selesai. Profit factor di atas 1,5 dan expectancy positif
+            menandakan strategi menguntungkan setelah rugi diperhitungkan; sampel di bawah ±30 trade belum meyakinkan.
+          </p>
+          <div className="mt-4 grid gap-4 grid-cols-2 md:grid-cols-5">
+            <div>
+              <p className="text-sm text-[var(--text-secondary)]">Profit Factor</p>
+              <p className="mt-1 text-lg font-bold">
+                {portfolio.advanced.profitFactor == null ? "—" : portfolio.advanced.profitFactor.toFixed(2)}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)]">Expectancy / trade</p>
+              <p className={`mt-1 text-lg font-bold ${pnlColor(portfolio.advanced.expectancy ?? 0)}`}>
+                {portfolio.advanced.expectancy == null ? "—" : `Rp ${formatIdr(portfolio.advanced.expectancy)}`}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)]">Rata-rata Untung</p>
+              <p className="mt-1 text-lg font-bold text-emerald-400">
+                {portfolio.advanced.averageWin == null ? "—" : `Rp ${formatIdr(portfolio.advanced.averageWin)}`}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)]">Rata-rata Rugi</p>
+              <p className="mt-1 text-lg font-bold text-red-400">
+                {portfolio.advanced.averageLoss == null ? "—" : `Rp ${formatIdr(Math.abs(portfolio.advanced.averageLoss))}`}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-[var(--text-secondary)]">Max Drawdown</p>
+              <p className="mt-1 text-lg font-bold text-red-400">
+                {portfolio.advanced.maximumDrawdownPercent == null
+                  ? "—"
+                  : `${Math.abs(portfolio.advanced.maximumDrawdownPercent).toFixed(1)}%`}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Trade History */}
 
