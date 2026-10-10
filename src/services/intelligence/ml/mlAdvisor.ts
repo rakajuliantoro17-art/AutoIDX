@@ -50,6 +50,7 @@ import { AppError } from "@/lib/error/AppError";
 export interface MLAdvisoryResult {
   label: PredictionResult["label"];
   confidence: number;
+  modelId: string;
   logLine: string;
 }
 
@@ -117,6 +118,7 @@ export async function getMLAdvisory(
     return {
       label: result.label,
       confidence: result.confidence,
+      modelId: result.modelId,
       logLine: `[ML Advisory ${pair.toUpperCase()}] ${logLine}`,
     };
   } catch (error) {

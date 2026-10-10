@@ -71,6 +71,7 @@ import { recordReconciliationStatus } from "@/services/firebase/reconciliationSt
 import { getCronHeartbeatStatus } from "@/services/scheduler/cronHeartbeat";
 import automationNotifier from "@/services/automation/notifier";
 import { isFeatureEnabled } from "@/services/firebase/featureFlags";
+import { runShadowScoring } from "@/services/ml/shadow/shadowStore";
 import { reconcileUncertainOrders } from "@/services/liveTrading/reconciliation/uncertainOrderReconciler";
 import { auditLogger } from "@/services/audit/firestoreAudit";
 import { handleError } from "@/services/errors/errorHandler";
@@ -287,6 +288,21 @@ export default async function handler(
         heartbeatMessage
       );
 
+    }
+
+    // Shadow ML: nilai prediksi yang sudah jatuh tempo terhadap harga
+    // nyata (flag `aiShadowPrediction`, default MATI). Jalan di paper
+    // maupun live; tidak pernah memengaruhi order dan tidak pernah
+    // melempar error.
+    try {
+      if (await isFeatureEnabled("aiShadowPrediction")) {
+        const shadow = await runShadowScoring();
+        if (shadow.checked > 0) {
+          console.log("[Reconcile] ML shadow scoring:", JSON.stringify({ ...shadow, summary: shadow.summary?.verdict ?? null }));
+        }
+      }
+    } catch (shadowError) {
+      console.error("[Reconcile] ML shadow scoring gagal:", shadowError);
     }
 
     const control = await getBotControl();

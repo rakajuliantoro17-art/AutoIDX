@@ -1112,3 +1112,10 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Dua bug kasus tepi diperbaiki: RSI saat harga datar (avgGain=avgLoss=0) kini 50 (sebelumnya 100 = "jenuh beli"); Stochastic %K saat range high=low kini 50 (sebelumnya 0 = "jenuh jual"). Kedua kasus hanya muncul pada pair tanpa pergerakan.
 - `services/indicator/` (tunggal): 14 orphan duplikat -> `_shadow/indicator/` + README; tetap aktif `trend/sma.ts`, `volume/obv.ts`.
 - tsc + next build lolos.
+
+### Session Log 41 - ML: shadow prediction + penilaian vs harga nyata, 20 orphan dirapikan (2026-10-10)
+- Audit: `ml/{manager,pipeline,loader,archive,registry}` ternyata placeholder/in-memory (tak berguna di Vercel); `labeling/engine` dan `models/evaluator` nyata.
+- Baru `ml/shadow/scoring.ts` (murni) + `shadowStore.ts`: bila flag `aiShadowPrediction` menyala, `engine.ts` mencatat prediksi model aktif tiap siklus (id per pair per 15 menit) ke `ml_shadow_predictions`; `/api/cron/reconcile` (sebelum gerbang live, jalan juga di paper) menilai prediksi >=10 jam terhadap candle nyata memakai LabelingEngine+ModelEvaluator -> `ml_shadow_scores/summary` dengan verdict terhadap baseline (kelas mayoritas, rata-rata return). Tidak memengaruhi order; semua dibungkus try/catch.
+- Diuji (fungsi murni): naik/turun/datar/belum jatuh tempo/candle kurang/kedaluwarsa + ringkasan. Belum teruji dengan Firestore/Indodax asli (tidak ada di sandbox).
+- Orphan ML lain -> `_shadow/ml/` + README. `services/ml/` 0 orphan. Belum dikerjakan: `services/ai` (75 orphan), training offline.
+- Prasyarat jalan: ada model aktif (`POST /api/ml/train`) lalu nyalakan flag `aiShadowPrediction` di `bot_control/flags`.

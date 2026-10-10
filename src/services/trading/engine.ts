@@ -118,6 +118,7 @@ import positionSizing from "@/services/execution/risk/positionSizing";
 import type { Candle } from "@/services/indodax/candles";
 import { getTrendVolumeAdvisory } from "@/services/strategy/trendVolumeAdvisor";
 import mlAdvisor from "@/services/intelligence/ml/mlAdvisor";
+import { recordShadowPrediction } from "@/services/ml/shadow/shadowStore";
 
 export interface TradingEngineInput {
 
@@ -383,6 +384,18 @@ async function logAIAdvisory(
 
     if (mlResult) {
       await recordLog("BOT", "info", mlResult.logLine);
+
+      // Shadow mode: simpan prediksi untuk dinilai terhadap harga nyata
+      // belakangan (flag `aiShadowPrediction`, default MATI). Best-effort.
+      if (await isFeatureEnabled("aiShadowPrediction")) {
+        await recordShadowPrediction({
+          pair,
+          price: features.price,
+          label: mlResult.label,
+          confidence: mlResult.confidence,
+          modelId: mlResult.modelId,
+        });
+      }
     }
   } catch (mlError) {
     console.error("[ML Advisory]", mlError);
