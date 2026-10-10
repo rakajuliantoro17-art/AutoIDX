@@ -1124,3 +1124,10 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Temuan: di `market/`, websocket/ticker/orderbook/candleBuilder tampak aktif hanya karena barrel `index.ts` diimpor sebagai tipe; runtime tidak dipakai. Runtime nyata: `types`, agregator volume/candle, filter spread/liquidity (scanner/marketQuality).
 - `market/`: 20+ file -> `_shadow/market/` + README; `index.ts` kini hanya re-export tipe. `intelligence/`: 23 orphan -> `_shadow/intelligence/` + README (jalur AI paralel, cache in-memory, kerangka sumber data); `fusion/{decision,confidence}` tetap (tipe dipakai explanation.ts).
 - Tidak ada perubahan perilaku trading. tsc + next build lolos.
+
+### Session Log 43 - backtest & indodax: shadow duplikat + Sharpe dianualisasi (2026-10-10)
+- Backtest aktif sudah memodelkan fee 0,3% + slippage 0,1%. 25 orphan (mesin kedua, replay, simulated*, metrics tambahan) -> `_shadow/backtest/`.
+- BUG diperbaiki: `metrics.ts` Sharpe sebelumnya per-periode tanpa anualisasi (angka jauh terlalu kecil, mis. ~93x pada candle 1 jam). Kini x sqrt(periode/tahun) dari median jarak timestamp kurva ekuitas, risk-free 0. Diuji (detik/ms, 1h->8760, 1d->365). Angka Sharpe lama tidak sebanding dengan yang baru.
+- Indodax: 15 orphan -> `_shadow/indodax/`. Auth orphan memakai nonce (lama) vs klien live timestamp+recvWindow; sengaja tidak dipasang ke jalur order.
+- Tiga klien Indodax masih hidup (api.js, liveTrading/exchange/indodaxClient, services/exchange) - konsolidasi = pekerjaan terpisah.
+- tsc + next build lolos.

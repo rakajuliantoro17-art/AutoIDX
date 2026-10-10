@@ -548,6 +548,23 @@ export class BacktestMetricsEngine {
 
 
     /**
+     * Jumlah periode per tahun dari median jarak timestamp ekuitas.
+     * Timestamp < 1e12 dianggap detik, selain itu milidetik.
+     */
+    private periodsPerYear(equity: EquityPoint[]): number {
+        const gaps: number[] = [];
+        for (let i = 1; i < equity.length; i++) {
+            const g = equity[i].timestamp - equity[i - 1].timestamp;
+            if (g > 0) gaps.push(g);
+        }
+        if (gaps.length === 0) return 1;
+        gaps.sort((a, b) => a - b);
+        const median = gaps[Math.floor(gaps.length / 2)];
+        const gapSeconds = equity[equity.length - 1].timestamp < 1e12 ? median : median / 1000;
+        return gapSeconds > 0 ? 31_536_000 / gapSeconds : 1;
+    }
+
+    /**
      * Simple Sharpe ratio
      */
     private calculateSharpe(
@@ -706,18 +723,14 @@ export class BacktestMetricsEngine {
 
 
 
+        // Dianualisasi (Sharpe konvensional): rasio per-periode dikali
+        // akar jumlah periode per tahun. Periode diturunkan dari median
+        // jarak timestamp kurva ekuitas (kripto buka 24/7); risk-free 0.
         return Number(
-
             (
-
-                average /
-
-                deviation
-
-            )
-
-            .toFixed(2)
-
+                (average / deviation) *
+                Math.sqrt(this.periodsPerYear(equity))
+            ).toFixed(2)
         );
 
 

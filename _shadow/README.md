@@ -15,6 +15,7 @@ Kode di sini **di luar build** (`tsconfig.json` -> `exclude`), tersimpan untuk m
 | indicator (kerangka kelas) | indikator plug-in, registri | satu API saja; uji silang numerik |
 | ml (placeholder, in-memory, labeling alternatif) | label alternatif, seleksi fitur | verdict shadow ML terbukti |
 | market (streaming, filter ekstra), intelligence (jalur AI paralel, kerangka sumber data) | worker panjang; sumber sentimen nyata | lihat README masing-masing |
+| backtest (mesin kedua), indodax (klien TS paralel, auth nonce lama) | metrik Sortino; konsolidasi klien | lihat README masing-masing |
 | validation | pipeline aturan | dipakai saat validator live disatukan |
 
 ## Arah (urutan nilai/risiko)
