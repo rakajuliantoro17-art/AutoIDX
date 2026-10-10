@@ -2,26 +2,22 @@ export * from "./safety/safetyConfig";
 export * from "./safety/safetyContext";
 export * from "./safety/safetyDecision";
 export * from "./safety/safetyGate";
-export * from "./safety/safetyManager";
 
 export * from "./reconciliation/reconciliationConfig";
 export * from "./reconciliation/reconciliationContext";
 export * from "./reconciliation/reconciliationResult";
 export * from "./reconciliation/reconciliationEngine";
-export * from "./reconciliation/reconciliationScheduler";
 
 
 export * from "./audit/auditEvent";
 export * from "./audit/auditLogger";
 export * from "./audit/auditRepository";
-export * from "./audit/auditSerializer";
 
 // CATATAN: recovery/recoveryState.ts masih tidak ada (file
 // terhapus, belum dibuat ulang -- beda dari recoveryManager.ts
 // yang sudah di-stub ulang di bawah). Kalau modul recoveryState
 // genuinely dibutuhkan nanti, buat dulu filenya sebelum baris
 // export ini dikembalikan.
-export * from "./recovery/recoveryManager";
 
 // runtime/health, runtime/runtime, runtime/bootstrap dipindah ke
 // _shadow/runtime/ (state di memori, hanya bermakna di server fisik).
