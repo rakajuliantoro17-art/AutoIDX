@@ -279,9 +279,9 @@ export default function SettingsPage() {
         <div className="card border border-dashed border-white/10">
           <h2 className="text-xl font-semibold">Future Configuration</h2>
           <ul className="mt-4 text-[var(--text-secondary)] space-y-2">
-            <li>• Edit config langsung dari dashboard (saat ini lewat env var Vercel + redeploy)</li>
-            <li>• Telegram notification</li>
-            <li>• AI risk adjustment</li>
+            <li>• Edit config dari dashboard: tersedia (kartu Risk Management & Flag Fitur di halaman ini)</li>
+            <li>• AI risk adjustment: lewat <Link href="/dashboard/agent" className="underline">Agen Operasional</Link> -- agen hanya mengusulkan, perubahan baru berlaku setelah Anda setujui</li>
+            <li>• Telegram notification: belum aktif</li>
           </ul>
         </div>
 
