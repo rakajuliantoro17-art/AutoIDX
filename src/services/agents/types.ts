@@ -11,7 +11,10 @@ mengubah setting, mode, atau order sendiri; semua usulan berstatus
 
 export type AgentRole = "HRD" | "MANAJER" | "TRADER" | "PAIR";
 
-export type RecommendationKind = "setting" | "priority_pairs" | "note";
+export type RecommendationKind = "setting" | "priority_pairs" | "watchlist_add" | "note";
+
+/** Target jumlah pair watchlist (rencana pemilik: +1 pair per periode hingga 25, target Juli 2027). */
+export const WATCHLIST_TARGET = 25;
 
 export type RecommendationStatus = "pending" | "approved" | "rejected";
 
@@ -30,7 +33,7 @@ export interface RecommendationDraft {
   kind: RecommendationKind;
   title: string;
   detail: string;
-  patch?: Partial<Record<AgentSettableKey, number>> & { priorityPairs?: string[] };
+  patch?: Partial<Record<AgentSettableKey, number>> & { priorityPairs?: string[]; watchlistAdd?: string };
 }
 
 export interface Recommendation extends RecommendationDraft {
@@ -75,6 +78,8 @@ export interface OpsInput {
     }[];
   };
   priorityPairs: string[];
+  /** Watchlist efektif saat ini. */
+  watchlist: string[];
   aiScores: Record<
     string,
     { scored: number; accuracy: number; majorityBaselineAccuracy: number; verdict: string }

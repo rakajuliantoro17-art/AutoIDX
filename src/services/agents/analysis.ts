@@ -8,6 +8,7 @@ Dipisah dari I/O agar bisa diuji dan hasilnya selalu bisa dijelaskan.
 ==========================================================
 */
 
+import { WATCHLIST_TARGET } from "./types";
 import type { OpsAnalysis, OpsInput, RecommendationDraft, SectionReport } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -28,6 +29,17 @@ const SOURCE_NAMES: Record<string, string> = {
 
 const pct = (n: number) => `${(n * 100).toFixed(0)}%`;
 const upper = (p: string) => p.replace("_", "/").toUpperCase();
+
+/** Kunci minggu ISO, mis. 2026W41 (berdasarkan WIB). */
+export function isoWeekKey(ms: number): string {
+  const d = new Date(ms + 7 * 3600_000);
+  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${t.getUTCFullYear()}W${String(week).padStart(2, "0")}`;
+}
 
 export function analyzeOps(input: OpsInput): OpsAnalysis {
   const recs: RecommendationDraft[] = [];
@@ -196,6 +208,28 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
       detail: `Tiga pair lolos scanner dengan skor tertinggi. Menerapkan ini membatasi pair yang diproses bot ke daftar tersebut (plus posisi terbuka).`,
       patch: { priorityPairs: wanted },
     });
+  }
+
+  // Perluasan watchlist bertahap: usulan 1 pair per minggu (ISO-week) menuju target.
+  pair.push(`Watchlist: ${input.watchlist.length}/${WATCHLIST_TARGET} pair (${input.watchlist.map(upper).join(", ")}).`);
+  if (input.watchlist.length < WATCHLIST_TARGET) {
+    const inList = new Set(input.watchlist.map((p) => p.toLowerCase()));
+    const next = input.scanner.top
+      .filter((t) => !inList.has(t.pair.toLowerCase()) && input.scanner.qualifiedPairs.includes(t.pair))
+      .sort((a, b) => b.opportunityScore - a.opportunityScore)[0];
+    if (next) {
+      const week = isoWeekKey(input.nowMs);
+      recs.push({
+        role: "PAIR",
+        key: `watchlist_add_${week}`,
+        kind: "watchlist_add",
+        title: `Tambah ${upper(next.pair)} ke watchlist (${input.watchlist.length + 1}/${WATCHLIST_TARGET})`,
+        detail: `Kandidat terbaik minggu ini di luar watchlist: skor ${next.opportunityScore.toFixed(0)}, RSI ${next.rsi14.toFixed(0)}, tren ${next.trend}. Satu pair per minggu menjaga durasi siklus dan risiko tetap terkendali; setujui hanya bila kinerja watchlist saat ini memuaskan.`,
+        patch: { watchlistAdd: next.pair.toLowerCase() },
+      });
+    } else {
+      pair.push("Belum ada kandidat baru di luar watchlist yang lolos scanner minggu ini.");
+    }
   }
 
   const sections: SectionReport[] = [

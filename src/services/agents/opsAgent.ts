@@ -21,6 +21,7 @@ import { getShadowSummaries } from "@/services/ml/shadow/shadowStore";
 import openAIProvider from "@/services/intelligence/ai/providers/openai";
 import geminiProvider from "@/services/intelligence/ai/providers/gemini";
 import claudeProvider from "@/services/intelligence/ai/providers/claude";
+import { TRADING_CONFIG } from "@/config/trading";
 import { analyzeOps } from "./analysis";
 import type { OpsAnalysis, OpsInput, Recommendation } from "./types";
 
@@ -95,6 +96,10 @@ export async function collectOpsInput(nowMs = Date.now()): Promise<OpsInput> {
       top: Array.isArray(sc.topOpportunities) ? sc.topOpportunities : [],
     },
     priorityPairs: control.priorityPairs ?? [],
+    watchlist:
+      control.watchlist && control.watchlist.length > 0
+        ? control.watchlist.map((p) => p.trim().toLowerCase())
+        : TRADING_CONFIG.pairs,
     aiScores,
   };
 }

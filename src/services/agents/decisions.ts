@@ -18,7 +18,8 @@ import { getSettings, saveSettings } from "@/api/settings/service";
 import { getBotControl, updateBotControl } from "@/services/firebase/botControl";
 import { diffFields, recordAudit } from "@/services/firebase/auditTrail";
 import { RECOMMENDATIONS } from "./opsAgent";
-import { AGENT_SETTABLE_KEYS, type Recommendation } from "./types";
+import { TRADING_CONFIG } from "@/config/trading";
+import { AGENT_SETTABLE_KEYS, WATCHLIST_TARGET, type Recommendation } from "./types";
 
 export function isOwner(uid: string | undefined): boolean {
   const owner = process.env.BOT_OWNER_UID?.trim();
@@ -70,6 +71,27 @@ export async function decideRecommendation(
           "bot_control.update",
           actor,
           diffFields(before as unknown as Record<string, unknown>, { priorityPairs: pairs }),
+          { via: "ops_agent", recommendationId: id }
+        );
+      } else if (rec.kind === "watchlist_add") {
+        const add = rec.patch?.watchlistAdd;
+        if (typeof add !== "string" || !/^[a-z0-9]{2,12}_[a-z]{2,6}$/.test(add)) {
+          return { ok: false, code: 422, error: "Pair tidak valid." };
+        }
+        const before = await getBotControl();
+        const current = (before.watchlist && before.watchlist.length > 0 ? before.watchlist : TRADING_CONFIG.pairs).map((p) => p.trim().toLowerCase());
+        if (current.includes(add)) {
+          return { ok: false, code: 409, error: "Pair sudah ada di watchlist." };
+        }
+        if (current.length >= WATCHLIST_TARGET) {
+          return { ok: false, code: 422, error: `Watchlist sudah mencapai ${WATCHLIST_TARGET} pair.` };
+        }
+        const next = [...current, add];
+        await updateBotControl({ watchlist: next }, actor);
+        await recordAudit(
+          "bot_control.update",
+          actor,
+          diffFields({ watchlist: current }, { watchlist: next }),
           { via: "ops_agent", recommendationId: id }
         );
       }

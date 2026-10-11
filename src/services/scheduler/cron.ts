@@ -324,6 +324,11 @@ export async function executeCron(
     .map((p) => p.trim().toLowerCase())
     .filter(Boolean);
 
+  // Watchlist efektif: dari portal (Firestore) bila ada, jika tidak env/default.
+  const effectiveWatchlist =
+    control.watchlist && control.watchlist.length > 0
+      ? control.watchlist.map((p) => p.trim().toLowerCase()).filter(Boolean)
+      : TRADING_CONFIG.pairs;
   let pairs: string[];
 
   if (priorityPairs.length > 0) {
@@ -368,7 +373,7 @@ export async function executeCron(
       await recordLog(
         "BOT",
         "info",
-        `[Watchlist Only] ${candidatePairs!.length} kandidat scanner TIDAK dieksekusi siklus ini; hanya watchlist (${TRADING_CONFIG.pairs.length} pair) + posisi terbuka.`
+        `[Watchlist Only] ${candidatePairs!.length} kandidat scanner TIDAK dieksekusi siklus ini; hanya watchlist (${effectiveWatchlist.length} pair) + posisi terbuka.`
       );
     }
     pairs = Array.from(
@@ -376,7 +381,7 @@ export async function executeCron(
         [
           ...(watchlistOnly ? [] : candidatePairs ?? []),
           ...openPositionPairs,
-          ...TRADING_CONFIG.pairs,
+          ...effectiveWatchlist,
         ]
           .map((p) => p.trim().toLowerCase())
           .filter(Boolean)
@@ -389,7 +394,7 @@ export async function executeCron(
     await recordLog(
       "SYSTEM",
       "info",
-      `Cron memproses ${pairs.length} pair (${candidatePairs.length} dari hasil scan market, ${openPositionPairs.length} posisi terbuka, ${TRADING_CONFIG.pairs.length} watchlist manual).`
+      `Cron memproses ${pairs.length} pair (${candidatePairs.length} dari hasil scan market, ${openPositionPairs.length} posisi terbuka, ${effectiveWatchlist.length} watchlist).`
     );
   }
 

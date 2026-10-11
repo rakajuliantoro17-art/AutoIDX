@@ -49,6 +49,12 @@ export interface BotControl {
    */
   priorityPairs?: string[];
 
+  /**
+   * Watchlist tetap yang dikelola dari portal (menggantikan env BOT_PAIRS
+   * bila tidak kosong). Kosong/tidak ada = pakai TRADING_CONFIG.pairs.
+   */
+  watchlist?: string[];
+
   updatedAt: number;
 
   updatedBy?: string;
@@ -137,7 +143,7 @@ export async function getBotControl(): Promise<BotControl> {
  */
 export async function updateBotControl(
 
-  update: Partial<Pick<BotControl, "emergencyStop" | "mode" | "priorityPairs">>,
+  update: Partial<Pick<BotControl, "emergencyStop" | "mode" | "priorityPairs" | "watchlist">>,
 
   updatedBy?: string
 
