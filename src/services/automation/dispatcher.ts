@@ -33,6 +33,7 @@ Perubahan:
 
 import { runScanCycle } from "../scheduler/scanCycle";
 import { recordLog } from "../firebase/logService";
+import { recordAudit } from "../firebase/auditTrail";
 import { updateBotControl } from "../firebase/botControl";
 
 export type DispatchJobType =
@@ -115,6 +116,12 @@ export class AutomationDispatcher {
           const control = await updateBotControl(
             { emergencyStop: true },
             triggeredBy
+          );
+          await recordAudit(
+            "bot_control.update",
+            triggeredBy,
+            [{ field: "emergencyStop", before: null, after: true }],
+            { trigger: "dispatcher_pause_trading" }
           );
 
           await recordLog(

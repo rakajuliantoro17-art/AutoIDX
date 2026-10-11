@@ -67,6 +67,7 @@ import { getBotState, getOpenPositionPairs } from "@/services/firebase/botState"
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
 import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
 import { recordLog, pruneOldLogs } from "@/services/firebase/logService";
+import { recordAudit } from "@/services/firebase/auditTrail";
 import { recordReconciliationStatus } from "@/services/firebase/reconciliationStatus";
 import { getCronHeartbeatStatus } from "@/services/scheduler/cronHeartbeat";
 import automationNotifier from "@/services/automation/notifier";
@@ -435,9 +436,33 @@ export default async function handler(
 
     if (shouldHalt) {
 
+      const previousControl = await getBotControl();
       await updateBotControl(
         { emergencyStop: true },
         "reconciliation-guard"
+      );
+
+      // Jejak yang mudah dibaca operator: kenapa stop menyala sendiri.
+      await recordAudit(
+        "bot_control.update",
+        "reconciliation-guard",
+        [{ field: "emergencyStop", before: previousControl.emergencyStop, after: true }],
+        {
+          trigger: "reconciliation_mismatch",
+          action: safetyDecision.action,
+          reasons: safetyDecision.reasons,
+          mismatches: result.mismatches.slice(0, 10).map((m) => ({
+            type: m.type,
+            key: m.key,
+            local: m.local ?? null,
+            exchange: m.exchange ?? null,
+          })),
+        }
+      );
+      await recordLog(
+        "RISK",
+        "danger",
+        `[Reconciliation] Emergency stop DIAKTIFKAN otomatis (${safetyDecision.action}): ${safetyDecision.reasons.join(", ")}. Periksa mismatch sebelum menonaktifkan.`
       );
 
       const recoveryNote =
