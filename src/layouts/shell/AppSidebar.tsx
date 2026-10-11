@@ -30,6 +30,7 @@ dipaksa terbuka, apa pun state tersimpannya.
 ==========================================================
 */
 
+import AgentSidebarWidget from "@/components/AgentSidebarWidget";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useSidebar } from "@/services/sidebar/SidebarContext";
@@ -185,11 +186,18 @@ export default function AppSidebar({ pathname }: AppSidebarProps) {
 
       })}
 
+      {/* Ringkasan kinerja agen (disembunyikan saat sidebar diciutkan) */}
+      {!railCollapsed && (
+        <div className="mt-auto">
+          <AgentSidebarWidget />
+        </div>
+      )}
+
       {/* Toggle rail mode -- cuma tampil desktop */}
       <button
         type="button"
         onClick={toggleRail}
-        className="mt-auto hidden items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] py-2.5 text-xs text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] md:flex"
+        className={`${railCollapsed ? "mt-auto" : ""} hidden items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] py-2.5 text-xs text-[var(--text-muted)] transition hover:text-[var(--text-secondary)] md:flex`}
         title={`${railCollapsed ? "Perluas sidebar" : "Ciutkan sidebar"} (Ctrl+B)`}
       >
         <IconChevronsLeft

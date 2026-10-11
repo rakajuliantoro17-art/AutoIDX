@@ -13,6 +13,7 @@ pemilik yang melihat tombol Setujui/Tolak.
 import { useCallback, useEffect, useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/services/auth/AuthContext";
+import AiScoreboard from "@/components/AiScoreboard";
 
 interface Section {
   role: string;
@@ -171,6 +172,8 @@ export default function AgentPage() {
         ) : (
           <p className="text-sm text-[var(--text-muted)]">Belum ada laporan.</p>
         )}
+
+        <AiScoreboard />
 
         <div className="card space-y-3">
           <h2 className="font-bold">Usulan menunggu keputusan ({pending.length})</h2>
