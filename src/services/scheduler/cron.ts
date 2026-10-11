@@ -85,13 +85,40 @@ const MIN_CANDLES_FOR_FEATURES = 30;
 const PAIR_CONCURRENCY = 5;
 
 /**
+ * Batas waktu (ms sejak awal SIKLUS) setelah itu pair baru TIDAK
+ * dimulai lagi. cron-job.org memotong request di 30 detik; pair
+ * yang sudah berjalan masih butuh beberapa detik (candle + AI
+ * advisory <= 4 dtk + order), jadi pair baru dihentikan di 20 dtk.
+ */
+export const CYCLE_START_DEADLINE_MS = 20_000;
+
+/**
+ * Urutkan pair: posisi terbuka SELALU di depan (SL/TP/SELL tidak
+ * boleh tertunda), sisanya diputar berdasarkan `rotation` supaya
+ * pair di ekor daftar tidak terus-menerus terlewat saat waktu habis.
+ */
+export function orderPairsForCycle(
+  pairs: string[],
+  openPairs: string[],
+  rotation: number
+): string[] {
+  const open = new Set(openPairs.map((p) => p.trim().toLowerCase()));
+  const first = pairs.filter((p) => open.has(p));
+  const rest = pairs.filter((p) => !open.has(p));
+  if (rest.length === 0) return first;
+  const shift = ((rotation % rest.length) + rest.length) % rest.length;
+  return [...first, ...rest.slice(shift), ...rest.slice(0, shift)];
+}
+
+/**
  * Menjalankan `worker` untuk tiap item di `items`, maksimal `limit`
  * proses berjalan bersamaan. Pola sama seperti scanner/index.ts.
  */
 async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,
-  worker: (item: T) => Promise<R>
+  worker: (item: T) => Promise<R>,
+  skip?: (item: T) => R | null
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let cursor = 0;
@@ -100,7 +127,9 @@ async function mapWithConcurrency<T, R>(
     while (cursor < items.length) {
       const currentIndex = cursor;
       cursor += 1;
-      results[currentIndex] = await worker(items[currentIndex]);
+      const skipped = skip ? skip(items[currentIndex]) : null;
+      results[currentIndex] =
+        skipped !== null ? skipped : await worker(items[currentIndex]);
     }
   }
 
@@ -278,7 +307,8 @@ async function processPair(pair: string): Promise<CronPairResult> {
 }
 
 export async function executeCron(
-  candidatePairs?: string[]
+  candidatePairs?: string[],
+  options?: { cycleStartedAt?: number }
 ): Promise<CronResult> {
 
   const started = Date.now();
@@ -398,7 +428,46 @@ export async function executeCron(
     );
   }
 
-  const results = await mapWithConcurrency(pairs, PAIR_CONCURRENCY, processPair);
+  // Pengaman batas waktu: posisi terbuka duluan, sisanya diputar per
+  // menit; pair yang belum dimulai saat batas lewat dilewati (bukan
+  // dipotong di tengah order) dan dicatat supaya terlihat di log.
+  const deadlineAt =
+    (options?.cycleStartedAt ?? started) + CYCLE_START_DEADLINE_MS;
+  const orderedPairs = orderPairsForCycle(
+    pairs,
+    openPositionPairs,
+    Math.floor(started / 60_000)
+  );
+  const skippedForTime: string[] = [];
+
+  const results = await mapWithConcurrency(
+    orderedPairs,
+    PAIR_CONCURRENCY,
+    processPair,
+    (pair): CronPairResult | null => {
+      if (Date.now() <= deadlineAt) return null;
+      skippedForTime.push(pair);
+      return {
+        pair,
+        success: true,
+        message: "Dilewati: batas waktu siklus tercapai (giliran berikutnya).",
+        durationMs: 0,
+        signal: "HOLD",
+        actionExecuted: false,
+      };
+    }
+  );
+
+  if (skippedForTime.length > 0) {
+    await recordLog(
+      "SYSTEM",
+      "warning",
+      `[Batas Waktu] ${skippedForTime.length}/${orderedPairs.length} pair dilewati siklus ini ` +
+        `(lewat ${CYCLE_START_DEADLINE_MS / 1000} dtk): ` +
+        `${skippedForTime.map((p) => p.toUpperCase()).join(", ")}. ` +
+        `Kurangi jumlah watchlist bila ini sering muncul.`
+    );
+  }
 
   const finished = Date.now();
 
@@ -413,7 +482,7 @@ export async function executeCron(
     startedAt: new Date(started).toISOString(),
     finishedAt: new Date(finished).toISOString(),
     durationMs: finished - started,
-    pairsProcessed: pairs,
+    pairsProcessed: orderedPairs.filter((p) => !skippedForTime.includes(p)),
     results,
   };
 

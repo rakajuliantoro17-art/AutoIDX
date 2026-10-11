@@ -140,7 +140,7 @@ export async function runScanCycle(): Promise<ScanCycleResult> {
   }
 
   const trading = await timer.run("trading", () =>
-    executeCron(candidatePairs)
+    executeCron(candidatePairs, { cycleStartedAt: startedAt })
   );
 
   console.log("[SCAN CYCLE] Trading engine:", trading);

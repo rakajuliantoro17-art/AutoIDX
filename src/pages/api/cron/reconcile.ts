@@ -238,6 +238,42 @@ async function buildLiveReconciliationContext(): Promise<ReconciliationContext> 
 
 }
 
+/**
+ * Penjelasan manusiawi kemungkinan penyebab satu mismatch, supaya
+ * operator tahu harus memeriksa apa saat emergency stop menyala.
+ * Murni heuristik tampilan -- TIDAK mengubah keputusan SafetyGate.
+ */
+export function diagnoseMismatch(m: {
+  type: "BALANCE" | "POSITION" | "ORDER";
+  key: string;
+  local?: number;
+  exchange?: number;
+}): string {
+  if (m.type === "ORDER") {
+    return `Ada open order di Indodax untuk ${m.key} yang tidak dikenal bot (bot hanya memakai market order) -- cek/batalkan manual di Indodax.`;
+  }
+  const local = m.local ?? 0;
+  const exchange = m.exchange ?? 0;
+  if (m.type === "POSITION" && local > 0 && exchange <= 0) {
+    return `${m.key}: bot_state mencatat posisi tapi saldo koin di Indodax 0 -- kemungkinan sisa posisi dari MODE PAPER atau sudah dijual manual. Bersihkan posisi itu di bot_state.`;
+  }
+  if (m.type === "POSITION" && exchange > local) {
+    return `${m.key}: saldo Indodax lebih besar dari catatan bot -- koin dimiliki di luar bot atau entri tidak tercatat penuh.`;
+  }
+  if (m.type === "POSITION") {
+    return `${m.key}: catatan bot lebih besar dari saldo Indodax -- sebagian koin sudah keluar (jual manual/order parsial) tanpa tercatat.`;
+  }
+  return `${m.key}: selisih saldo antara catatan dan Indodax.`;
+}
+
+/** Kunci unik mismatch, untuk membandingkan hasil dua pembacaan. */
+function mismatchKey(m: { type: string; key: string }): string {
+  return `${m.type}:${m.key}`;
+}
+
+/** Jeda sebelum membaca ulang mismatch (ms) -- menyingkirkan balapan dengan order. */
+const RECHECK_DELAY_MS = 4_000;
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -350,9 +386,30 @@ export default async function handler(
 
     const engine = new ReconciliationEngine(config);
 
-    const result = engine.compare(context);
+    let result = engine.compare(context);
 
-    if (result.consistent) {
+    // Konfirmasi ulang: selisih yang muncul HANYA sesaat (mis. order
+    // BUY/SELL sedang menulis bot_state saat saldo Indodax dibaca)
+    // tidak boleh langsung menyalakan emergency stop. Baca ulang
+    // setelah jeda singkat; hanya mismatch yang MASIH ada yang dipakai.
+    if (!result.consistent) {
+      await new Promise((resolve) => setTimeout(resolve, RECHECK_DELAY_MS));
+      const second = engine.compare(await buildLiveReconciliationContext());
+      const persistent = new Set(second.mismatches.map(mismatchKey));
+      const stillThere = result.mismatches.filter((m) => persistent.has(mismatchKey(m)));
+      if (stillThere.length === 0) {
+        await recordLog(
+          "SYSTEM",
+          "info",
+          `[Reconciliation] ${result.mismatches.length} selisih terdeteksi tapi hilang pada pembacaan ulang (${RECHECK_DELAY_MS / 1000} dtk) -- dianggap sesaat, emergency stop TIDAK diaktifkan.`
+        );
+        result = second;
+      } else {
+        result = { ...second, mismatches: second.mismatches.filter((m) => stillThere.some((x) => mismatchKey(x) === mismatchKey(m))) } as typeof second;
+      }
+    }
+
+    if (result.consistent || result.mismatches.length === 0) {
 
       await recordLog(
         "SYSTEM",
@@ -379,10 +436,12 @@ export default async function handler(
       .map((m) => `${m.type} ${m.key}: local=${m.local ?? "-"} exchange=${m.exchange ?? "-"} (${m.message})`)
       .join(" | ");
 
+    const diagnosis = result.mismatches.map(diagnoseMismatch);
+
     await recordLog(
       "SYSTEM",
       "danger",
-      `[Reconciliation] MISMATCH ditemukan: ${mismatchSummary}`
+      `[Reconciliation] MISMATCH ditemukan: ${mismatchSummary}. Kemungkinan penyebab: ${diagnosis.join(" ")}`
     );
 
     for (const mismatch of result.mismatches) {
@@ -451,6 +510,7 @@ export default async function handler(
           trigger: "reconciliation_mismatch",
           action: safetyDecision.action,
           reasons: safetyDecision.reasons,
+          diagnosis,
           mismatches: result.mismatches.slice(0, 10).map((m) => ({
             type: m.type,
             key: m.key,
