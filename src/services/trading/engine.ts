@@ -123,6 +123,7 @@ import type { Candle } from "@/services/indodax/candles";
 import { getTrendVolumeAdvisory } from "@/services/strategy/trendVolumeAdvisor";
 import mlAdvisor from "@/services/intelligence/ml/mlAdvisor";
 import { recordShadowPrediction } from "@/services/ml/shadow/shadowStore";
+import type { PredictionLabel } from "@/services/ml/types";
 
 export interface TradingEngineInput {
 
@@ -343,7 +344,7 @@ interface AIProviderCandidate {
 const AI_PROVIDER_CANDIDATES: AIProviderCandidate[] = [
   { name: "openai", envKey: "OPENAI_API_KEY", query: (p) => openAIProvider.query(p) },
   { name: "gemini", envKey: "GEMINI_API_KEY", query: (p) => geminiProvider.query(p) },
-  { name: "claude", envKey: "CLAUDE_API_KEY", query: (p) => claudeProvider.query(p) },
+  { name: "claude", envKey: process.env.CLAUDE_API_KEY ? "CLAUDE_API_KEY" : "ANTHROPIC_API_KEY", query: (p) => claudeProvider.query(p) },
   { name: "deepseek", envKey: "DEEPSEEK_API_KEY", query: (p) => deepSeekProvider.query(p) },
 ];
 
@@ -408,6 +409,7 @@ async function logAIAdvisory(
   const availableCandidates = AI_PROVIDER_CANDIDATES.filter(
     (c) => !!process.env[c.envKey]
   );
+  const recordLlmShadow = availableCandidates.length > 0 && (await isFeatureEnabled("aiShadowPrediction"));
 
   if (availableCandidates.length === 0) {
     return;
@@ -478,6 +480,21 @@ async function logAIAdvisory(
         console.error("[AI Explainability]", explainError);
       }
 
+      if (recordLlmShadow) {
+        // Shadow: nilai tiap LLM terhadap harga nyata (flag aiShadowPrediction).
+        try {
+          await recordShadowPrediction({
+            pair,
+            price: features.price,
+            label: analysis.signal as PredictionLabel,
+            confidence: analysis.confidence / 100,
+            modelId: candidate.name,
+            source: `llm:${candidate.name}`,
+          });
+        } catch (shadowError) {
+          console.error("[AI Shadow]", shadowError);
+        }
+      }
       consensusInputs.push({
         provider: candidate.name as AIConsensusInput["provider"],
         signal: analysis.signal,
@@ -493,6 +510,20 @@ async function logAIAdvisory(
     }
 
     const consensus = aiConsensus.evaluate(consensusInputs);
+    if (recordLlmShadow) {
+      try {
+        await recordShadowPrediction({
+          pair,
+          price: features.price,
+          label: consensus.signal as PredictionLabel,
+          confidence: consensus.confidence / 100,
+          modelId: "consensus",
+          source: "llm:consensus",
+        });
+      } catch (shadowError) {
+        console.error("[AI Shadow]", shadowError);
+      }
+    }
 
     await recordLog(
       "BOT",

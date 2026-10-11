@@ -39,15 +39,21 @@ export async function recordShadowPrediction(input: {
   label: PredictionLabel;
   confidence: number;
   modelId: string;
+  /** "ml" (default) atau sumber lain, mis. "llm:openai", "llm:claude", "llm:consensus". */
+  source?: string;
 }): Promise<void> {
   const now = Date.now();
   const bucket = Math.floor(now / BUCKET_MS);
   const pair = input.pair.toLowerCase();
+  const source = input.source ?? "ml";
+  // id ML dipertahankan (kontinuitas data); sumber lain diberi awalan.
+  const id = source === "ml" ? `${pair}_${bucket}` : `${source.replace(/[^a-z0-9:_-]/gi, "")}_${pair}_${bucket}`;
 
   await adminDb
     .collection(PRED)
-    .doc(`${pair}_${bucket}`)
+    .doc(id)
     .set({
+      source,
       pair,
       price: input.price,
       label: input.label,
@@ -64,6 +70,7 @@ export interface ShadowJobResult {
   scored: number;
   expired: number;
   summary: ShadowSummary | null;
+  bySource?: Record<string, ShadowSummary>;
 }
 
 /** Nilai prediksi yang sudah jatuh tempo, lalu perbarui ringkasan. */
@@ -107,6 +114,7 @@ export async function runShadowScoring(now = Date.now()): Promise<ShadowJobResul
   }
 
   let summary: ShadowSummary | null = null;
+  let bySource: Record<string, ShadowSummary> | undefined;
 
   if (scored > 0) {
     const done = await adminDb.collection(PRED).where("scored", "==", true).limit(1000).get();
@@ -122,12 +130,65 @@ export async function runShadowScoring(now = Date.now()): Promise<ShadowJobResul
         futureReturn: d.futureReturn,
       }));
 
-    summary = summarize(items);
+    // Ringkasan ML (dokumen lama) hanya dari source "ml"/tanpa source.
+    const mlItems = done.docs
+      .map((d) => d.data())
+      .filter((d) => !d.expired && d.actual && (d.source ?? "ml") === "ml")
+      .sort((a, b) => b.createdAtMs - a.createdAtMs)
+      .slice(0, MAX_SUMMARY_DOCS)
+      .map<ScoredPrediction>((d) => ({
+        predicted: d.label,
+        actual: d.actual,
+        confidence: d.confidence,
+        futureReturn: d.futureReturn,
+      }));
+    summary = summarize(mlItems);
     await adminDb
       .collection(SCORES)
       .doc("summary")
       .set({ ...summary, updatedAtMs: now });
+
+    // Ringkasan per sumber (ML + tiap LLM + konsensus) untuk dibandingkan.
+    const grouped = new Map<string, ScoredPrediction[]>();
+    for (const d of done.docs.map((x) => x.data())) {
+      if (d.expired || !d.actual) continue;
+      const src = d.source ?? "ml";
+      const arr = grouped.get(src) ?? [];
+      if (arr.length < MAX_SUMMARY_DOCS) {
+        arr.push({
+          predicted: d.label,
+          actual: d.actual,
+          confidence: d.confidence,
+          futureReturn: d.futureReturn,
+        });
+        grouped.set(src, arr);
+      }
+    }
+    bySource = {};
+    for (const [src, arr] of grouped) bySource[src] = summarize(arr);
+    await adminDb
+      .collection(SCORES)
+      .doc("by_source")
+      .set({ sources: bySource, updatedAtMs: now });
   }
 
-  return { checked: due.length, scored, expired, summary };
+  return { checked: due.length, scored, expired, summary, bySource };
+}
+
+/** Baca ringkasan terbaru (untuk endpoint/halaman). */
+export async function getShadowSummaries(): Promise<{
+  ml: (ShadowSummary & { updatedAtMs?: number }) | null;
+  bySource: Record<string, ShadowSummary>;
+  updatedAtMs: number | null;
+}> {
+  const [ml, by] = await Promise.all([
+    adminDb.collection(SCORES).doc("summary").get(),
+    adminDb.collection(SCORES).doc("by_source").get(),
+  ]);
+  const byData = by.exists ? (by.data() as { sources?: Record<string, ShadowSummary>; updatedAtMs?: number }) : null;
+  return {
+    ml: ml.exists ? (ml.data() as ShadowSummary & { updatedAtMs?: number }) : null,
+    bySource: byData?.sources ?? {},
+    updatedAtMs: byData?.updatedAtMs ?? null,
+  };
 }

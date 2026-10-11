@@ -18,6 +18,7 @@ ML Nyata", untuk detail & alasan.
 import { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/services/auth/AuthContext";
+import AiScoreboard from "@/components/AiScoreboard";
 import { formatIDR } from "@/utils";
 import { POPULAR_PAIRS } from "@/utils/constants";
 
@@ -269,6 +270,8 @@ export default function MlLabPage() {
             sebelum ada keputusan menyambungkannya ke live trading.
           </p>
         </div>
+
+        <AiScoreboard />
 
         {/* ============ TRAINING ============ */}
         <div className="card space-y-3">

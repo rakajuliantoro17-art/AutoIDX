@@ -13,3 +13,6 @@ Dipindah dari `src/services/ai/` pada 2026-10-11: 75 file (~7 ribu baris), nol i
 
 ## Syarat aktif kembali
 Verdict `ml_shadow_scores/summary` = `MENGALAHKAN_BASELINE` pada >=200 prediksi ternilai, lalu persetujuan eksplisit sebelum menyambung ke keputusan order. Satu jalur: pasang di atas `services/ml`, bukan mesin kedua.
+
+## Catatan 2026-10-11 (integrasi LLM)
+Provider LLM aktif ada di `services/intelligence/ai/*` (OpenAI, Gemini, Claude, DeepSeek + konsensus), dipanggil dari `trading/engine.ts` sebagai advisory. Kini tiap saran LLM + konsensus ikut dinilai shadow (flag `aiShadowPrediction`, sumber `llm:*`), rapor di ML Lab dan `GET /api/ai/performance`. Kerangka di folder ini tetap shadow.

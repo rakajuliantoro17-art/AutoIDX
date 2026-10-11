@@ -37,7 +37,7 @@ export interface GeminiOptions {
 }
 
 const DEFAULT_MODEL =
-  "gemini-2.5-flash";
+  process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
 export class GeminiProvider {
 

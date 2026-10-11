@@ -35,7 +35,7 @@ export interface ClaudeOptions {
 }
 
 const DEFAULT_MODEL =
-  "claude-3-5-sonnet-latest";
+  process.env.CLAUDE_MODEL ?? "claude-haiku-4-5-20251001";
 
 export class ClaudeProvider {
 
@@ -48,7 +48,7 @@ export class ClaudeProvider {
   ): Promise<ClaudeResponse> {
 
     const apiKey =
-      process.env.CLAUDE_API_KEY;
+      process.env.CLAUDE_API_KEY ?? process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {
 

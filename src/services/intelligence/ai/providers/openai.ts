@@ -37,7 +37,7 @@ export interface OpenAIOptions {
 }
 
 const DEFAULT_MODEL =
-  "gpt-5-mini";
+  process.env.OPENAI_MODEL ?? "gpt-5-mini";
 
 export class OpenAIProvider {
 
