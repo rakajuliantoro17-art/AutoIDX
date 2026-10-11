@@ -24,6 +24,7 @@ Kode di sini **di luar build** (`tsconfig.json` -> `exclude`), tersimpan untuk m
 | transaction, orchestration, integration (kerangka generik tanpa sumber data) | worker panjang; checklist go-live nyata | lihat README masing-masing |
 | leftovers (10 file tunggal dari folder aktif) | lihat README | lihat README |
 | ai (kerangka lifecycle/selection/runtime/training generik) | verdict shadow ML terbukti + persetujuan | lihat README |
+| non-services (komponen dashboard lama, env terpusat paralel, validator generik) | satu sumber env; validator order bila ada order baru | lihat README |
 | validation | pipeline aturan | dipakai saat validator live disatukan |
 
 ## Arah (urutan nilai/risiko)

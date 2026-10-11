@@ -98,7 +98,17 @@ const VARIABLES: EnvironmentVariable[] = [
 
     {
 
-        name: "FIREBASE_CLIENT_EMAIL",
+        name: "FIREBASE_ADMIN_PROJECT_ID",
+
+        required: true,
+
+        description: "Firebase Admin Project ID",
+
+    },
+
+    {
+
+        name: "FIREBASE_ADMIN_CLIENT_EMAIL",
 
         required: true,
 
@@ -108,7 +118,7 @@ const VARIABLES: EnvironmentVariable[] = [
 
     {
 
-        name: "FIREBASE_PRIVATE_KEY",
+        name: "FIREBASE_ADMIN_PRIVATE_KEY",
 
         required: true,
 
@@ -130,9 +140,9 @@ const VARIABLES: EnvironmentVariable[] = [
 
         name: "INDODAX_API_KEY",
 
-        required: true,
+        required: false,
 
-        description: "Indodax API",
+        description: "Indodax API (legacy, opsional - kredensial utama per-akun di Firestore)",
 
     },
 
@@ -140,9 +150,9 @@ const VARIABLES: EnvironmentVariable[] = [
 
         name: "INDODAX_SECRET_KEY",
 
-        required: true,
+        required: false,
 
-        description: "Indodax Secret",
+        description: "Indodax Secret (legacy, opsional)",
 
     },
 
@@ -155,6 +165,26 @@ const VARIABLES: EnvironmentVariable[] = [
     Scheduler
     ======================================================
     */
+
+    {
+
+        name: "ACCOUNT_ENCRYPTION_KEY",
+
+        required: true,
+
+        description: "Enkripsi API key akun Indodax",
+
+    },
+
+    {
+
+        name: "BOT_OWNER_UID",
+
+        required: true,
+
+        description: "UID pemilik akun Indodax untuk bot",
+
+    },
 
     {
 

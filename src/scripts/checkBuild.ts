@@ -102,7 +102,6 @@ Critical Files
 
 console.log("\nChecking critical files...\n");
 
-checkFile("src/config/env.ts");
 
 checkFile("src/config/constants.ts");
 
