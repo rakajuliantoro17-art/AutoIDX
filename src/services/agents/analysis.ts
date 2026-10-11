@@ -12,6 +12,11 @@ import type { OpsAnalysis, OpsInput, RecommendationDraft, SectionReport } from "
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MIN_SCORED_FOR_JUDGEMENT = 30;
+const PERIOD_MS = 30 * DAY_MS;
+/** Perkiraan biaya pulang-pergi (fee + slippage) agar angka tidak terlalu optimistis. */
+const ROUND_TRIP_COST_PCT = 0.6;
+const MIN_CLOSED_FOR_EXPANSION = 20;
+const WIN_RATE_FOR_EXPANSION = 0.55;
 const SOURCE_NAMES: Record<string, string> = {
   ml: "ML internal",
   "llm:openai": "ChatGPT",
@@ -128,6 +133,43 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
   }
   for (const [pair, s] of Array.from(stance.entries()).slice(0, 6)) {
     trader.push(`Konsensus AI ${pair.replace("_", "/")}: ${s}.`);
+  }
+
+  // Kinerja 30 hari (perkiraan): pasangkan BUY -> SELL berikutnya per pair+mode.
+  const recent = input.trades.filter((t) => t.ts >= input.nowMs - PERIOD_MS).sort((a, b) => a.ts - b.ts);
+  const entry = new Map<string, number>();
+  const perPair = new Map<string, number[]>();
+  for (const t of recent) {
+    const k = `${t.pair}|${t.mode}`;
+    if (t.type === "BUY") entry.set(k, t.price);
+    else if (t.type === "SELL" && entry.has(k) && (entry.get(k) ?? 0) > 0) {
+      const ret = (t.price / (entry.get(k) as number) - 1) * 100 - ROUND_TRIP_COST_PCT;
+      perPair.set(t.pair, [...(perPair.get(t.pair) ?? []), ret]);
+      entry.delete(k);
+    }
+  }
+  const allClosed = Array.from(perPair.values()).flat();
+  if (allClosed.length === 0) {
+    trader.push("Kinerja 30 hari: belum ada trade yang selesai (BUY lalu SELL).");
+  } else {
+    const wins = allClosed.filter((x) => x > 0).length;
+    const avg = allClosed.reduce((a, b) => a + b, 0) / allClosed.length;
+    trader.push(`Kinerja 30 hari (perkiraan, setelah biaya ${ROUND_TRIP_COST_PCT}%): ${allClosed.length} trade selesai, menang ${pct(wins / allClosed.length)}, rata-rata ${avg.toFixed(2)}% per trade.`);
+    const rows = Array.from(perPair.entries())
+      .map(([p, arr]) => ({ p, n: arr.length, avg: arr.reduce((a, b) => a + b, 0) / arr.length }))
+      .sort((a, b) => b.avg - a.avg);
+    const best = rows.slice(0, 3).filter((r) => r.avg > 0);
+    for (const r of best) trader.push(`Terbaik: ${upper(r.p)} ${r.avg.toFixed(2)}% (${r.n} trade).`);
+    for (const r of rows.filter((r) => r.avg < 0 && !best.includes(r)).slice(-2)) trader.push(`Terlemah: ${upper(r.p)} ${r.avg.toFixed(2)}% (${r.n} trade).`);
+    if (allClosed.length >= MIN_CLOSED_FOR_EXPANSION && wins / allClosed.length >= WIN_RATE_FOR_EXPANSION && avg > 0) {
+      recs.push({
+        role: "TRADER",
+        key: "expand_watchlist",
+        kind: "note",
+        title: "Kinerja watchlist membaik -- pertimbangkan perluasan bertahap",
+        detail: `${allClosed.length} trade selesai, menang ${pct(wins / allClosed.length)}, rata-rata ${avg.toFixed(2)}% setelah perkiraan biaya. Jika Anda setuju, perluas bertahap (mis. +5 pair per minggu) dengan mematikan flag watchlistOnly, dan pantau durasi siklus (batas cron 30 detik).`,
+      });
+    }
   }
 
   // ---------------- PAIR: pair potensial ----------------

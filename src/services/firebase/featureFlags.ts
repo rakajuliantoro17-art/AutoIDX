@@ -67,6 +67,12 @@ export const FEATURE_FLAG_DEFAULTS = {
    * mengubah setting/order sendiri.
    */
   opsAgent: false,
+  /**
+   * Mode watchlist saja: bot hanya memproses watchlist tetap (BOT_PAIRS /
+   * 10 pair bawaan) + posisi terbuka, mengabaikan kandidat scanner.
+   * Mati = perilaku lama (watchlist + kandidat scanner).
+   */
+  watchlistOnly: false,
 } as const;
 
 export type FeatureFlagName = keyof typeof FEATURE_FLAG_DEFAULTS;

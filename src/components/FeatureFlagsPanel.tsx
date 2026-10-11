@@ -13,6 +13,7 @@ const INFO: { name: string; title: string; desc: string; risk: "aman" | "ubah pe
   { name: "uncertainOrderReconcile", title: "Cek ulang order live tak pasti", desc: "Memeriksa ulang order live yang statusnya belum jelas.", risk: "aman" },
   { name: "fixedTakeProfit", title: "Take profit tetap", desc: "TP memakai angka slider apa adanya (bukan hasil ATR x rasio).", risk: "ubah perilaku" },
   { name: "portfolioExposureLimit", title: "Batas total eksposur", desc: "BUY ditolak bila total semua posisi melewati batas eksposur.", risk: "ubah perilaku" },
+  { name: "watchlistOnly", title: "Hanya watchlist (10 pair)", desc: "Bot hanya memproses watchlist tetap + posisi terbuka; kandidat scanner hanya dipantau, tidak dieksekusi. Matikan untuk memperluas.", risk: "ubah perilaku" },
   { name: "trailingStop", title: "Trailing stop", desc: "Stop-loss naik mengikuti harga. Juga butuh env TRAILING_STOP_ENABLED=true.", risk: "ubah perilaku" },
 ];
 

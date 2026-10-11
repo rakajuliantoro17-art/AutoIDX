@@ -43,7 +43,7 @@ function dateKey(ms: number): string {
 export async function collectOpsInput(nowMs = Date.now()): Promise<OpsInput> {
   const [logSnap, tradeSnap, settings, control, openPairs, shadow, scannerSnap] = await Promise.all([
     adminDb.collection("activity_logs").orderBy("timestamp", "desc").limit(500).get(),
-    adminDb.collection("trades").orderBy("timestamp", "desc").limit(200).get(),
+    adminDb.collection("trades").orderBy("timestamp", "desc").limit(400).get(),
     getBotSettings(),
     getBotControl(),
     getOpenPositionPairs(),
@@ -79,6 +79,7 @@ export async function collectOpsInput(nowMs = Date.now()): Promise<OpsInput> {
         pair: String(x.pair ?? ""),
         type: String(x.type ?? ""),
         mode: String(x.mode ?? ""),
+        price: Number(x.price) || 0,
         totalIdr: Number(x.totalIdr) || 0,
         ts: toMs(x.timestamp),
       };

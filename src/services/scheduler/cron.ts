@@ -50,6 +50,7 @@ import {
 import type { IndicatorFeatureVector } from "../indicators";
 import { TradingEngine } from "../trading/engine";
 import { recordLog } from "../firebase/logService";
+import { isFeatureEnabled } from "../firebase/featureFlags";
 import { getOpenPositionPairs } from "../firebase/botState";
 import { getBotControl } from "../firebase/botControl";
 import { TRADING_CONFIG } from "@/config/trading";
@@ -360,10 +361,20 @@ export async function executeCron(
 
   } else {
 
+    // Flag watchlistOnly: abaikan kandidat scanner, proses watchlist
+    // tetap + posisi terbuka saja (kandidat tetap discan/ditampilkan).
+    const watchlistOnly = await isFeatureEnabled("watchlistOnly");
+    if (watchlistOnly && (candidatePairs?.length ?? 0) > 0) {
+      await recordLog(
+        "BOT",
+        "info",
+        `[Watchlist Only] ${candidatePairs!.length} kandidat scanner TIDAK dieksekusi siklus ini; hanya watchlist (${TRADING_CONFIG.pairs.length} pair) + posisi terbuka.`
+      );
+    }
     pairs = Array.from(
       new Set(
         [
-          ...(candidatePairs ?? []),
+          ...(watchlistOnly ? [] : candidatePairs ?? []),
           ...openPositionPairs,
           ...TRADING_CONFIG.pairs,
         ]

@@ -50,7 +50,7 @@ export interface SectionReport {
 export interface OpsInput {
   nowMs: number;
   logs: { type: string; message: string; ts: number }[];
-  trades: { pair: string; type: string; mode: string; totalIdr: number; ts: number }[];
+  trades: { pair: string; type: string; mode: string; price: number; totalIdr: number; ts: number }[];
   positions: {
     pair: string;
     profitPercent: number;
