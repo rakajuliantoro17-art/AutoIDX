@@ -4,7 +4,7 @@ AURA Trade OS
 Price Chart Component (SVG candlestick, tanpa dependency)
 ==========================================================
 */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface PriceChartProps {
   pair: string;
@@ -25,9 +25,8 @@ const TIMEFRAMES = [
   { label: "1D", value: "1D" },
 ];
 
-const W = 640;
 const H = 256;
-const PAD_R = 64;
+const PAD_R = 58;
 const PAD_Y = 12;
 
 export default function PriceChart({ pair }: PriceChartProps) {
@@ -35,6 +34,19 @@ export default function PriceChart({ pair }: PriceChartProps) {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(320);
+
+  // Ukur lebar asli kontainer supaya teks/candle tidak ter-stretch di layar sempit.
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const update = () => setW(Math.max(el.clientWidth, 200));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,10 +82,12 @@ export default function PriceChart({ pair }: PriceChartProps) {
   const y = (p: number) => PAD_Y + ((hi - p) / span) * (H - PAD_Y * 2);
   const step = candles.length ? (W - PAD_R) / candles.length : 1;
   const last = candles[candles.length - 1];
+  const fmtAxis = (n: number) =>
+    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}jt` : n >= 1000 ? `${(n / 1000).toFixed(1)}rb` : n.toLocaleString("id-ID", { maximumFractionDigits: 4 });
   const fmt = (n: number) => n.toLocaleString("id-ID", { maximumFractionDigits: 8 });
 
   return (
-    <div className="glass p-6 rounded-2xl">
+    <div className="glass p-4 sm:p-6 rounded-2xl min-w-0">
       <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
         <div>
           <h3 className="text-lg font-bold">{pair.toUpperCase()} Price Chart</h3>
@@ -98,7 +112,7 @@ export default function PriceChart({ pair }: PriceChartProps) {
         </div>
       </div>
 
-      <div className="h-64 rounded-xl bg-black/20 border border-white/10 overflow-hidden">
+      <div ref={boxRef} className="h-64 rounded-xl bg-black/20 border border-white/10 overflow-hidden">
         {error && !candles.length ? (
           <div className="h-full flex items-center justify-center text-sm text-red-400">
             {error}
@@ -108,15 +122,15 @@ export default function PriceChart({ pair }: PriceChartProps) {
             Memuat grafik...
           </div>
         ) : (
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
+          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block">
             {[0, 0.25, 0.5, 0.75, 1].map((f) => {
               const p = hi - f * span;
               const yy = y(p);
               return (
                 <g key={f}>
                   <line x1={0} x2={W - PAD_R} y1={yy} y2={yy} stroke="rgba(255,255,255,0.06)" />
-                  <text x={W - PAD_R + 4} y={yy + 3} fontSize="9" fill="rgba(255,255,255,0.45)">
-                    {fmt(Math.round(p))}
+                  <text x={W - PAD_R + 4} y={yy + 3} fontSize="10" fill="rgba(255,255,255,0.45)">
+                    {fmtAxis(p)}
                   </text>
                 </g>
               );

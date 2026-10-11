@@ -251,7 +251,7 @@ animate-pulse
 
 className={`
 
-text-3xl
+text-xl sm:text-3xl break-words
 
 font-bold
 

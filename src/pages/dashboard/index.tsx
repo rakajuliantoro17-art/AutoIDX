@@ -248,7 +248,7 @@ export default function DashboardPage() {
         )}
 
         {/* Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 [&>*:first-child]:col-span-2 lg:[&>*:first-child]:col-span-1">
           <StatusCard
             title={`${selectedPair.replace("_", "/").toUpperCase()} Price`}
             value={data.loading ? "..." : formatIDR(data.price ?? 0)}
