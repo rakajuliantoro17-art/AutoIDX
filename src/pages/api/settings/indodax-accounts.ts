@@ -15,6 +15,7 @@ utuh - cuma versi masked.
 import type { NextApiRequest, NextApiResponse } from "next";
 import { adminAuth, adminDb } from "@/services/firebase/admin";
 import { encrypt } from "@/services/security/encryption";
+import { recordAudit } from "@/services/firebase/auditTrail";
 
 function maskKey(key: string): string {
   if (key.length <= 8) return "••••••••";
@@ -113,6 +114,10 @@ export default async function handler(
           createdAt: Date.now(),
         });
 
+        await recordAudit("indodax_account.create", uid, [
+          { field: "label", before: null, after: String(label) },
+        ], { accountId: ref.id });
+
         return res.status(200).json({ id: ref.id });
 
       }
@@ -131,6 +136,10 @@ export default async function handler(
 
         await accountsCollection(uid).doc(accountId).update({ isActive });
 
+        await recordAudit("indodax_account.update", uid, [
+          { field: "isActive", before: !isActive, after: isActive },
+        ], { accountId });
+
         return res.status(200).json({ success: true });
 
       }
@@ -148,6 +157,8 @@ export default async function handler(
         }
 
         await accountsCollection(uid).doc(accountId).delete();
+
+        await recordAudit("indodax_account.delete", uid, [], { accountId });
 
         return res.status(200).json({ success: true });
 

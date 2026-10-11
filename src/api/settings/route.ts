@@ -12,6 +12,7 @@ import { ApiError } from "@/lib/error/ApiError";
 import { ApiValidator } from "@/lib/validators/api";
 import type { BotSettings } from "./types";
 import { verifyBearerToken } from "@/lib/auth/verifyApiAuth";
+import { diffFields, recordAudit } from "@/services/firebase/auditTrail";
 
 function unauthorized() {
     return NextResponse.json(
@@ -39,7 +40,8 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
     // Mengubah trade amount/SL/TP/posisi maksimum: wajib login.
-    if (!(await verifyBearerToken(request.headers.get("authorization")))) {
+    const authUser = await verifyBearerToken(request.headers.get("authorization"));
+    if (!authUser) {
         return unauthorized();
     }
 
@@ -55,7 +57,28 @@ export async function PUT(request: Request) {
             request
         );
 
+        let before: BotSettings | null = null;
+        try {
+            before = await getSettings();
+        } catch {
+            before = null;
+        }
+
         const updated = await saveSettings(body);
+
+        // Audit trail (best-effort, tidak pernah menggagalkan save).
+        const changes = diffFields(
+            before as unknown as Record<string, unknown> | null,
+            body as Record<string, unknown>
+        );
+        if (changes.length > 0) {
+            await recordAudit(
+                "settings.update",
+                authUser.email ?? authUser.uid,
+                changes
+            );
+        }
+
         return NextResponse.json({
             success: true,
             timestamp: new Date().toISOString(),

@@ -45,6 +45,8 @@ import {
 
 import { verifyApiAuth } from "@/lib/auth/verifyApiAuth";
 
+import { diffFields, recordAudit } from "@/services/firebase/auditTrail";
+
 export default async function handler(
 
   req: NextApiRequest,
@@ -156,13 +158,31 @@ export default async function handler(
 
     try {
 
+      const actor = authUser.email ?? authUser.uid;
+
+      const previous = await getBotControl();
+
       const result = await updateBotControl(
 
         update,
 
-        authUser.email ?? authUser.uid
+        actor
 
       );
+
+      const changes = diffFields(
+
+        previous as unknown as Record<string, unknown>,
+
+        update as Record<string, unknown>
+
+      );
+
+      if (changes.length > 0) {
+
+        await recordAudit("bot_control.update", actor, changes);
+
+      }
 
       return res.status(200).json(result);
 
