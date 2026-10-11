@@ -52,6 +52,24 @@ export interface TrainingConfig {
   randomSeed?: number;
 
   /**
+   * Cara membagi train/validasi. Default "CHRONOLOGICAL": validasi = sample
+   * TERBARU (data masa depan relatif terhadap train), bukan acak. Split acak
+   * pada time-series dengan label yang tumpang tindih membuat candle
+   * bertetangga (fitur hampir kembar, label berbagi window masa depan) jatuh
+   * di train DAN validasi -> akurasi validasi terlalu optimistis. "RANDOM"
+   * dipertahankan hanya untuk membandingkan dengan perilaku lama.
+   */
+  splitMode?: "CHRONOLOGICAL" | "RANDOM";
+
+  /**
+   * Jeda (ms) sebelum batas validasi: sample train yang timestamp-nya lebih
+   * baru dari (awal validasi - embargoMs) dibuang, karena label mereka
+   * (N candle ke depan) menjangkau periode validasi. Isi dengan
+   * futureWindow x lebar candle. Default 0.
+   */
+  embargoMs?: number;
+
+  /**
    * Metode penskalaan fitur. Default "STANDARD" (z-score) - SAMA
    * seperti perilaku sebelum field ini ada, jadi model lama yang
    * dilatih ulang tanpa opsi ini eksplisit tetap dapat hasil identik.
@@ -120,6 +138,8 @@ export interface EvaluationMetrics {
 
 export interface TrainingResult {
   success: boolean;
+  /** Metode split yang BENAR-BENAR dipakai (bisa turun ke RANDOM bila timestamp tak ada). */
+  splitMode: "CHRONOLOGICAL" | "RANDOM";
   algorithm: TrainingAlgorithm;
   trainedSamples: number;
   validationSamples: number;
@@ -308,14 +328,41 @@ export class ModelTrainer {
 
     const y = dataset.map((s) => activeClasses.indexOf(s.label));
 
-    // --- Split train/validation (shuffled dengan seed tetap) ---
-    const indices = shuffle(
-      Array.from({ length: dataset.length }, (_, i) => i),
-      rng
-    );
+    // --- Split train/validation ---
     const valCount = Math.max(1, Math.floor(dataset.length * validationSplit));
-    const valIdx = indices.slice(0, valCount);
-    const trainIdx = indices.slice(valCount);
+    const stamps = dataset.map((s) => Number(s.features.timestamp) || 0);
+    const hasTimestamps = new Set(stamps).size > 1 && stamps.every((t) => t > 0);
+
+    let splitMode: "CHRONOLOGICAL" | "RANDOM" = config.splitMode ?? "CHRONOLOGICAL";
+
+    if (splitMode === "CHRONOLOGICAL" && !hasTimestamps) {
+      featureWarnings.push(
+        "Timestamp sample tidak lengkap/seragam -> split kronologis tidak mungkin, memakai split acak (akurasi validasi bisa terlalu optimistis)."
+      );
+      splitMode = "RANDOM";
+    }
+
+    let valIdx: number[];
+    let trainIdx: number[];
+
+    if (splitMode === "CHRONOLOGICAL") {
+      const byTime = Array.from({ length: dataset.length }, (_, i) => i).sort(
+        (a, b) => stamps[a] - stamps[b]
+      );
+      valIdx = byTime.slice(byTime.length - valCount);
+      const firstValTs = stamps[valIdx[0]];
+      const embargoMs = Math.max(0, config.embargoMs ?? 0);
+      trainIdx = byTime
+        .slice(0, byTime.length - valCount)
+        .filter((i) => stamps[i] <= firstValTs - embargoMs);
+    } else {
+      const indices = shuffle(
+        Array.from({ length: dataset.length }, (_, i) => i),
+        rng
+      );
+      valIdx = indices.slice(0, valCount);
+      trainIdx = indices.slice(valCount);
+    }
 
     if (trainIdx.length === 0) {
       throw new Error("Dataset terlalu kecil untuk displit train/validation.");
@@ -409,6 +456,7 @@ export class ModelTrainer {
       algorithm,
       trainedSamples: trainIdx.length,
       validationSamples: valIdx.length,
+      splitMode,
       startedAt: startedAt.toISOString(),
       finishedAt: finishedAt.toISOString(),
       durationMs: finishedAt.getTime() - startedAt.getTime(),

@@ -174,7 +174,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const countsAfterBalance = classCounts(finalSamples);
 
     // 3. Latih model logistic regression sungguhan + evaluasi di validation split
-    const trainingResult = await modelTrainer.train(finalSamples, { epochs, scalingMethod });
+    // Split KRONOLOGIS (validasi = data terbaru) dengan embargo selebar window
+    // label (futureWindow x lebar candle), supaya akurasi validasi tidak
+    // terlalu optimistis akibat candle bertetangga yang hampir kembar.
+    const resolutionMinutes =
+      resolution === "1D" ? 1440 : resolution === "1W" ? 10080 : Number(resolution) || 60;
+    const trainingResult = await modelTrainer.train(finalSamples, {
+      epochs,
+      scalingMethod,
+      splitMode: body.splitMode === "RANDOM" ? "RANDOM" : "CHRONOLOGICAL",
+      embargoMs: futureWindow * resolutionMinutes * 60_000,
+    });
 
     // 4. Simpan sebagai model aktif (persisten - Firestore)
     const modelId = `lr_${Date.now()}`;
@@ -206,6 +216,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       failedPairs,
       trainedSamples: trainingResult.trainedSamples,
       validationSamples: trainingResult.validationSamples,
+      splitMode: trainingResult.splitMode,
       durationMs: trainingResult.durationMs,
       finalTrainLoss: trainingResult.finalTrainLoss,
       validationMetrics: trainingResult.validationMetrics,
