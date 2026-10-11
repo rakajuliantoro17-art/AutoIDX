@@ -61,6 +61,12 @@ export const FEATURE_FLAG_DEFAULTS = {
    * (TRAILING_STOP_PERCENT). Butuh juga env TRAILING_STOP_ENABLED=true.
    */
   trailingStop: false,
+  /**
+   * Agen operasional (laporan HRD/Manajer/Trader/Pair + rekomendasi yang
+   * menunggu persetujuan pemilik). Hanya menulis ke Firestore; tidak
+   * mengubah setting/order sendiri.
+   */
+  opsAgent: false,
 } as const;
 
 export type FeatureFlagName = keyof typeof FEATURE_FLAG_DEFAULTS;

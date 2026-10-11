@@ -98,6 +98,12 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: IconCanary,
       },
       {
+        name: "Agen Operasional",
+        shortName: "Agen",
+        path: "/dashboard/agent",
+        icon: IconStrategy,
+      },
+      {
         name: "ML Lab (Eksperimental)",
         shortName: "ML Lab",
         path: "/dashboard/ml-lab",
