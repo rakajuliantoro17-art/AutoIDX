@@ -25,6 +25,7 @@ import Link from "next/link";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import IndodaxAccountManager from "@/components/IndodaxAccountManager";
 import BotControlPanel from "@/components/BotControlPanel";
+import FeatureFlagsPanel from "@/components/FeatureFlagsPanel";
 import { useAuth } from "@/services/auth/AuthContext";
 import { setVisibleInterval } from "@/utils/visibleInterval";
 
@@ -272,6 +273,8 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
+        <FeatureFlagsPanel />
 
         <div className="card border border-dashed border-white/10">
           <h2 className="text-xl font-semibold">Future Configuration</h2>

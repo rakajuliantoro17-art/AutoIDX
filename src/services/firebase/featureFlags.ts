@@ -126,3 +126,24 @@ export async function isFeatureEnabled(name: FeatureFlagName): Promise<boolean> 
 export function resetFeatureFlagsCache(): void {
   cache = null;
 }
+
+/**
+ * Ubah satu flag terdaftar (dipanggil endpoint khusus pemilik).
+ * Mengembalikan nilai sebelumnya. Hanya nama terdaftar yang diterima.
+ */
+export async function setFeatureFlag(
+  name: string,
+  value: boolean
+): Promise<{ before: boolean }> {
+  if (!Object.prototype.hasOwnProperty.call(FEATURE_FLAG_DEFAULTS, name)) {
+    throw new Error("Nama flag tidak terdaftar.");
+  }
+  const ref = adminDb.collection(FLAGS_COLLECTION).doc(FLAGS_DOC_ID);
+  const snapshot = await ref.get();
+  const before = resolveFeatureFlags(snapshot.exists ? snapshot.data() : undefined)[
+    name as FeatureFlagName
+  ];
+  await ref.set({ [name]: value }, { merge: true });
+  resetFeatureFlagsCache();
+  return { before };
+}
