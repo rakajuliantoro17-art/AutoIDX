@@ -5,6 +5,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyApiAuth } from "@/lib/auth/verifyApiAuth";
+import { cached } from "@/lib/cache/ttlCache";
 import { adminDb } from "@/services/firebase/admin";
 import { getShadowSummaries } from "@/services/ml/shadow/shadowStore";
 import { isFeatureEnabled } from "@/services/firebase/featureFlags";
@@ -17,13 +18,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!(await verifyApiAuth(req))) return res.status(401).json({ error: "Unauthorized." });
 
   try {
-    const [shadow, pending, latest, agentOn, shadowOn] = await Promise.all([
+    const [shadow, pending, latest, agentOn, shadowOn] = await cached("agent:summary:raw", 5 * 60_000, () => Promise.all([
       getShadowSummaries().catch(() => ({ ml: null, bySource: {}, updatedAtMs: null })),
       adminDb.collection("agent_recommendations").where("status", "==", "pending").limit(50).get(),
       adminDb.collection("agent_reports").doc("latest").get(),
       isFeatureEnabled("opsAgent"),
       isFeatureEnabled("aiShadowPrediction"),
-    ]);
+    ]));
 
     const sources: Record<string, { scored: number; accuracy: number; baseline: number; verdict: string }> = {};
     const all = { ...shadow.bySource };

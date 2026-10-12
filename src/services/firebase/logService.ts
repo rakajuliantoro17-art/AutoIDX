@@ -308,7 +308,7 @@ export const LOG_RETENTION_DAYS = 30;
  */
 export async function pruneOldLogs(
   retentionDays = LOG_RETENTION_DAYS,
-  maxDelete = 400
+  maxDelete = 100
 ): Promise<number> {
   const cutoff = new Date(Date.now() - retentionDays * 86_400_000);
 

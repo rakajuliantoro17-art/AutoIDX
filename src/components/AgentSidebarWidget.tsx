@@ -56,7 +56,9 @@ export default function AgentSidebarWidget() {
       }
     }
     load();
-    const t = setInterval(load, 120_000);
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 600_000);
     return () => {
       cancelled = true;
       clearInterval(t);

@@ -348,7 +348,11 @@ export default async function handler(
 
     // Housekeeping (shadow ML + retensi log): best-effort dan dibatasi
     // waktu. Prediksi yang belum sempat dinilai dilanjutkan run berikutnya.
+    // Hanya sekali per jam (eksekusi menit 0-29): pembacaan/penghapusan
+    // Firestore paket gratis terbatas (50rb baca, 20rb hapus per hari).
+    const runHousekeeping = new Date().getMinutes() < 30;
     const housekeeping = (async () => {
+      if (!runHousekeeping) return;
       try {
         if (await isFeatureEnabled("aiShadowPrediction")) {
           const shadow = await runShadowScoring(Date.now(), HOUSEKEEPING_BUDGET_MS - 1_500);

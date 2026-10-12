@@ -4,6 +4,7 @@
  */
 import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyApiAuth } from "@/lib/auth/verifyApiAuth";
+import { cached } from "@/lib/cache/ttlCache";
 import { adminDb } from "@/services/firebase/admin";
 import { buildNotifications } from "@/services/notifications/feed";
 
@@ -22,47 +23,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!(await verifyApiAuth(req))) return res.status(401).json({ error: "Unauthorized." });
 
   try {
-    const [tradeSnap, auditSnap, logSnap, recSnap] = await Promise.all([
-      adminDb.collection("trades").orderBy("timestamp", "desc").limit(100).get(),
-      adminDb.collection("audit_logs").orderBy("at", "desc").limit(40).get(),
-      adminDb.collection("activity_logs").orderBy("timestamp", "desc").limit(150).get(),
-      adminDb.collection("agent_recommendations").where("status", "==", "pending").limit(20).get(),
-    ]);
+    const items = await cached("notifications:feed", 5 * 60_000, async () => {
+      const [tradeSnap, auditSnap, logSnap, recSnap] = await Promise.all([
+        adminDb.collection("trades").orderBy("timestamp", "desc").limit(40).get(),
+        adminDb.collection("audit_logs").orderBy("at", "desc").limit(20).get(),
+        adminDb.collection("activity_logs").orderBy("timestamp", "desc").limit(60).get(),
+        adminDb.collection("agent_recommendations").where("status", "==", "pending").limit(20).get(),
+      ]);
 
-    const items = buildNotifications({
-      trades: tradeSnap.docs.map((d) => {
-        const x = d.data();
-        return {
-          id: d.id,
-          pair: String(x.pair ?? ""),
-          type: String(x.type ?? ""),
-          mode: String(x.mode ?? ""),
-          price: Number(x.price) || 0,
-          totalIdr: Number(x.totalIdr) || 0,
-          ts: toMs(x.timestamp),
-        };
-      }),
-      audits: auditSnap.docs.map((d) => {
-        const x = d.data();
-        return {
-          id: d.id,
-          action: String(x.action ?? ""),
-          actor: String(x.actor ?? ""),
-          at: Number(x.at) || 0,
-          changes: Array.isArray(x.changes) ? x.changes : [],
-          meta: x.meta && typeof x.meta === "object" ? x.meta : undefined,
-        };
-      }),
-      emergencyLogs: logSnap.docs
-        .map((d) => ({ id: d.id, message: String(d.data().message ?? ""), ts: toMs(d.data().timestamp), type: String(d.data().type ?? "") }))
-        .filter((l) => l.type === "danger" && /emergency|reconciliation/i.test(l.message)),
-      pendingRecs: recSnap.docs.map((d) => {
-        const x = d.data();
-        return { id: d.id, title: String(x.title ?? ""), role: String(x.role ?? ""), createdAtMs: Number(x.createdAtMs) || 0 };
-      }),
+      const feed = buildNotifications({
+        trades: tradeSnap.docs.map((d) => {
+          const x = d.data();
+          return {
+            id: d.id,
+            pair: String(x.pair ?? ""),
+            type: String(x.type ?? ""),
+            mode: String(x.mode ?? ""),
+            price: Number(x.price) || 0,
+            totalIdr: Number(x.totalIdr) || 0,
+            ts: toMs(x.timestamp),
+          };
+        }),
+        audits: auditSnap.docs.map((d) => {
+          const x = d.data();
+          return {
+            id: d.id,
+            action: String(x.action ?? ""),
+            actor: String(x.actor ?? ""),
+            at: Number(x.at) || 0,
+            changes: Array.isArray(x.changes) ? x.changes : [],
+            meta: x.meta && typeof x.meta === "object" ? x.meta : undefined,
+          };
+        }),
+        emergencyLogs: logSnap.docs
+          .map((d) => ({ id: d.id, message: String(d.data().message ?? ""), ts: toMs(d.data().timestamp), type: String(d.data().type ?? "") }))
+          .filter((l) => l.type === "danger" && /emergency|reconciliation/i.test(l.message)),
+        pendingRecs: recSnap.docs.map((d) => {
+          const x = d.data();
+          return { id: d.id, title: String(x.title ?? ""), role: String(x.role ?? ""), createdAtMs: Number(x.createdAtMs) || 0 };
+        }),
+      });
+      return feed;
     });
 
-    res.setHeader("Cache-Control", "private, max-age=15");
+    res.setHeader("Cache-Control", "private, max-age=120");
     return res.status(200).json({ items });
   } catch (error) {
     console.error("[NOTIFICATIONS API ERROR]", error);

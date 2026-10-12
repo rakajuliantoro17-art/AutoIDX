@@ -75,7 +75,10 @@ export default function NotificationBell() {
       return;
     }
     load();
-    const t = setInterval(load, 60_000);
+    // Hemat kuota Firestore: sekali per 10 menit, hanya saat tab terlihat.
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 600_000);
     return () => clearInterval(t);
   }, [user, load]);
 

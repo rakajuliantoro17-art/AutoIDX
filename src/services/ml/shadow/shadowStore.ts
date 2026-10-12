@@ -30,7 +30,9 @@ import type { PredictionLabel } from "../types";
 const PRED = "ml_shadow_predictions";
 const SCORES = "ml_shadow_scores";
 const BUCKET_MS = 15 * 60_000;
-const MAX_PER_RUN = 120;
+const MAX_PER_RUN = 100;
+/** Jarak minimum antar penghitungan ulang ringkasan (hemat pembacaan Firestore). */
+const SUMMARY_MIN_INTERVAL_MS = 3 * 3600_000;
 /** Anggaran waktu default satu proses penilaian (ms); sisa dikerjakan run berikutnya. */
 const DEFAULT_BUDGET_MS = 8_000;
 const PAIR_FETCH_CONCURRENCY = 4;
@@ -82,7 +84,7 @@ export async function runShadowScoring(
   budgetMs = DEFAULT_BUDGET_MS
 ): Promise<ShadowJobResult> {
   const deadline = Date.now() + budgetMs;
-  const snap = await adminDb.collection(PRED).where("scored", "==", false).limit(300).get();
+  const snap = await adminDb.collection(PRED).where("scored", "==", false).limit(150).get();
 
   // Terlama dulu: prediksi yang sudah jatuh tempo tidak boleh kelaparan
   // di belakang prediksi baru (query tanpa urutan sebelumnya mengambil acak).
@@ -142,8 +144,21 @@ export async function runShadowScoring(
   let summary: ShadowSummary | null = null;
   let bySource: Record<string, ShadowSummary> | undefined;
 
-  if (scored > 0) {
-    const done = await adminDb.collection(PRED).where("scored", "==", true).limit(1000).get();
+  // Ringkasan dihitung ulang paling sering tiap 3 jam: pembacaan 400 dokumen
+  // per perhitungan terlalu mahal untuk dilakukan tiap proses (kuota gratis).
+  let summaryDue = scored > 0;
+  if (summaryDue) {
+    try {
+      const prev = await adminDb.collection(SCORES).doc("by_source").get();
+      const prevAt = Number(prev.data()?.updatedAtMs) || 0;
+      summaryDue = !prev.exists || now - prevAt >= SUMMARY_MIN_INTERVAL_MS;
+    } catch {
+      summaryDue = true;
+    }
+  }
+
+  if (summaryDue) {
+    const done = await adminDb.collection(PRED).where("scored", "==", true).limit(400).get();
     const items = done.docs
       .map((d) => d.data())
       .filter((d) => !d.expired && d.actual)
