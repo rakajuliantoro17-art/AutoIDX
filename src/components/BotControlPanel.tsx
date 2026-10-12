@@ -250,7 +250,7 @@ export default function BotControlPanel() {
       ) : null}
 
       {/* --- Emergency Stop --- */}
-      <div className="flex items-center justify-between rounded-xl border border-white/10 p-5">
+      <div className="flex flex-col gap-4 rounded-xl border border-white/10 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-semibold">
             Emergency Stop
@@ -274,7 +274,7 @@ export default function BotControlPanel() {
           onClick={toggleEmergencyStop}
           disabled={saving}
           className={`
-            shrink-0 rounded-full px-6 py-3 font-bold transition
+            w-full shrink-0 rounded-full px-6 py-3 font-bold transition sm:w-auto
             disabled:opacity-50
             ${
               control.emergencyStop

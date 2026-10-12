@@ -119,19 +119,23 @@ export default function SystemStatusBadge() {
     requestedMode === "live" && !isLive && !emergencyStop;
 
   let label = "Paper Trading";
+  let shortLabel = "Paper";
   let dotClass = "status-dot status-online";
   let labelClass = "text-xs sm:text-sm text-[var(--text)]";
 
   if (emergencyStop) {
     label = "Emergency Stop Aktif";
+    shortLabel = "Stop";
     dotClass = "status-dot status-error";
     labelClass = "text-xs sm:text-sm font-semibold text-red-400";
   } else if (isLive) {
     label = "Live Trading";
+    shortLabel = "Live";
     dotClass = "status-dot status-error";
     labelClass = "text-xs sm:text-sm font-semibold text-red-400";
   } else if (isPendingLiveConfirm) {
     label = "Live Diminta - Masih Paper";
+    shortLabel = "Paper*";
     dotClass = "status-dot status-warning";
     labelClass = "text-xs sm:text-sm font-semibold text-amber-400";
   }
@@ -144,7 +148,8 @@ export default function SystemStatusBadge() {
       <div className="text-right">
 
         <p className={labelClass}>
-          {label}
+          <span className="sm:hidden">{shortLabel}</span>
+          <span className="hidden sm:inline">{label}</span>
         </p>
 
         <p className="hidden text-xs text-[var(--text-muted)] sm:block">

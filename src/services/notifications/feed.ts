@@ -38,6 +38,16 @@ const upper = (p: string) => p.replace("_", "/").toUpperCase();
 const idr = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
 const val = (v: unknown) => (v === null || v === undefined ? "-" : typeof v === "object" ? JSON.stringify(v) : String(v));
 
+/** Penyebab emergency stop otomatis (diagnosis/alasan dari audit meta), dipotong agar ringkas. */
+function causeText(meta?: Record<string, unknown>): string {
+  if (!meta) return "";
+  const pick = (k: string) =>
+    Array.isArray(meta[k]) ? (meta[k] as unknown[]).map(String).filter(Boolean) : [];
+  const parts = [...pick("diagnosis"), ...pick("reasons")];
+  if (parts.length === 0) return "";
+  return ` Penyebab: ${parts.join(" ").slice(0, 400)}`;
+}
+
 export function buildNotifications(input: FeedInput, limit = 40): Notif[] {
   const out: Notif[] = [];
 
@@ -98,7 +108,7 @@ export function buildNotifications(input: FeedInput, limit = 40): Notif[] {
             : a.action === "bot_control.update"
               ? "Kontrol bot diubah"
               : "Akun Indodax diubah",
-      detail: `${body}. Oleh ${a.actor}${via}.`,
+      detail: `${body}. Oleh ${a.actor}${via}.${causeText(a.meta)}`,
     });
   }
 
