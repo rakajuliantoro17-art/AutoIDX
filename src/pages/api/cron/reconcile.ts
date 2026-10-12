@@ -271,6 +271,25 @@ function mismatchKey(m: { type: string; key: string }): string {
   return `${m.type}:${m.key}`;
 }
 
+/**
+ * Batas total pekerjaan rumah tangga (penilaian shadow + retensi log)
+ * per panggilan. Pemeriksaan live yang kritikal tidak boleh ikut
+ * terpotong timeout 30 dtk cron-job.org gara-gara housekeeping.
+ */
+const HOUSEKEEPING_BUDGET_MS = 9_000;
+
+async function withBudget<T>(work: Promise<T>, ms: number): Promise<T | "timeout"> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => resolve("timeout"), ms);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /** Jeda sebelum membaca ulang mismatch (ms) -- menyingkirkan balapan dengan order. */
 const RECHECK_DELAY_MS = 4_000;
 
@@ -327,29 +346,32 @@ export default async function handler(
 
     }
 
-    // Shadow ML: nilai prediksi yang sudah jatuh tempo terhadap harga
-    // nyata (flag `aiShadowPrediction`, default MATI). Jalan di paper
-    // maupun live; tidak pernah memengaruhi order dan tidak pernah
-    // melempar error.
-    try {
-      if (await isFeatureEnabled("aiShadowPrediction")) {
-        const shadow = await runShadowScoring();
-        if (shadow.checked > 0) {
-          console.log("[Reconcile] ML shadow scoring:", JSON.stringify({ ...shadow, summary: shadow.summary?.verdict ?? null }));
+    // Housekeeping (shadow ML + retensi log): best-effort dan dibatasi
+    // waktu. Prediksi yang belum sempat dinilai dilanjutkan run berikutnya.
+    const housekeeping = (async () => {
+      try {
+        if (await isFeatureEnabled("aiShadowPrediction")) {
+          const shadow = await runShadowScoring(Date.now(), HOUSEKEEPING_BUDGET_MS - 1_500);
+          if (shadow.checked > 0) {
+            console.log("[Reconcile] ML shadow scoring:", JSON.stringify({ ...shadow, summary: shadow.summary?.verdict ?? null }));
+          }
         }
+      } catch (shadowError) {
+        console.error("[Reconcile] ML shadow scoring gagal:", shadowError);
       }
-    } catch (shadowError) {
-      console.error("[Reconcile] ML shadow scoring gagal:", shadowError);
-    }
 
-    // Retensi log aktivitas (flag `logRetention`, default MATI). Best-effort.
-    try {
-      if (await isFeatureEnabled("logRetention")) {
-        const removed = await pruneOldLogs();
-        if (removed > 0) console.log(`[Reconcile] Log lama dihapus: ${removed}`);
+      try {
+        if (await isFeatureEnabled("logRetention")) {
+          const removed = await pruneOldLogs();
+          if (removed > 0) console.log(`[Reconcile] Log lama dihapus: ${removed}`);
+        }
+      } catch (pruneError) {
+        console.error("[Reconcile] Retensi log gagal:", pruneError);
       }
-    } catch (pruneError) {
-      console.error("[Reconcile] Retensi log gagal:", pruneError);
+    })();
+
+    if ((await withBudget(housekeeping, HOUSEKEEPING_BUDGET_MS)) === "timeout") {
+      console.warn("[Reconcile] Housekeeping melewati anggaran waktu -- dilanjutkan di run berikutnya.");
     }
 
     const control = await getBotControl();

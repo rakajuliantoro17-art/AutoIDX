@@ -30,7 +30,10 @@ import type { PredictionLabel } from "../types";
 const PRED = "ml_shadow_predictions";
 const SCORES = "ml_shadow_scores";
 const BUCKET_MS = 15 * 60_000;
-const MAX_PER_RUN = 40;
+const MAX_PER_RUN = 120;
+/** Anggaran waktu default satu proses penilaian (ms); sisa dikerjakan run berikutnya. */
+const DEFAULT_BUDGET_MS = 8_000;
+const PAIR_FETCH_CONCURRENCY = 4;
 const MAX_SUMMARY_DOCS = 300;
 
 export async function recordShadowPrediction(input: {
@@ -74,12 +77,19 @@ export interface ShadowJobResult {
 }
 
 /** Nilai prediksi yang sudah jatuh tempo, lalu perbarui ringkasan. */
-export async function runShadowScoring(now = Date.now()): Promise<ShadowJobResult> {
-  const snap = await adminDb.collection(PRED).where("scored", "==", false).limit(200).get();
+export async function runShadowScoring(
+  now = Date.now(),
+  budgetMs = DEFAULT_BUDGET_MS
+): Promise<ShadowJobResult> {
+  const deadline = Date.now() + budgetMs;
+  const snap = await adminDb.collection(PRED).where("scored", "==", false).limit(300).get();
 
+  // Terlama dulu: prediksi yang sudah jatuh tempo tidak boleh kelaparan
+  // di belakang prediksi baru (query tanpa urutan sebelumnya mengambil acak).
   const due: ShadowPrediction[] = snap.docs
     .map((d) => ({ id: d.id, ...(d.data() as Omit<ShadowPrediction, "id">) }))
     .filter((p) => isDue(p, now))
+    .sort((a, b) => a.createdAtMs - b.createdAtMs)
     .slice(0, MAX_PER_RUN);
 
   const byPair = new Map<string, ShadowPrediction[]>();
@@ -88,30 +98,46 @@ export async function runShadowScoring(now = Date.now()): Promise<ShadowJobResul
   let scored = 0;
   let expired = 0;
 
-  for (const [pair, preds] of byPair) {
-    let candles;
-    try {
-      candles = await getCandles({ pair, resolution: SHADOW_RESOLUTION, limit: 100 });
-    } catch {
-      continue; // coba lagi di run berikutnya
-    }
+  const pairQueue = Array.from(byPair.entries());
+  let cursor = 0;
 
-    for (const p of preds) {
-      const out = scorePrediction(p, candles, now);
-      if (out.status === "SCORED") {
-        await adminDb.collection(PRED).doc(p.id).update({
-          scored: true,
-          actual: out.actual,
-          futureReturn: out.futureReturn,
-          scoredAtMs: now,
-        });
-        scored++;
-      } else if (out.status === "EXPIRED") {
-        await adminDb.collection(PRED).doc(p.id).update({ scored: true, expired: true, scoredAtMs: now });
-        expired++;
+  async function worker() {
+    while (cursor < pairQueue.length && Date.now() < deadline) {
+      const [pair, preds] = pairQueue[cursor++];
+      let candles;
+      try {
+        candles = await getCandles({ pair, resolution: SHADOW_RESOLUTION, limit: 100 });
+      } catch {
+        continue; // coba lagi di run berikutnya
       }
+
+      const batch = adminDb.batch();
+      let writes = 0;
+      for (const p of preds) {
+        const out = scorePrediction(p, candles, now);
+        const ref = adminDb.collection(PRED).doc(p.id);
+        if (out.status === "SCORED") {
+          batch.update(ref, {
+            scored: true,
+            actual: out.actual,
+            futureReturn: out.futureReturn,
+            scoredAtMs: now,
+          });
+          scored++;
+          writes++;
+        } else if (out.status === "EXPIRED") {
+          batch.update(ref, { scored: true, expired: true, scoredAtMs: now });
+          expired++;
+          writes++;
+        }
+      }
+      if (writes > 0) await batch.commit();
     }
   }
+
+  await Promise.all(
+    Array.from({ length: Math.min(PAIR_FETCH_CONCURRENCY, Math.max(1, pairQueue.length)) }, worker)
+  );
 
   let summary: ShadowSummary | null = null;
   let bySource: Record<string, ShadowSummary> | undefined;
