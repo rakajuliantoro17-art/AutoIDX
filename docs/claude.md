@@ -1138,3 +1138,26 @@ Belum diverifikasi: koneksi nyata ke Firestore/Indodax (build pakai env dummy) d
 - Tinjauan jalur aktif: AES-256-GCM benar; cronAuth + verifikasi webhook waktu-konstan; rate limit fail-open sengaja. Tidak ada perubahan kode aktif.
 - Gap nyata yang tercatat: belum ada jejak audit perubahan setelan/mode bot (opsi: koleksi Firestore `audit_logs`).
 - tsc + next build lolos.
+
+### Session Log 45 - audit trail, agen operasional, watchlist bertahap, pengaman siklus, insiden kuota Firestore (2026-10-11 s/d 2026-10-13)
+Fitur baru (semua di balik flag Firestore `bot_control/flags` atau persetujuan pemilik; tidak melonggarkan gerbang live):
+- `audit_logs`: jejak perubahan setelan, mode/emergency stop, akun Indodax, dan flag (`services/firebase/auditTrail.ts`, secret disamarkan, tidak pernah melempar). Emergency stop otomatis (reconcile guard / dispatcher PAUSE_TRADING) kini tercatat beserta alasan.
+- Grafik pair dashboard hidup (candle Indodax) + tata letak mobile diperbaiki. Orphan di luar `services/` dirapikan ke `_shadow/non-services/`.
+- AI: ChatGPT/Claude/Gemini terpasang; tiap LLM dan konsensus mencatat prediksi shadow per sumber (`ml_shadow_predictions.source`), rapor di `ml_shadow_scores/by_source`, papan skor `AiScoreboard`.
+- Agen operasional (`services/agents/*`, flag `opsAgent`, cron `/api/cron/agent`): laporan harian + usulan (`agent_recommendations`) yang HANYA berlaku setelah pemilik (`BOT_OWNER_UID`) menyetujui; whitelist: maxOpenPositions, stopLossPercent, targetProfitPercent, priorityPairs, watchlist_add. Agen tidak menyentuh mode live, emergency stop, API key, atau kode. Aturan agen pengembang (branch saja, tanpa push ke main) di `docs/agents.md`.
+- Portal: halaman Agen Operasional, widget sidebar kinerja agen, lonceng notifikasi (trade, perubahan setelan/flag, emergency stop, usulan agen; pengganti Telegram), panel Flag Fitur di Settings (khusus pemilik, ter-audit).
+- Watchlist: flag `watchlistOnly` (hanya watchlist + posisi terbuka yang dieksekusi), watchlist dikelola dari portal (`bot_control/main.watchlist`, kosong = env/default 10 pair), usulan +1 pair per minggu menuju 25 pair (target Juli 2027), setiap usulan wajib disetujui pemilik.
+
+Perbaikan setelah laporan operasional 2026-10-12:
+- Pengaman batas waktu siklus (`cron.ts`): pair baru tidak dimulai lagi setelah 20 dtk sejak awal siklus (batas cron-job.org 30 dtk); posisi terbuka diproses lebih dulu, sisanya diputar per menit; pair yang dilewati dicatat di log.
+- Reconcile: selisih dibaca ulang setelah 4 dtk sebelum emergency stop (menyingkirkan balapan dengan order); log/audit memuat diagnosis kemungkinan penyebab (mis. sisa posisi mode paper di `bot_state` vs saldo Indodax 0). Reconcile sempat timeout 30 dtk karena housekeeping (penilaian shadow + hapus log) tanpa anggaran waktu; kini dibatasi 9 dtk, paralel, penulisan batch.
+- Kartu Settings "Trading Pair Universe" mengikuti flag `watchlistOnly`; kartu Priority Pairs membedakan "belum pernah scan" dari "scan jalan tapi tidak ada yang lolos filter"; `scannedAt` API kandidat kini waktu scan sebenarnya (sebelumnya now - durasi).
+
+INSIDEN 2026-10-12 (kuota Firestore Spark terlampaui): Reads 51rb (batas 50rb/hari) dan Deletes 20rb (batas 20rb/hari). Akibat: akun Indodax gagal dimuat di Settings, sistem 5/7, reconcile timeout. Penyebab utama berasal dari fitur sesi ini: lonceng notifikasi polling 60 dtk x ~310 baca per panggilan, dan hapus log lama 400 dokumen per 30 menit. Perbaikan (`e8efd257`): cache TTL server 5 menit (`lib/cache/ttlCache.ts`), polling klien 10 menit hanya saat tab terlihat, housekeeping reconcile sekali per jam, hapus log 100/proses, ringkasan shadow dihitung ulang paling sering tiap 3 jam. Perkiraan kasar (belum diukur): ~40rb -> ~10rb baca/hari dari fitur-fitur itu. Opsi: upgrade ke Blaze (kuota gratis sama, tanpa pemutusan layanan).
+
+Belum teruji / terbuka:
+- Semua fitur baru hanya teruji lewat tsc, next build, dan uji fungsi murni (data tiruan); belum dengan Firestore/Indodax asli. Log dan deployment Vercel tidak bisa dibaca dari sesi ini (403).
+- Penyebab emergency stop berulang di mode live belum terkonfirmasi (dugaan: posisi sisa paper di `bot_state`). Bot tidak membersihkan posisi sendiri. Usulan: halaman pemilik untuk membandingkan `bot_state` dengan saldo Indodax + tombol bersihkan ber-audit.
+- Query shadow scoring memuat maks. 150 dokumen belum-dinilai; bila antrean menumpuk, skor per-AI bisa tertinggal.
+- Sebelum kembali ke live: bersihkan posisi paper di `bot_state`, pastikan `BOT_LIVE_CONFIRM=true`, `BOT_OWNER_UID` terisi, Max Open Position 1 di hari pertama, reconcile Successful. Cron `/api/cron/agent` sudah dibuat di cron-job.org (harian 06.30 WIB).
+- tsc + next build lolos pada setiap commit sesi ini.
