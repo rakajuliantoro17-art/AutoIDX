@@ -522,13 +522,17 @@ export default async function handler(
     if (shouldHalt) {
 
       const previousControl = await getBotControl();
-      await updateBotControl(
-        { emergencyStop: true },
-        "reconciliation-guard"
-      );
+      const alreadyStopped = previousControl.emergencyStop === true;
+      if (!alreadyStopped) {
+        await updateBotControl(
+          { emergencyStop: true },
+          "reconciliation-guard"
+        );
+      }
 
       // Jejak yang mudah dibaca operator: kenapa stop menyala sendiri.
-      await recordAudit(
+      // Hanya dicatat saat stop BARU menyala (bukan tiap siklus saat sudah aktif).
+      if (!alreadyStopped) await recordAudit(
         "bot_control.update",
         "reconciliation-guard",
         [{ field: "emergencyStop", before: previousControl.emergencyStop, after: true }],

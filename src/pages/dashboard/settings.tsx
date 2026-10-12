@@ -26,6 +26,7 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import IndodaxAccountManager from "@/components/IndodaxAccountManager";
 import BotControlPanel from "@/components/BotControlPanel";
 import FeatureFlagsPanel from "@/components/FeatureFlagsPanel";
+import PositionCheckPanel from "@/components/PositionCheckPanel";
 import { useAuth } from "@/services/auth/AuthContext";
 import { setVisibleInterval } from "@/utils/visibleInterval";
 
@@ -297,6 +298,8 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
+        <PositionCheckPanel />
 
         <FeatureFlagsPanel />
 
