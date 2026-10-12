@@ -49,6 +49,12 @@ export default function BotControlPanel() {
   // --- Priority Pairs checklist ---
   const [candidates, setCandidates] = useState<ScannerCandidate[]>([]);
   const [candidatesLoading, setCandidatesLoading] = useState(true);
+  const [scanInfo, setScanInfo] = useState<{
+    scannedAt: number | null;
+    scannedCount: number;
+    qualifiedCount: number;
+    thresholdUsed: number | null;
+  }>({ scannedAt: null, scannedCount: 0, qualifiedCount: 0, thresholdUsed: null });
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [savingPairs, setSavingPairs] = useState(false);
   const [pairsError, setPairsError] = useState("");
@@ -60,6 +66,12 @@ export default function BotControlPanel() {
       if (!res.ok) throw new Error("Gagal memuat kandidat scanner.");
       const data = await res.json();
       setCandidates(Array.isArray(data.candidates) ? data.candidates : []);
+      setScanInfo({
+        scannedAt: typeof data.scannedAt === "number" ? data.scannedAt : null,
+        scannedCount: data.diagnostics?.scannedCount ?? 0,
+        qualifiedCount: data.diagnostics?.qualifiedCount ?? 0,
+        thresholdUsed: data.diagnostics?.scoreStats?.thresholdUsed ?? null,
+      });
     } catch {
       // Fail-safe: kalau gagal, checklist cukup kosong -- bukan
       // error yang memblokir seluruh panel Bot Control.
@@ -340,8 +352,9 @@ export default function BotControlPanel() {
           <p className="text-sm text-[var(--text-muted)]">Memuat kandidat scanner...</p>
         ) : candidates.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">
-            Belum ada hasil scan siklus terbaru. Checklist akan terisi
-            otomatis begitu cron scan pertama selesai.
+            {scanInfo.scannedCount > 0
+              ? `Scan terakhir${scanInfo.scannedAt ? ` (${new Date(scanInfo.scannedAt).toLocaleString("id-ID")})` : ""} memindai ${scanInfo.scannedCount} pair, tetapi belum ada yang lolos filter${scanInfo.thresholdUsed !== null ? ` (skor minimal ${scanInfo.thresholdUsed})` : ""}. Ini normal saat pasar sepi; bot tetap memproses watchlist.`
+              : "Belum ada hasil scan tersimpan. Checklist akan terisi otomatis begitu cron scan selesai dan ada pair yang lolos filter."}
           </p>
         ) : (
           <div className="space-y-2">

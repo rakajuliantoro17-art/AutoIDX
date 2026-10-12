@@ -51,6 +51,8 @@ interface RuntimeConfig {
   cooldownSeconds: number;
   trailingStop: { enabled: boolean; percent: number };
   pairs: string[];
+  effectiveWatchlist?: string[];
+  watchlistOnly?: boolean;
   fullPairMode: boolean;
   minVolumeIdr: number;
   cronIntervalSeconds: number;
@@ -248,13 +250,35 @@ export default function SettingsPage() {
             Trading Pair Universe
           </h2>
 
-          {config.fullPairMode ? (
+          {config.watchlistOnly ? (
+            <div>
+              <p className="text-[var(--text-secondary)]">
+                Mode <span className="text-emerald-400">Hanya Watchlist</span> aktif --
+                bot HANYA memproses {(config.effectiveWatchlist ?? config.pairs).length} pair
+                di bawah ini (plus posisi terbuka). Scanner tetap memindai
+                pasar{config.fullPairMode ? ` (volume 24 jam minimal ${formatIDR(config.minVolumeIdr)})` : ""}, tapi
+                kandidatnya hanya dipantau, tidak dieksekusi.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {(config.effectiveWatchlist ?? config.pairs).map((pair) => (
+                  <span key={pair} className="rounded-full bg-white/10 px-4 py-2 text-sm uppercase">
+                    {pair}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-[var(--text-muted)]">
+                Penambahan pair lewat usulan mingguan di{" "}
+                <Link href="/dashboard/agent" className="underline">Agen Operasional</Link>.
+              </p>
+            </div>
+          ) : config.fullPairMode ? (
             <div>
               <p className="text-[var(--text-secondary)]">
                 Mode <span className="text-sky-400">Full Pair</span> aktif --
                 scanner memindai SEMUA pair IDR di Indodax dengan volume 24
-                jam minimal {formatIDR(config.minVolumeIdr)}, bukan daftar
-                tetap.
+                jam minimal {formatIDR(config.minVolumeIdr)}; kandidat yang
+                lolos ikut dieksekusi bersama watchlist
+                ({(config.effectiveWatchlist ?? config.pairs).length} pair).
               </p>
             </div>
           ) : (

@@ -161,6 +161,16 @@ export default async function handler(
 
       pairs: TRADING_CONFIG.pairs,
 
+      // Watchlist yang BENAR-BENAR dipakai cron: dari portal bila ada,
+      // jika tidak env/default. watchlistOnly = kandidat scanner tidak
+      // dieksekusi (hanya dipantau).
+      effectiveWatchlist:
+        control.watchlist && control.watchlist.length > 0
+          ? control.watchlist
+          : TRADING_CONFIG.pairs,
+
+      watchlistOnly: await isFeatureEnabled("watchlistOnly"),
+
       fullPairMode: TRADING_CONFIG.fullPairMode,
 
       minVolumeIdr: TRADING_CONFIG.minVolumeIdr,

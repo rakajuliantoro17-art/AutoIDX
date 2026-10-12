@@ -99,9 +99,12 @@ export default async function handler(
       qualifiedPairs: Array.isArray(data.qualifiedPairs)
         ? data.qualifiedPairs
         : [],
-      scannedAt: typeof data.durationMs === "number"
-        ? Date.now() - data.durationMs
-        : null,
+      // Waktu scan SEBENARNYA (ISO dari scanner). Sebelumnya dihitung
+      // now - durationMs sehingga selalu tampak "baru saja".
+      scannedAt:
+        typeof data.scannedAt === "string" && !Number.isNaN(Date.parse(data.scannedAt))
+          ? Date.parse(data.scannedAt)
+          : null,
       diagnostics: {
         scannedCount: data.scannedCount ?? 0,
         candidatesCount: data.candidatesCount ?? 0,
