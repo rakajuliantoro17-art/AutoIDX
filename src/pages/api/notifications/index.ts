@@ -57,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }),
         emergencyLogs: logSnap.docs
           .map((d) => ({ id: d.id, message: String(d.data().message ?? ""), ts: toMs(d.data().timestamp), type: String(d.data().type ?? "") }))
-          .filter((l) => l.type === "danger" && /emergency|reconciliation/i.test(l.message)),
+          .filter((l) => l.type === "danger" && (/emergency|reconciliation/i.test(l.message) || /\[ALERT:[A-Z_]+\]/.test(l.message))),
         pendingRecs: recSnap.docs.map((d) => {
           const x = d.data();
           return { id: d.id, title: String(x.title ?? ""), role: String(x.role ?? ""), createdAtMs: Number(x.createdAtMs) || 0 };

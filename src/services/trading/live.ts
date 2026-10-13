@@ -28,6 +28,7 @@ import { getOpenPositionsCount } from "@/services/firebase/botState";
 import { BOT_CONFIG } from "@/config/bot";
 import { validateLiveOrder } from "./liveOrderValidator";
 import { evaluateOrderBreaker } from "@/services/safety/orderBreaker";
+import { raiseAlert } from "@/services/alerts/raiseAlert";
 import { readOrderBreaker, recordOrderFailure, recordOrderSuccess } from "@/services/firebase/orderBreakerStore";
 import { validateLiveSellOrder } from "./liveSellValidator";
 import { getCanarySnapshot, getRecentCanaryOrders, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
@@ -487,6 +488,14 @@ class LiveTradingService {
           ? Math.ceil(breakerDecision.retryInMs / 60_000)
           : null;
 
+      if (!breaker.readFailed) {
+        await raiseAlert(
+          "ORDER_BREAKER",
+          "Pemutus order aktif",
+          `${breaker.state.consecutiveFailures} kegagalan kirim order beruntun; BUY diblokir sekitar ${retryMin} menit. Periksa koneksi/API Indodax.`
+        );
+      }
+
       await recordLog(
         "RISK",
         "warning",
@@ -542,6 +551,12 @@ class LiveTradingService {
             request.pair,
             "BUY",
             result.message ?? "Trade gagal via exception, status tidak pasti."
+          );
+
+          await raiseAlert(
+            "ORDER_UNCERTAIN",
+            "Status order tidak pasti (BUY)",
+            `${request.pair.toUpperCase()}: respons Indodax tidak diterima, order mungkin tereksekusi. Cek riwayat order di Indodax lalu resolve lock manual.`
           );
 
           lockResolved = true;
@@ -829,6 +844,12 @@ class LiveTradingService {
             request.pair,
             "SELL",
             result.message ?? "Trade gagal via exception, status tidak pasti."
+          );
+
+          await raiseAlert(
+            "ORDER_UNCERTAIN",
+            "Status order tidak pasti (SELL)",
+            `${request.pair.toUpperCase()}: respons Indodax tidak diterima, order mungkin tereksekusi. Cek riwayat order di Indodax lalu resolve lock manual.`
           );
 
           lockResolved = true;

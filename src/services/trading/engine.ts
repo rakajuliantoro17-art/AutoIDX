@@ -107,6 +107,7 @@ import {
   recordRealizedPnl,
 } from "@/services/firebase/riskState";
 import { evaluateDailyLoss } from "@/services/safety/dailyLossGuard";
+import { raiseAlert } from "@/services/alerts/raiseAlert";
 
 import {
   getBotControl,
@@ -1095,6 +1096,14 @@ export class TradingEngine {
           });
 
           if (dailyLoss.blocked) {
+
+            if (dailyLoss.reason === "LIMIT_REACHED") {
+              await raiseAlert(
+                "DAILY_LOSS_LIMIT",
+                "Batas rugi harian tercapai",
+                `Rugi hari ini ${riskState.dailyPnlIdr.toFixed(0)} IDR (batas ${dailyLoss.maxDailyLossIdr.toFixed(0)} IDR). BUY baru diblokir sampai besok.`
+              );
+            }
 
             await recordLog(
               "RISK",
