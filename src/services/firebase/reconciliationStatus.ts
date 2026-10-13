@@ -24,6 +24,7 @@ prinsip Emergency Stop yang sama di seluruh sistem).
 */
 
 import { adminDb } from "@/services/firebase/admin";
+import { shouldRecordHistory } from "@/services/safety/reconciliationHistory";
 
 const COLLECTION = "system_status";
 const DOC_ID = "reconciliation";
@@ -45,16 +46,32 @@ export async function recordReconciliationStatus(
 
   try {
 
-    await adminDb
-      .collection(COLLECTION)
-      .doc(DOC_ID)
-      .set(
-        {
-          ...status,
-          checkedAt: Date.now(),
-        },
-        { merge: true }
-      );
+    const ref = adminDb.collection(COLLECTION).doc(DOC_ID);
+    const now = Date.now();
+
+    // Riwayat pemulihan (Phase 44): catat hanya saat status BERUBAH.
+    // Gagal baca checkpoint sebelumnya tidak boleh menghalangi penyimpanan
+    // status terbaru -- cukup lewati riwayat.
+    let prev: ReconciliationStatus | null = null;
+    let prevReadOk = true;
+    try {
+      const snap = await ref.get();
+      prev = snap.exists ? (snap.data() as ReconciliationStatus) : null;
+    } catch {
+      prevReadOk = false;
+    }
+
+    await ref.set({ ...status, checkedAt: now }, { merge: true });
+
+    if (prevReadOk && shouldRecordHistory(prev, status)) {
+      await adminDb.collection("reconciliation_history").add({
+        ...status,
+        checkedAt: now,
+        previous: prev
+          ? { consistent: prev.consistent, mismatchCount: prev.mismatchCount, checkedAt: prev.checkedAt }
+          : null,
+      });
+    }
 
   } catch (error) {
 

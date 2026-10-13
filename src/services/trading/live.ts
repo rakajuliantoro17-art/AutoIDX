@@ -27,6 +27,8 @@ import { recordTrade, recordLog } from "@/services/firebase/logService";
 import { getOpenPositionsCount } from "@/services/firebase/botState";
 import { BOT_CONFIG } from "@/config/bot";
 import { validateLiveOrder } from "./liveOrderValidator";
+import { evaluateOrderBreaker } from "@/services/safety/orderBreaker";
+import { readOrderBreaker, recordOrderFailure, recordOrderSuccess } from "@/services/firebase/orderBreakerStore";
 import { validateLiveSellOrder } from "./liveSellValidator";
 import { getCanarySnapshot, getRecentCanaryOrders, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
 import { CanaryOrderMetric } from "@/services/liveTrading/monitoring/canaryMetrics";
@@ -470,6 +472,41 @@ class LiveTradingService {
     // sama (mis. cron overlap), acquire() ini akan throw dan
     // order TIDAK dikirim sama sekali - fail-safe di sisi kita,
     // bukan cuma mengandalkan Indodax menolak duplikat.
+    // --- Pemutus order (Phase 45): BUY dihentikan sementara setelah
+    // kegagalan kirim order beruntun atau bila status pemutus tak terbaca
+    // (fail-closed). SELL tidak pernah diblokir di sini. ---
+    const breaker = await readOrderBreaker();
+    const breakerDecision = breaker.readFailed
+      ? null
+      : evaluateOrderBreaker(breaker.state, Date.now());
+
+    if (breaker.readFailed || (breakerDecision && !breakerDecision.allow)) {
+
+      const retryMin =
+        breakerDecision && !breakerDecision.allow
+          ? Math.ceil(breakerDecision.retryInMs / 60_000)
+          : null;
+
+      await recordLog(
+        "RISK",
+        "warning",
+        breaker.readFailed
+          ? `LIVE BUY ${request.pair.toUpperCase()} diblokir - status pemutus order tidak bisa dibaca (fail-closed).`
+          : `LIVE BUY ${request.pair.toUpperCase()} diblokir - pemutus order aktif setelah ${breaker.state.consecutiveFailures} kegagalan kirim order beruntun, coba lagi sekitar ${retryMin} menit.`
+      );
+
+      await this.auditSafe("ORDER_REJECTED", localOrderId, {
+        metadata: { stage: "order-breaker", consecutiveFailures: breaker.state.consecutiveFailures },
+      });
+
+      throw new Error(
+        breaker.readFailed
+          ? "BUY diblokir: status pemutus order tidak terbaca."
+          : `BUY diblokir: pemutus order aktif (${breaker.state.consecutiveFailures} kegagalan beruntun).`
+      );
+
+    }
+
     await acquireLiveOrderLock(request.pair, "BUY");
 
     // Sengaja BUKAN try/finally biasa dengan release tanpa syarat
@@ -496,6 +533,8 @@ class LiveTradingService {
       });
 
       if (!result.success) {
+
+        await recordOrderFailure();
 
         if (result.certainty === "UNCERTAIN") {
 
@@ -534,6 +573,8 @@ class LiveTradingService {
         throw new Error(result.message);
 
       }
+
+      await recordOrderSuccess();
 
       await releaseLiveOrderLock(request.pair, "BUY", true);
       lockResolved = true;
