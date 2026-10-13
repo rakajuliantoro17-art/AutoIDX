@@ -29,6 +29,9 @@ export interface RiskState {
 
   updatedAt: number;
 
+  /** true bila baca Firestore gagal; nilai lain hanya default (jangan dipercaya). */
+  readFailed?: boolean;
+
 }
 
 const RISK_STATE_COLLECTION = "risk_state";
@@ -117,7 +120,7 @@ export async function getRiskState(): Promise<RiskState> {
 
     );
 
-    return fallback;
+    return { ...fallback, readFailed: true };
 
   }
 
@@ -137,6 +140,9 @@ export async function recordRealizedPnl(
   try {
 
     const current = await getRiskState();
+
+    // Jangan menimpa akumulasi rugi harian dengan default saat baca gagal.
+    if (current.readFailed) return false;
 
     const ref =
       adminDb

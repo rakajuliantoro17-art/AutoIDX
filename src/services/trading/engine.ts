@@ -106,6 +106,7 @@ import {
   getRiskState,
   recordRealizedPnl,
 } from "@/services/firebase/riskState";
+import { evaluateDailyLoss } from "@/services/safety/dailyLossGuard";
 
 import {
   getBotControl,
@@ -1085,18 +1086,24 @@ export class TradingEngine {
 
           }
 
-          const maxDailyLossIdr =
-            (RISK_CONFIG.maxDailyLossPercent / 100) *
-            portfolio.startingBalance;
+          const dailyLoss = evaluateDailyLoss({
+            dailyPnlIdr: riskState.dailyPnlIdr,
+            readFailed: riskState.readFailed,
+            maxDailyLossPercent: RISK_CONFIG.maxDailyLossPercent,
+            startingBalance: portfolio.startingBalance,
+            live: liveActive,
+          });
 
-          if (riskState.dailyPnlIdr <= -maxDailyLossIdr) {
+          if (dailyLoss.blocked) {
 
             await recordLog(
               "RISK",
               "warning",
-              `Batas rugi harian tercapai (${riskState.dailyPnlIdr.toFixed(
-                0
-              )} IDR) — BUY ${input.pair.toUpperCase()} diblokir.`
+              dailyLoss.reason === "STATE_UNREADABLE"
+                ? `Status rugi harian tidak bisa dibaca — BUY ${input.pair.toUpperCase()} diblokir (fail-closed, mode live).`
+                : `Batas rugi harian tercapai (${riskState.dailyPnlIdr.toFixed(
+                    0
+                  )} IDR) — BUY ${input.pair.toUpperCase()} diblokir.`
             );
 
             return {
@@ -1107,7 +1114,10 @@ export class TradingEngine {
 
               confidence: decision.confidence,
 
-              reason: "Batas rugi harian tercapai — BUY baru diblokir sampai besok.",
+              reason:
+                dailyLoss.reason === "STATE_UNREADABLE"
+                  ? "Status rugi harian tidak bisa dibaca — BUY baru diblokir (fail-closed)."
+                  : "Batas rugi harian tercapai — BUY baru diblokir sampai besok.",
 
               actionExecuted: false,
 
