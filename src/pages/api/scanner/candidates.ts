@@ -35,6 +35,7 @@ scan" tanpa mem-block halaman.
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { adminDb } from "@/services/firebase/admin";
+import { cached } from "@/lib/cache/ttlCache";
 import type { ScannedPairResult } from "@/services/scanner/types";
 
 export interface ScannerCandidatesResponse {
@@ -68,12 +69,15 @@ export default async function handler(
 
   try {
 
-    const snapshot = await adminDb
-      .collection("scannerResults")
-      .doc("latest")
-      .get();
+    // Endpoint ini publik (tanpa auth). Cache 30 detik per instance supaya
+    // pemanggil mana pun -- termasuk yang menyalahgunakan -- paling banyak
+    // memicu ~2 baca Firestore per menit, bukan satu per request.
+    const { exists, data: stored } = await cached("scanner:candidates", 30_000, async () => {
+      const snap = await adminDb.collection("scannerResults").doc("latest").get();
+      return { exists: snap.exists, data: snap.data() ?? {} };
+    });
 
-    if (!snapshot.exists) {
+    if (!exists) {
 
       return res.status(200).json({
         candidates: [],
@@ -90,7 +94,7 @@ export default async function handler(
 
     }
 
-    const data = snapshot.data() ?? {};
+    const data = stored;
 
     return res.status(200).json({
       candidates: Array.isArray(data.topOpportunities)
