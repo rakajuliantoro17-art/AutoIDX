@@ -77,6 +77,7 @@ import { reconcileUncertainOrders } from "@/services/liveTrading/reconciliation/
 import { auditLogger } from "@/services/audit/firestoreAudit";
 import { handleError } from "@/services/errors/errorHandler";
 import { SafetyGate } from "@/services/safety/safetyGate";
+import { withQuotaGuard, isQuotaError } from "@/lib/quota/quotaBreaker";
 import { createSafetyConfig } from "@/services/safety/safetyConfig";
 import type { SafetyContext } from "@/services/safety/safetyContext";
 
@@ -293,7 +294,7 @@ async function withBudget<T>(work: Promise<T>, ms: number): Promise<T | "timeout
 /** Jeda sebelum membaca ulang mismatch (ms) -- menyingkirkan balapan dengan order. */
 const RECHECK_DELAY_MS = 4_000;
 
-export default async function handler(
+async function reconcileHandler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
@@ -597,6 +598,10 @@ export default async function handler(
 
   } catch (error) {
 
+    // Error kuota: jangan menulis log ke Firestore lagi (pasti gagal juga);
+    // lempar ke pembungkus supaya pemutus aktif dan balasan 503 cepat.
+    if (isQuotaError(error)) throw error;
+
     const handled = handleError(error, {
       source: "cron/reconcile",
     });
@@ -616,3 +621,5 @@ export default async function handler(
   }
 
 }
+
+export default withQuotaGuard("CRON RECONCILE", reconcileHandler);

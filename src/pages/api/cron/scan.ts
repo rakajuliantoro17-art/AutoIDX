@@ -28,12 +28,13 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyCronSecret } from "@/lib/auth/cronAuth";
 import { runCycle, reportCycleFailure } from "@/services/scheduler/runCycle";
 import { getScanMinIntervalMs } from "@/services/scheduler/cronLock";
+import { withQuotaGuard, isQuotaError } from "@/lib/quota/quotaBreaker";
 
 export const config = {
   maxDuration: 60,
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function scanHandler(req: NextApiRequest, res: NextApiResponse) {
 
   const auth = verifyCronSecret(req.headers.authorization, "CRON SCAN");
 
@@ -73,6 +74,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error) {
 
+    // Error kuota: jangan menulis log ke Firestore lagi (pasti gagal juga);
+    // lempar ke pembungkus supaya pemutus aktif dan balasan 503 cepat.
+    if (isQuotaError(error)) throw error;
+
     const failure = await reportCycleFailure(error, "cron/scan");
 
     return res.status(500).json({
@@ -83,3 +88,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
 }
+
+export default withQuotaGuard("CRON SCAN", scanHandler);
