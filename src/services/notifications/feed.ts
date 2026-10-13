@@ -113,7 +113,7 @@ export function buildNotifications(input: FeedInput, limit = 40): Notif[] {
   }
 
   for (const l of input.emergencyLogs) {
-    out.push({ id: `l_${l.id}`, ts: l.ts, level: "danger", title: "Peringatan darurat", detail: l.message.slice(0, 220) });
+    out.push({ id: `l_${l.id}`, ts: l.ts, level: "danger", title: "Peringatan darurat", detail: l.message.slice(0, 480) });
   }
 
   for (const r of input.pendingRecs) {
