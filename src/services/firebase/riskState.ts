@@ -32,6 +32,9 @@ export interface RiskState {
   /** true bila baca Firestore gagal; nilai lain hanya default (jangan dipercaya). */
   readFailed?: boolean;
 
+  /** true bila batas rugi harian sudah tercapai hari ini (dikunci sampai ganti hari UTC). */
+  lossLimitLatched?: boolean;
+
 }
 
 const RISK_STATE_COLLECTION = "risk_state";
@@ -157,6 +160,9 @@ export async function recordRealizedPnl(
 
         dailyPnlIdr: current.dailyPnlIdr + pnlIdr,
 
+        // Pertahankan kunci di hari yang sama; hari baru (current = default) = false.
+        lossLimitLatched: current.lossLimitLatched === true,
+
         updatedAt: Date.now(),
 
       },
@@ -178,6 +184,31 @@ export async function recordRealizedPnl(
     );
 
     return false;
+
+  }
+
+}
+
+/**
+ * Kunci batas rugi harian: dipanggil engine saat batas terdeteksi tercapai,
+ * supaya laba SELL berikutnya tidak membuka BUY lagi di hari yang sama.
+ * Best-effort: gagal menulis tidak menggagalkan blokir yang sedang berjalan.
+ */
+export async function latchLossLimit(): Promise<void> {
+
+  try {
+
+    await adminDb
+      .collection(RISK_STATE_COLLECTION)
+      .doc(RISK_STATE_DOC_ID)
+      .set(
+        { dateKey: todayKey(), lossLimitLatched: true, updatedAt: Date.now() },
+        { merge: true }
+      );
+
+  } catch (error) {
+
+    console.error("[RISK STATE LATCH ERROR]", error);
 
   }
 

@@ -28,3 +28,11 @@ test("LIVE + status tidak terbaca -> diblokir (fail-closed)", () => {
 test("PAPER + status tidak terbaca -> tidak diblokir (tanpa dana nyata)", () => {
   assert.equal(evaluateDailyLoss({ ...base, live: false, dailyPnlIdr: 0, readFailed: true }).blocked, false);
 });
+test("kunci: batas pernah tercapai hari ini -> tetap diblokir walau P&L pulih di atas batas", () => {
+  const d = evaluateDailyLoss({ ...base, dailyPnlIdr: 5_000, latched: true });
+  assert.equal(d.blocked, true);
+  assert.equal(d.reason, "LIMIT_REACHED");
+});
+test("tanpa kunci dan P&L di atas batas -> lolos", () => {
+  assert.equal(evaluateDailyLoss({ ...base, dailyPnlIdr: -10_000, latched: false }).blocked, false);
+});

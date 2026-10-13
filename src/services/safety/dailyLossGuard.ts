@@ -13,6 +13,12 @@ export interface DailyLossInput {
   maxDailyLossPercent: number;
   startingBalance: number;
   live: boolean;
+  /**
+   * true bila batas pernah tercapai HARI INI (dikunci). Tanpa kunci, laba dari
+   * SELL berikutnya bisa mengangkat P&L di atas batas dan BUY lanjut lagi di hari
+   * yang sama, padahal pesan ke operator menyebut "diblokir sampai besok".
+   */
+  latched?: boolean;
 }
 
 export interface DailyLossDecision {
@@ -26,7 +32,7 @@ export function evaluateDailyLoss(input: DailyLossInput): DailyLossDecision {
   if (input.readFailed && input.live) {
     return { blocked: true, reason: "STATE_UNREADABLE", maxDailyLossIdr };
   }
-  if (input.dailyPnlIdr <= -maxDailyLossIdr) {
+  if (input.latched || input.dailyPnlIdr <= -maxDailyLossIdr) {
     return { blocked: true, reason: "LIMIT_REACHED", maxDailyLossIdr };
   }
   return { blocked: false, reason: "OK", maxDailyLossIdr };

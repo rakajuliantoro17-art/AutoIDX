@@ -105,6 +105,7 @@ import {
 import {
   getRiskState,
   recordRealizedPnl,
+  latchLossLimit,
 } from "@/services/firebase/riskState";
 import { evaluateDailyLoss } from "@/services/safety/dailyLossGuard";
 import { raiseAlert } from "@/services/alerts/raiseAlert";
@@ -1090,6 +1091,7 @@ export class TradingEngine {
           const dailyLoss = evaluateDailyLoss({
             dailyPnlIdr: riskState.dailyPnlIdr,
             readFailed: riskState.readFailed,
+            latched: riskState.lossLimitLatched,
             maxDailyLossPercent: RISK_CONFIG.maxDailyLossPercent,
             startingBalance: portfolio.startingBalance,
             live: liveActive,
@@ -1097,7 +1099,8 @@ export class TradingEngine {
 
           if (dailyLoss.blocked) {
 
-            if (dailyLoss.reason === "LIMIT_REACHED") {
+            if (dailyLoss.reason === "LIMIT_REACHED" && !riskState.lossLimitLatched) {
+              await latchLossLimit();
               await raiseAlert(
                 "DAILY_LOSS_LIMIT",
                 "Batas rugi harian tercapai",
