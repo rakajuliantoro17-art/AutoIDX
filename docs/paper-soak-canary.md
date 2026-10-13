@@ -1,6 +1,6 @@
 # Paper Soak & Canary Live - rencana pengujian (Phase 49)
 
-STATUS: USULAN. Durasi dan toleransi di bawah harus disetujui pemilik SEBELUM pengujian dimulai (syarat Phase 49); setelah disetujui, jangan diubah di tengah jalan. Tanggal mulai/selesai diisi pemilik di tabel bukti.
+STATUS: DISETUJUI pemilik dan Tahap A DIMULAI 2026-10-14 (mode Paper, Emergency Stop mati, posisi hantu xrp_idr sudah bersih). Paling cepat selesai 2026-10-21. Durasi dan toleransi di bawah tidak diubah di tengah jalan.
 
 Tujuan: membuktikan, dengan bukti terukur, bahwa bot stabil dan aman sebelum dana nyata diperbesar. Lulus soak tidak menjamin untung; ini uji keselamatan dan kestabilan, bukan uji profit.
 
@@ -44,4 +44,4 @@ Emergency Stop AKTIF + mode Paper (Settings). SELL/exit tidak pernah diblokir, j
 ## Tabel bukti (diisi selama pengujian)
 | Tanggal | Tahap | A1/B1 | A2/B2 | A3/B3 | A4/B4 | B5 | B6 | Catatan/insiden |
 |---|---|---|---|---|---|---|---|---|
-|  |  |  |  |  |  |  |  |  |
+| 2026-10-14 | A (hari 1) |  |  |  |  |  |  | Mulai soak; Paper, Emergency Stop mati |
