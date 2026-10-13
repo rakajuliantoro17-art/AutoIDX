@@ -1161,3 +1161,17 @@ Belum teruji / terbuka:
 - Query shadow scoring memuat maks. 150 dokumen belum-dinilai; bila antrean menumpuk, skor per-AI bisa tertinggal.
 - Sebelum kembali ke live: bersihkan posisi paper di `bot_state`, pastikan `BOT_LIVE_CONFIRM=true`, `BOT_OWNER_UID` terisi, Max Open Position 1 di hari pertama, reconcile Successful. Cron `/api/cron/agent` sudah dibuat di cron-job.org (harian 06.30 WIB).
 - tsc + next build lolos pada setiap commit sesi ini.
+
+### Session Log 46 - Production Assurance (Phase 41-50) tahap 1: test, risk fail-closed, hemat kuota, pemutus kuota (2026-10-13)
+Roadmap Phase 41-50 (Production Assurance & Safe Live Trading) dimulai; urutan diputuskan Claude: 48 (test) -> 41 -> 42 -> 43 -> 46 -> kuota, lalu 44/45.
+- Audit orphan seluruh `src` (445 file, skrip kini membaca .js juga): 0 folder orphan. Tersisa 3 file tak terimpor: `scripts/validateEnv.ts` & `checkBuild.ts` (dipanggil lewat package.json) dan `services/index.ts` (barrel 27 baris, belum diputuskan).
+- Phase 48: `npm test` (node:test + tsx 4.19.2, folder `tests/`). 45 test: SafetyGate, classify posisi hantu, validator order live, position sizing, batas rugi harian, pembatas interval, pemutus kuota. CI (`ci.yml`) menjalankan test sebelum build.
+- Phase 41: build lokal tanpa env Firebase berhenti di "Firebase config missing" - disengaja (fail-fast), bukan bug. tsc dan kompilasi lulus.
+- Phase 42 BUG: `getRiskState()` gagal-terbuka (baca Firestore gagal -> rugi harian dianggap 0, batas rugi mati diam-diam; `recordRealizedPnl` bahkan bisa menimpa akumulasi). Kini `readFailed` ditandai, `safety/dailyLossGuard.ts` memblokir BUY di mode live bila status tak terbaca, dan pencatatan tidak menimpa. Paper tidak diblokir. Batas posisi terbuka & eksposur total sudah fail-closed.
+- Phase 43: alur order sudah benar (lock sebelum kirim, UNCERTAIN menahan lock, PENDING kedaluwarsa). Terbuka: `clientOrderId` didukung klien tetapi tidak dikirim dari `trading/live.ts` (perlu uji canary format yang diterima Indodax sebelum diaktifkan).
+- Phase 46: hanya 3 endpoint tanpa auth (data pasar publik); `/api/scanner/candidates` kini di-cache 30 dtk (cegah penyalahgunaan kuota). Repo bersih dari secret. `npm audit`: 23 kerentanan (1 kritis) di rantai next/firebase/firebase-admin - butuh naik versi mayor, DITUNDA (stabilkan dulu).
+- Kuota Firestore: sumber terbesar ditemukan = kalibrasi AI Score (`evaluateDueCalibrations` baca s.d. 300 dok + tulis s.d. 10 dok TIAP siklus scan, ~18rb baca/jam saat ramai). Kini sekali per 10 menit (`lib/cache/interval.ts`, di memori instance). Kuota habis lagi pukul ~13.15 WIB (reconcile & scan timeout 30 dtk); pulih setelah reset 14.00 WIB (scan 18,5 dtk & reconcile 6,9 dtk Successful pukul 19.10-19.15). Hemat reads belum terukur - cek Firebase Usage.
+- Pemutus kuota (`lib/quota/quotaBreaker.ts`, scan & reconcile): error RESOURCE_EXHAUSTED -> 503 cepat + cooldown 3 menit, batas handler 25 dtk, tidak menulis log ke Firestore saat kuota habis. Cooldown di memori instance.
+- Catatan proses: `positionClassify.ts`, `quotaBreaker.ts`, dan edit `package.json`/`scan.ts` muncul di working tree bukan dari sesi ini (kemungkinan sesi/proses lain di repo yang sama); isinya ditinjau dan dipertahankan. Cek bila ada proses lain yang mengedit repo ini.
+- Terbuka: hantu `xrp_idr` (user membersihkan via Settings -> Cek Posisi vs Saldo Indodax), Phase 44/45/47/49/50, konsolidasi 3 klien Indodax, naik versi dependensi.
+- tsc + 45 test lulus pada setiap commit (8aeebc75, bed93c46, aa1cd4b6, 55fc5ceb).
