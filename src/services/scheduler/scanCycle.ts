@@ -28,6 +28,7 @@ di services/firebase/botControl.ts).
 */
 
 import marketScanner from "@/services/scanner";
+import { claimInterval } from "@/lib/cache/interval";
 import { adminDb } from "@/services/firebase/admin";
 import { executeCron } from "@/services/scheduler/cron";
 import {
@@ -60,6 +61,12 @@ import type { CronResult } from "@/services/scheduler/cron";
 // margin di bawah 30 detik nyaris nol. Dengan 8 candidate (2
 // gelombang), ada ruang aman lebih besar.
 const MAX_CANDIDATE_PAIRS_PER_CYCLE = 8;
+
+// Kalibrasi AI Score (baca sampai 300 dokumen + tulis sampai 10 dokumen per
+// siklus) dulu jalan SETIAP siklus scan. Itu pemakai kuota Firestore terbesar:
+// ~18K baca/jam saat market ramai. Snapshot baru jatuh tempo 30 menit, jadi
+// cukup dijalankan tiap 10 menit -- data kalibrasi tetap sama, kuota jauh hemat.
+const CALIBRATION_INTERVAL_MS = 10 * 60 * 1000;
 
 export interface ScanCycleResult {
   summary: MarketScanSummary;
@@ -112,14 +119,21 @@ export async function runScanCycle(): Promise<ScanCycleResult> {
   // --- AI Score Calibration Tracker (lihat catatan FIX REGRESI di
   // atas) -- fail-safe sepenuhnya di dalam aiCalibration.ts, tidak
   // pernah mengganggu siklus scan/trading di bawah kalau gagal.
+  const runCalibration = claimInterval("ai-calibration", CALIBRATION_INTERVAL_MS);
   const { calibrationEvaluation, calibrationRecording } = await timer.run(
     "calibration",
-    async () => ({
-      calibrationEvaluation: await evaluateDueCalibrations(),
-      calibrationRecording: await recordCalibrationSnapshots(
-        summary.topOpportunities
-      ),
-    })
+    async () =>
+      runCalibration
+        ? {
+            calibrationEvaluation: await evaluateDueCalibrations(),
+            calibrationRecording: await recordCalibrationSnapshots(
+              summary.topOpportunities
+            ),
+          }
+        : {
+            calibrationEvaluation: { evaluated: 0, correct: 0 },
+            calibrationRecording: { written: 0 },
+          }
   );
 
   if (calibrationEvaluation.evaluated > 0) {
