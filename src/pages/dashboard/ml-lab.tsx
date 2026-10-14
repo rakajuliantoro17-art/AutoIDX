@@ -360,7 +360,7 @@ export default function MlLabPage() {
                 <summary className="cursor-pointer text-[var(--text-secondary)]">
                   Detail per kelas
                 </summary>
-                <table className="mt-2 w-full text-xs">
+                <div className="overflow-x-auto max-w-full"><table className="mt-2 w-full text-xs">
                   <thead>
                     <tr className="text-[var(--text-muted)]">
                       <th className="text-left">Kelas</th>
@@ -383,7 +383,7 @@ export default function MlLabPage() {
                       )
                     )}
                   </tbody>
-                </table>
+                </table></div>
               </details>
 
               {trainResult.failedPairs && trainResult.failedPairs.length > 0 && (

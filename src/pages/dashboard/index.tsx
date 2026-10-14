@@ -248,7 +248,7 @@ export default function DashboardPage() {
         )}
 
         {/* Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 [&>*:first-child]:col-span-2 lg:[&>*:first-child]:col-span-1">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 [&>*:first-child]:col-span-2 lg:[&>*:first-child]:col-span-1 [&>*]:min-w-0">
           <StatusCard
             title={`${selectedPair.replace("_", "/").toUpperCase()} Price`}
             value={data.loading ? "..." : formatIDR(data.price ?? 0)}
@@ -264,8 +264,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Main Area */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 min-w-0">
             <PriceChart pair={selectedPair} />
           </div>
           <ActivityLogs logs={logs} />

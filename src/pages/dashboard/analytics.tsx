@@ -214,7 +214,7 @@ export default function AnalyticsPage() {
             {data.strategyBreakdown && data.strategyBreakdown.length > 0 && (
               <div className="glass p-4">
                 <p className="text-sm font-bold mb-2">Breakdown per Strategi</p>
-                <table className="w-full text-xs">
+                <div className="overflow-x-auto max-w-full"><table className="w-full text-xs">
                   <thead>
                     <tr className="text-[var(--text-muted)] text-left">
                       <th>Strategi</th>
@@ -241,7 +241,7 @@ export default function AnalyticsPage() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
                 {data.strategyBreakdownNote && (
                   <p className="text-xs text-[var(--text-muted)] mt-2">{data.strategyBreakdownNote}</p>
                 )}

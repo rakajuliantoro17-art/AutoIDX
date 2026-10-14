@@ -95,12 +95,12 @@ export default function PriceChart({ pair }: PriceChartProps) {
             {last ? `Terakhir: Rp ${fmt(last.close)}` : "Market Visualization"}
           </p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 shrink-0">
           {TIMEFRAMES.map((t) => (
             <button
               key={t.value}
               onClick={() => setResolution(t.value)}
-              className={`text-xs px-2 py-1 rounded ${
+              className={`text-xs px-3 py-1.5 min-h-[32px] rounded ${
                 resolution === t.value
                   ? "bg-emerald-500/20 text-emerald-400"
                   : "text-[var(--text-muted)] hover:text-white"
@@ -112,7 +112,7 @@ export default function PriceChart({ pair }: PriceChartProps) {
         </div>
       </div>
 
-      <div ref={boxRef} className="h-64 rounded-xl bg-black/20 border border-white/10 overflow-hidden">
+      <div ref={boxRef} className="h-64 w-full max-w-full min-w-0 rounded-xl bg-black/20 border border-white/10 overflow-hidden">
         {error && !candles.length ? (
           <div className="h-full flex items-center justify-center text-sm text-red-400">
             {error}
@@ -122,7 +122,7 @@ export default function PriceChart({ pair }: PriceChartProps) {
             Memuat grafik...
           </div>
         ) : (
-          <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block">
+          <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} className="block max-w-full" role="img" aria-label={`Grafik candlestick ${pair.toUpperCase()}`}>
             {[0, 0.25, 0.5, 0.75, 1].map((f) => {
               const p = hi - f * span;
               const yy = y(p);

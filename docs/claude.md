@@ -1175,3 +1175,16 @@ Roadmap Phase 41-50 (Production Assurance & Safe Live Trading) dimulai; urutan d
 - Catatan proses: `positionClassify.ts`, `quotaBreaker.ts`, dan edit `package.json`/`scan.ts` muncul di working tree bukan dari sesi ini (kemungkinan sesi/proses lain di repo yang sama); isinya ditinjau dan dipertahankan. Cek bila ada proses lain yang mengedit repo ini.
 - Terbuka: hantu `xrp_idr` (user membersihkan via Settings -> Cek Posisi vs Saldo Indodax), Phase 44/45/47/49/50, konsolidasi 3 klien Indodax, naik versi dependensi.
 - tsc + 45 test lulus pada setiap commit (8aeebc75, bed93c46, aa1cd4b6, 55fc5ceb).
+
+### Session Log 47 - Production Assurance tahap 2: pemutus order, alert, runbook, soak, simulasi, perbaikan mobile (2026-10-14)
+Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
+- Pemutus order (`safety/orderBreaker.ts` + `firebase/orderBreakerStore.ts`, doc `risk_state/order_breaker`): 3 kegagalan kirim BUY beruntun -> BUY diblokir 10 menit, lalu half-open (1 percobaan); fail-closed bila status tak terbaca; SELL tidak pernah diblokir. Dipasang di `trading/live.ts` sebelum lock BUY.
+- Riwayat reconcile (`safety/reconciliationHistory.ts`): koleksi `reconciliation_history` hanya ditulis saat status berubah (hemat tulis).
+- Alert terpusat (`alerts/raiseAlert.ts`): DAILY_LOSS_LIMIT, ORDER_BREAKER, ORDER_UNCERTAIN; cooldown 30 menit per jenis; tampil di lonceng lewat pola `[ALERT:*]`.
+- `docs/runbook.md` (7 insiden) dan `docs/paper-soak-canary.md`: Tahap A paper soak 7 hari (mulai 2026-10-14, paling cepat selesai 2026-10-21), Tahap B canary Rp10.000/order 14 hari (B1-B6). Durasi tidak dipersingkat.
+- Simulasi acak berbenih (`tests/simulation.test.ts`) menemukan BUG: batas rugi harian tidak dikunci (setelah rugi >= batas, satu SELL laba bisa menurunkan rugi di bawah batas dan BUY lanjut). Perbaikan: `lossLimitLatched` + `latchLossLimit()` sampai pergantian hari UTC (07.00 WIB), `dailyLossGuard.latched`, alert DAILY_LOSS_LIMIT.
+- Harness bursa tiruan (`tests/liveFlow.test.ts`, `mock.module`): menjalankan `live.ts`, `liveOrderLock`, `orderBreakerStore` ASLI dengan Firestore/Indodax palsu. Teruji: UNCERTAIN menahan lock (BUY & SELL), pemutus buka/half-open/tutup, fail-closed, BUY bersamaan hanya satu lolos, lock PENDING kedaluwarsa 60 dtk vs UNCERTAIN tidak, fuzz 150 skenario. Mutasi pada lock/pemutus terbukti ditangkap. `npm test` kini memakai `--experimental-test-module-mocks` (75 test). Tidak membuktikan perilaku Indodax asli (format client_order_id, fee, slippage) - itu tugas canary.
+- Mobile: chart keluar bingkai karena `main`/kolom grid tanpa `min-w-0` dan SVG berlebar piksel tetap. Perbaikan: `min-w-0` di `DashboardLayout` dan grid dashboard, SVG `width=100%` + viewBox, tombol timeframe lebih besar, tabel analytics/ml-lab/activity dibungkus `overflow-x-auto`. Belum diverifikasi visual di perangkat nyata.
+- Status pengguna: mode Paper, Emergency Stop off, hantu `xrp_idr` bersih.
+- Terbuka: isi tabel evidence Tahap A, ukur Firebase Usage reads, `clientOrderId` (uji di canary), konsolidasi 3 klien Indodax, naik versi dependensi (npm audit 23), nasib barrel `services/index.ts`.
+- Commit: fe92bc2d, 78b77d1f, serta perbaikan mobile.

@@ -238,7 +238,7 @@ export default function ActivityPage() {
           Transaksi Terbaru
         </h2>
 
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto max-w-full"><table className="w-full text-sm">
 
           <thead className="border-b border-white/10">
             <tr>
@@ -290,7 +290,7 @@ export default function ActivityPage() {
             )}
           </tbody>
 
-        </table>
+        </table></div>
 
       </div>
 
@@ -302,7 +302,7 @@ export default function ActivityPage() {
           Log Sistem
         </h2>
 
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto max-w-full"><table className="w-full text-sm">
 
           <thead className="border-b border-white/10">
             <tr>
@@ -344,7 +344,7 @@ export default function ActivityPage() {
             )}
           </tbody>
 
-        </table>
+        </table></div>
 
       </div>
 
