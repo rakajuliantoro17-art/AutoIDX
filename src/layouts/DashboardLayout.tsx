@@ -32,7 +32,7 @@ export default function DashboardLayout({
 
       <div className="flex flex-1 min-w-0">
         <AppSidebar pathname={router.pathname} />
-        <main className="w-full min-w-0 flex-1 px-4 py-6 md:px-6 md:py-8">
+        <main className="w-full min-w-0 max-w-full overflow-x-clip flex-1 px-4 py-6 md:px-6 md:py-8">
           {children}
         </main>
       </div>

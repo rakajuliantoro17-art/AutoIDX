@@ -128,7 +128,7 @@ icon:"•"
 return (
 
 
-<div className="glass p-5">
+<div className="glass p-4 sm:p-5 min-w-0 max-w-full">
 
 
 
@@ -239,7 +239,7 @@ logs.map((log)=>(
 key={log.id}
 
 
-className="fade-in flex gap-3 items-start text-xs font-mono"
+className="fade-in flex gap-2 sm:gap-3 items-start text-xs font-mono min-w-0"
 
 
 >
@@ -274,15 +274,7 @@ getTypeStyle(log.type).icon
 
 
 
-<span
-
-className={
-
-getTypeStyle(log.type).color
-
-}
-
->
+<span className={"min-w-0 flex-1 break-words [overflow-wrap:anywhere] "+getTypeStyle(log.type).color}>
 
 
 {log.message}
