@@ -12,7 +12,7 @@
     "type-check": "tsc --noEmit",
     "check:env": "node --experimental-strip-types src/scripts/validateEnv.ts",
     "check:build": "node --experimental-strip-types src/scripts/checkBuild.ts",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --experimental-test-module-mocks --test tests/*.test.ts"
   },
   "dependencies": {
     "firebase": "10.12.4",
