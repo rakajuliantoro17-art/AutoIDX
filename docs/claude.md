@@ -1197,4 +1197,5 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - Koleksi `scannerHistory` tidak pernah dibaca dan tidak pernah dibersihkan -> penulisan per siklus dihentikan (-~1.440 write/hari). Dokumen lama bisa dihapus manual dari Console.
 - Panel "Performa per Strategi" ternyata sudah ada (Analytics > Breakdown per Strategi, dari /api/analytics/risk).
 - "Memori Proses" desimal panjang (1.7652259332023574%) diperbaiki: dibulatkan 1 desimal di memoryHealth.ts (hasil) dan SystemStatusPanel.tsx (tampilan); logika status tetap memakai nilai mentah.
+- Log advisory "[ML Advisory PAIR]" & "[Trend+Volume Advisory PAIR]" (observability-only) ditulis per pair kandidat tiap siklus -> di-throttle 1x/5 menit per pair+jenis (services/firebase/advisoryLogThrottle.ts, dipanggil dari recordLog). Log trade/order/alarm tidak ditahan. Estimasi hemat: sebagian dari ~5 write/siklus; ukur di Usage besok.
 - Terbuka: cari sumber ~5 write/siklus di mesin trading, sumber ~240 delete/jam; ukur ulang usage ~13.30 WIB besok (angka sehari penuh).

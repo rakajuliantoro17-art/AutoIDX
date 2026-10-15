@@ -12,6 +12,7 @@ Security Rules karena request.auth selalu null.)
 
 import { adminDb } from "./admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { shouldWriteLog } from "./advisoryLogThrottle";
 
 export interface TradeLog {
 
@@ -212,6 +213,9 @@ type:ActivityLog["type"],
 message:string
 
 ):Promise<void>{
+
+// Advisory observability-only di-throttle per pair (hemat write Firestore).
+if(!shouldWriteLog(type,message)) return;
 
 adminDb.collection(LOGS_COLLECTION).add(
 
