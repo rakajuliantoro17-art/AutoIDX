@@ -221,7 +221,7 @@ export default function SystemStatusPanel({
               )}
               {typeof check.usagePercent === "number" && (
                 <p className="text-[10px] text-[var(--text-muted)]">
-                  {check.usagePercent}%
+                  {check.usagePercent.toFixed(1)}%
                 </p>
               )}
             </div>

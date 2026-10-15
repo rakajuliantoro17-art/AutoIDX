@@ -158,7 +158,7 @@ export class MemoryHealth {
 
                 externalMB,
 
-                usagePercent,
+                usagePercent: Math.round(usagePercent * 10) / 10,
 
                 message:
 
