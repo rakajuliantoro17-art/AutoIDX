@@ -103,10 +103,8 @@ export async function runScanCycle(): Promise<ScanCycleResult> {
       durationMs: Date.now() - startedAt,
     });
 
-    await adminDb.collection("scannerHistory").add({
-      ...summary,
-      durationMs: Date.now() - startedAt,
-    });
+    // scannerHistory dihentikan (2026-10-15): ditulis tiap siklus (~1.440 write/hari)
+    // tapi tidak dibaca di mana pun dan tidak pernah dibersihkan.
   });
 
   console.log(

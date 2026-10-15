@@ -1191,3 +1191,9 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - `npm audit` per 2026-10-15: 35 kerentanan (1 kritis `next`, 17 high, 17 moderate), hampir semuanya butuh naik versi mayor (next 14->16, firebase-admin 12->14, firebase 10->9.14 saran npm/tailwind 3->4). Yang tanpa mayor hanya `tsx` (dev, tidak terpakai di runtime). Tidak diubah: naik mayor di tengah soak merusak bukti; jadwalkan setelah canary.
 - Terbuka: isi tabel evidence Tahap A, ukur Firebase Usage reads, `clientOrderId` (uji di canary), konsolidasi 3 klien Indodax, naik versi dependensi (npm audit 23), nasib barrel `services/index.ts`.
 - Commit: fe92bc2d, 78b77d1f, serta perbaikan mobile.
+
+### Log 47 - tambahan 2026-10-15 (pengukuran Firestore)
+- Usage hari kuota (3 jam 20 mnt setelah reset 14:00 WIB): writes 2K (proyeksi ~14,4K/20K), reads 2,4K (~17K/50K), deletes 800 (~5,8K/20K). Dibanding 12 Okt (reads 51K, deletes 20K): reads turun ~60%, deletes ~76%. Writes tersisa ~72% kuota - sisa ruang tipis untuk canary / 25 pair.
+- Koleksi `scannerHistory` tidak pernah dibaca dan tidak pernah dibersihkan -> penulisan per siklus dihentikan (-~1.440 write/hari). Dokumen lama bisa dihapus manual dari Console.
+- Panel "Performa per Strategi" ternyata sudah ada (Analytics > Breakdown per Strategi, dari /api/analytics/risk).
+- Terbuka: cari sumber ~5 write/siklus di mesin trading, sumber ~240 delete/jam; ukur ulang usage ~13.30 WIB besok (angka sehari penuh).
