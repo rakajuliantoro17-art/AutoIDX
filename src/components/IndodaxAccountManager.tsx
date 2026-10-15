@@ -31,6 +31,8 @@ export default function IndodaxAccountManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -88,7 +90,12 @@ export default function IndodaxAccountManager() {
     setError(null);
 
     try {
-      await authedFetch("POST", { label, apiKey, secretKey });
+      const created = await authedFetch("POST", { label, apiKey, secretKey });
+      setNotice(
+        created.isActive
+          ? "Akun ditambahkan dan langsung dipakai bot."
+          : "Akun ditambahkan sebagai cadangan (nonaktif). Tekan \"Jadikan Aktif\" untuk memakainya."
+      );
       setLabel("");
       setApiKey("");
       setSecretKey("");
@@ -114,23 +121,31 @@ export default function IndodaxAccountManager() {
     }
   }
 
-  async function handleToggle(accountId: string, current: boolean) {
-    if (!user) return;
-
+  async function handleSetActive(accountId: string, makeActive: boolean) {
+    if (!user || busyId) return;
+    if (!makeActive && !confirm("Nonaktifkan akun ini? Bot tidak akan punya akun aktif dan BUY baru akan gagal sampai ada akun yang diaktifkan.")) return;
+    setBusyId(accountId);
+    setError(null);
+    setNotice(null);
     try {
-      await authedFetch("PATCH", { accountId, isActive: !current });
+      await authedFetch("PATCH", { accountId, isActive: makeActive });
+      setNotice(makeActive ? "Akun aktif diganti. Bot memakai akun ini mulai siklus berikutnya." : "Akun dinonaktifkan.");
       await loadAccounts();
     } catch (err) {
-      console.error("[IndodaxAccountManager] Failed to toggle:", err);
+      console.error("[IndodaxAccountManager] Failed to change active account:", err);
       setError(err instanceof Error ? err.message : "Gagal mengubah status akun.");
+    } finally {
+      setBusyId(null);
     }
   }
+
+  const activeCount = accounts.filter((a) => a.isActive).length;
 
   return (
     <div className="card">
       <h2 className="text-xl font-semibold mb-5">Akun Trade API Indodax</h2>
       <p className="text-[var(--text-secondary)] text-sm mb-2">
-        Kelola API Key & Secret dari akun Indodax kamu. Bisa lebih dari satu akun.
+        Kelola API Key & Secret dari akun Indodax kamu. Bisa menyimpan lebih dari satu akun, tetapi bot hanya memakai SATU akun aktif pada satu waktu (tidak paralel).
       </p>
       <p className="text-[var(--text-muted)] text-xs mb-6">
         🔒 Disimpan terenkripsi (AES-256-GCM) di server. API key/secret utuh
@@ -140,6 +155,24 @@ export default function IndodaxAccountManager() {
       {error && (
         <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-md px-3 py-2 mb-4">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-md px-3 py-2 mb-4">
+          {notice}
+        </div>
+      )}
+
+      {!loading && accounts.length > 0 && activeCount === 0 && (
+        <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2 mb-4">
+          Belum ada akun aktif. Bot tidak bisa mengirim order sampai satu akun diaktifkan.
+        </div>
+      )}
+
+      {!loading && activeCount > 1 && (
+        <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2 mb-4">
+          Ada {activeCount} akun aktif (data lama). Bot memakai yang paling lama dibuat. Tekan &quot;Jadikan Aktif&quot; pada akun yang benar untuk merapikan.
         </div>
       )}
 
@@ -188,24 +221,39 @@ export default function IndodaxAccountManager() {
           accounts.map((acc) => (
             <div
               key={acc.id}
-              className="flex items-center justify-between bg-white/5 rounded-md px-4 py-3 text-sm"
+              className="flex flex-wrap items-center justify-between gap-2 bg-white/5 rounded-md px-4 py-3 text-sm"
             >
               <div>
                 <p className="font-medium">{acc.label}</p>
                 <p className="text-[var(--text-muted)] text-xs mt-1">{acc.apiKeyMasked}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleToggle(acc.id, acc.isActive)}
-                  className={`text-xs px-3 py-1 rounded-full ${
-                    acc.isActive ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-[var(--text-secondary)]"
-                  }`}
-                >
-                  {acc.isActive ? "Aktif" : "Nonaktif"}
-                </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {acc.isActive ? (
+                  <>
+                    <span className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">
+                      ● Dipakai bot
+                    </span>
+                    <button
+                      onClick={() => handleSetActive(acc.id, false)}
+                      disabled={busyId !== null}
+                      className="text-xs px-3 py-1 rounded-full bg-white/10 text-[var(--text-secondary)] disabled:opacity-50"
+                    >
+                      Nonaktifkan
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => handleSetActive(acc.id, true)}
+                    disabled={busyId !== null}
+                    className="text-xs px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 disabled:opacity-50"
+                  >
+                    {busyId === acc.id ? "Memproses..." : "Jadikan Aktif"}
+                  </button>
+                )}
                 <button
                   onClick={() => handleDelete(acc.id)}
-                  className="text-xs px-3 py-1 rounded-full bg-red-500/20 text-red-400"
+                  disabled={busyId !== null}
+                  className="text-xs px-3 py-1 rounded-full bg-red-500/20 text-red-400 disabled:opacity-50"
                 >
                   Hapus
                 </button>

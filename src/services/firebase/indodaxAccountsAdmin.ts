@@ -16,6 +16,7 @@ CATATAN: file ini HANYA boleh diimport dari server
 
 import { adminDb } from "./admin";
 import { decrypt } from "@/services/security/encryption";
+import { pickActiveAccount } from "@/services/accounts/accountSelection";
 
 export interface ActiveIndodaxCredentials {
   accountId: string;
@@ -45,7 +46,6 @@ export async function getActiveIndodaxAccount(): Promise<ActiveIndodaxCredential
       .doc(ownerUid)
       .collection("indodaxAccounts")
       .where("isActive", "==", true)
-      .limit(1)
       .get();
 
     if (snap.empty) {
@@ -58,7 +58,23 @@ export async function getActiveIndodaxAccount(): Promise<ActiveIndodaxCredential
 
     }
 
-    const doc = snap.docs[0];
+    // Bot hanya memakai SATU akun. Data lama bisa punya >1 akun aktif;
+    // pilih deterministik (tertua) dan tandai di log, jangan acak.
+    const picked = pickActiveAccount(
+      snap.docs.map((d) => ({
+        id: d.id,
+        isActive: true,
+        createdAt: Number(d.data().createdAt ?? 0),
+      }))
+    );
+
+    if (picked.ambiguous) {
+      console.error(
+        "[Indodax Accounts Admin] Lebih dari satu akun aktif; memakai yang tertua. Aktifkan satu akun saja di Settings."
+      );
+    }
+
+    const doc = snap.docs.find((d) => d.id === picked.account!.id)!;
     const data = doc.data();
 
     return {
