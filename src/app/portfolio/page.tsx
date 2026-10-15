@@ -137,13 +137,13 @@ export default function PortfolioPage() {
   return (
     <section className="space-y-8">
 
-      <div className="glass p-8">
+      <div className="glass p-5 sm:p-8">
 
         <div className="flex items-center justify-between">
 
           <div>
 
-            <h1 className="text-3xl font-bold">
+            <h1 className="text-2xl sm:text-3xl font-bold">
               Portfolio
             </h1>
 
@@ -189,14 +189,14 @@ export default function PortfolioPage() {
 
       {/* Summary */}
 
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:gap-6 md:grid-cols-4 [&>*]:min-w-0">
 
         <div className="card">
           <p className="text-sm text-[var(--text-secondary)]">
             Total Balance
           </p>
 
-          <h2 className="mt-2 text-2xl font-bold">
+          <h2 className="mt-2 text-xl sm:text-2xl font-bold">
             Rp {formatIdr(portfolio.balance)}
           </h2>
         </div>
@@ -206,7 +206,7 @@ export default function PortfolioPage() {
             Available
           </p>
 
-          <h2 className="mt-2 text-2xl font-bold text-emerald-400">
+          <h2 className="mt-2 text-xl sm:text-2xl font-bold text-emerald-400">
             Rp {formatIdr(portfolio.available)}
           </h2>
         </div>
@@ -216,7 +216,7 @@ export default function PortfolioPage() {
             Invested
           </p>
 
-          <h2 className="mt-2 text-2xl font-bold text-sky-400">
+          <h2 className="mt-2 text-xl sm:text-2xl font-bold text-sky-400">
             Rp {formatIdr(portfolio.invested)}
           </h2>
         </div>
@@ -226,7 +226,7 @@ export default function PortfolioPage() {
             Open Positions
           </p>
 
-          <h2 className="mt-2 text-2xl font-bold">
+          <h2 className="mt-2 text-xl sm:text-2xl font-bold">
             {portfolio.openPositionsCount}
           </h2>
         </div>
@@ -235,7 +235,7 @@ export default function PortfolioPage() {
 
       {/* Performance */}
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 md:gap-6 md:grid-cols-3 [&>*]:min-w-0">
 
         <div className="card">
           <p className="text-sm text-[var(--text-secondary)]">
