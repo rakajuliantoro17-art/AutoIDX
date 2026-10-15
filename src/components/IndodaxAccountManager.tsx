@@ -147,7 +147,7 @@ export default function IndodaxAccountManager() {
       <p className="text-[var(--text-secondary)] text-sm mb-2">
         Kelola API Key & Secret dari akun Indodax kamu. Bisa menyimpan lebih dari satu akun, tetapi bot hanya memakai SATU akun aktif pada satu waktu (tidak paralel).
       </p>
-      <p className="text-[var(--text-muted)] text-xs mb-6">
+      <p className="text-[var(--text-secondary)] text-xs mb-6">
         🔒 Disimpan terenkripsi (AES-256-GCM) di server. API key/secret utuh
         tidak pernah dikirim balik ke browser setelah disimpan.
       </p>

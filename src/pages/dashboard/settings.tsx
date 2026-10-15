@@ -139,8 +139,8 @@ export default function SettingsPage() {
     <DashboardLayout>
       <section className="space-y-8">
 
-        <div className="glass p-8">
-          <h1 className="text-3xl font-bold">AURA Trade OS Settings</h1>
+        <div className="glass p-5 sm:p-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">AURA Trade OS Settings</h1>
           <p className="text-[var(--text-secondary)] mt-2">
             Trading configuration and risk management
             {loading ? " — memuat..." : ""}
