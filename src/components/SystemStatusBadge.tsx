@@ -30,7 +30,15 @@ type BotMode = "paper" | "live";
 
 const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.TICKER_MS;
 
-export default function SystemStatusBadge() {
+export type StatusTone = "ok" | "warn" | "danger";
+
+export default function SystemStatusBadge({
+  refreshKey = 0,
+  onTone,
+}: {
+  refreshKey?: number;
+  onTone?: (tone: StatusTone) => void;
+} = {}) {
 
   const { user } = useAuth();
 
@@ -82,7 +90,18 @@ export default function SystemStatusBadge() {
 
     return () => interval();
 
-  }, [fetchMode]);
+  }, [fetchMode, refreshKey]);
+
+  useEffect(() => {
+    if (!onTone) return;
+    const tone: StatusTone =
+      emergencyStop || effectiveMode === "live"
+        ? "danger"
+        : effectiveMode === null || fetchFailed || requestedMode === "live"
+          ? "warn"
+          : "ok";
+    onTone(tone);
+  }, [emergencyStop, effectiveMode, fetchFailed, requestedMode, onTone]);
 
   if (!user) {
     return null;

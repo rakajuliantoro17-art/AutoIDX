@@ -18,12 +18,8 @@ supaya kedua router menghasilkan header yang identik.
 */
 
 import Image from "next/image";
-import UserMenu from "@/components/auth/UserMenu";
-import SystemStatusBadge from "@/components/SystemStatusBadge";
 import SidebarMobileTrigger from "./SidebarMobileTrigger";
-import ThemeToggleButton from "./ThemeToggleButton";
-import NotificationBell from "./NotificationBell";
-import SystemStatusPopover from "./SystemStatusPopover";
+import HeaderMenu from "./HeaderMenu";
 
 export default function AppHeader() {
   return (
@@ -49,13 +45,7 @@ export default function AppHeader() {
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
-          <NotificationBell />
-          <SystemStatusPopover />
-          <ThemeToggleButton />
-          <SystemStatusBadge />
-          <UserMenu />
-        </div>
+        <HeaderMenu />
       </div>
     </header>
   );

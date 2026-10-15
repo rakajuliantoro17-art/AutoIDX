@@ -42,7 +42,7 @@ function ago(ms: number): string {
   return h < 48 ? `${h} jam lalu` : `${Math.round(h / 24)} hari lalu`;
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ onUnread }: { onUnread?: (n: number) => void } = {}) {
   const { user } = useAuth();
   const [items, setItems] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
@@ -93,9 +93,13 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  if (!user) return null;
-
   const unread = items.filter((i) => i.ts > seen).length;
+
+  useEffect(() => {
+    onUnread?.(user ? unread : 0);
+  }, [unread, user, onUnread]);
+
+  if (!user) return null;
 
   function toggle() {
     const next = !open;
@@ -136,6 +140,7 @@ export default function NotificationBell() {
         createPortal(
           <div
             ref={panelRef}
+            data-keep-open="true"
             className="glass-nav fixed right-2 top-[68px] z-[80] w-[min(94vw,24rem)] max-h-[70vh] overflow-y-auto rounded-2xl border p-3 shadow-xl"
           >
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">Notifikasi</p>
