@@ -35,6 +35,9 @@ test("log non-advisory dan non-info TIDAK PERNAH ditahan", () => {
 
 test("advisoryKey hanya mengenali dua prefix advisory", () => {
   assert.equal(advisoryKey(ml), "ML Advisory|BTC_IDR");
-  assert.equal(advisoryKey("[AI Advisory BTC_IDR] x"), null);
+  assert.equal(advisoryKey("[AI Consensus BTC_IDR] x"), "AI Consensus|BTC_IDR");
+  assert.equal(advisoryKey("[Effective Config ETH_IDR] x"), "Effective Config|ETH_IDR");
+  assert.equal(advisoryKey("[Trailing Stop BTC_IDR] naik"), null);
+  assert.equal(advisoryKey("[EXPOSURE TOTAL] BUY diblokir"), null);
   assert.equal(advisoryKey("halo"), null);
 });

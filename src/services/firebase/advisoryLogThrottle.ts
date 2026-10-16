@@ -1,7 +1,7 @@
 /**
  * Throttle log advisory (observability-only), per pair.
  *
- * `[Trend+Volume Advisory PAIR]` dan `[ML Advisory PAIR]` ditulis ke
+ * `[Trend+Volume Advisory PAIR]`, `[ML Advisory PAIR]`, `[AI Advisory/Explainability/Consensus PAIR]` dan `[Effective Config PAIR]` ditulis ke
  * Firestore untuk SETIAP pair kandidat di SETIAP siklus (tiap menit).
  * Keduanya murni informasi (bukan gate BUY/SELL), jadi cukup satu kali
  * per pair per jendela waktu. Menghemat write Firestore (Spark 20K/hari).
@@ -14,7 +14,10 @@
 
 export const ADVISORY_LOG_INTERVAL_MS = 5 * 60 * 1000;
 
-const ADVISORY_PREFIX = /^\[(Trend\+Volume Advisory|ML Advisory) ([^\]]+)\]/;
+// Semua log observability per-pair yang ditulis tiap siklus untuk tiap
+// pair kandidat. Murni informasi, tidak pernah dipakai sebagai gate.
+const ADVISORY_PREFIX =
+  /^\[(Trend\+Volume Advisory|ML Advisory|AI Advisory|AI Explainability|AI Consensus|Effective Config) ([^\]]+)\]/;
 
 const lastWritten = new Map<string, number>();
 
