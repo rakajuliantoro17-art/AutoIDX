@@ -54,7 +54,6 @@ import { isFeatureEnabled } from "../firebase/featureFlags";
 import { getOpenPositionPairs } from "../firebase/botState";
 import { getBotControl } from "../firebase/botControl";
 import { TRADING_CONFIG } from "@/config/trading";
-import { latencyMonitor } from "@/services/monitor/latencyMonitor";
 import strategyManager from "@/services/strategy/manager";
 import evaluator from "@/services/strategy/core/evaluator";
 import entryRules from "@/services/strategy/rules/entryRules";
@@ -471,11 +470,10 @@ export async function executeCron(
 
   const finished = Date.now();
 
-  // Tulis SATU ringkasan latensi panggilan Indodax untuk siklus ini
-  // ke Firestore (lihat monitor/latencyMonitor.ts) -- membangun tren
-  // "Indodax makin lambat/cepat" lintas waktu, tanpa menulis per-call
-  // (yang boros write Firestore).
-  await latencyMonitor.flush("indodax_public");
+  // Flush latensi ke Firestore (latency_stats/*/entries) DIHENTIKAN
+  // 2026-10-18: ditulis tiap siklus (~1.440 write/hari) tapi tidak
+  // pernah dibaca (getRecentStats tidak dipanggil siapa pun) dan tidak
+  // pernah dibersihkan. Aktifkan lagi hanya bila ada pembaca + retensi.
 
   return {
     success: results.every((r) => r.success),
