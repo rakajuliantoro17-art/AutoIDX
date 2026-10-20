@@ -55,12 +55,24 @@ export async function collectOpsInput(nowMs = Date.now()): Promise<OpsInput> {
   const positions = [];
   for (const pair of openPairs.slice(0, 20)) {
     const s = await getBotState(pair);
+    // Field profitPercent/positionValue di bot_state tidak pernah diperbarui
+    // (selalu 0), jadi dihitung dari data yang memang diperbarui tiap siklus:
+    // entryPrice, currentPrice, coinAmount.
+    const entryPrice = Number(s.entryPrice) || 0;
+    const currentPrice = Number(s.currentPrice) || 0;
+    const coinAmount = Number(s.coinAmount) || 0;
     positions.push({
       pair,
-      profitPercent: Number(s.profitPercent) || 0,
-      entryPrice: Number(s.entryPrice) || 0,
-      currentPrice: Number(s.currentPrice) || 0,
-      positionValue: Number(s.positionValue) || 0,
+      profitPercent:
+        entryPrice > 0 && currentPrice > 0
+          ? ((currentPrice - entryPrice) / entryPrice) * 100
+          : Number(s.profitPercent) || 0,
+      entryPrice,
+      currentPrice,
+      positionValue:
+        coinAmount > 0 && currentPrice > 0
+          ? coinAmount * currentPrice
+          : Number(s.positionValue) || 0,
     });
   }
 
