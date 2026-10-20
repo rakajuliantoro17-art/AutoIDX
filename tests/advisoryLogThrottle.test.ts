@@ -1,59 +1,70 @@
-import { test, beforeEach } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   shouldWriteLog,
-  advisoryKey,
-  resetAdvisoryThrottle,
-  ADVISORY_LOG_INTERVAL_MS,
-  DUPLICATE_LOG_WINDOW_MS,
+  isSampleTurn,
+  routinePair,
+  SAMPLE_BUCKET_MS,
+  SAMPLE_EVERY,
 } from "../src/services/firebase/advisoryLogThrottle";
 
-beforeEach(() => resetAdvisoryThrottle());
+const pairs = ["btc_idr", "eth_idr", "xrp_idr", "doge_idr", "sol_idr", "ada_idr", "bnb_idr", "trx_idr", "ltc_idr", "dot_idr"];
 
-const ml = "[ML Advisory BTC_IDR] label=up, confidence=60%";
-const tv = "[Trend+Volume Advisory BTC_IDR] TrendRule: score=1";
-
-test("advisory pertama selalu ditulis, berikutnya dalam jendela ditahan", () => {
-  assert.equal(shouldWriteLog("info", ml, 1000), true);
-  assert.equal(shouldWriteLog("info", ml, 1000 + 60_000), false);
-  assert.equal(shouldWriteLog("info", ml, 1000 + ADVISORY_LOG_INTERVAL_MS), true);
+test("routinePair mengenali log rutin per pair saja", () => {
+  assert.equal(routinePair("[Confidence Info BTC_IDR] HIGH (80)"), "btc_idr");
+  assert.equal(routinePair("[ML Advisory ETH_IDR] label=up"), "eth_idr");
+  assert.equal(routinePair("[Trend+Volume Advisory XRP_IDR] x"), "xrp_idr");
+  assert.equal(routinePair("Cron execution started (btc_idr)."), "btc_idr");
+  assert.equal(routinePair("HOLD BTC_IDR"), "btc_idr");
+  // BUKAN rutin: harus selalu ditulis
+  assert.equal(routinePair("[PAPER] BUY BTC_IDR @ 1000"), null);
+  assert.equal(routinePair("[PAPER] SELL BTC_IDR @ 1000"), null);
+  assert.equal(routinePair("[Sanity Check 1 - Konsensus BTC_IDR] x"), null);
+  assert.equal(routinePair("[Trailing Stop BTC_IDR] naik"), null);
+  assert.equal(routinePair("[EXPOSURE TOTAL] BUY BTC_IDR diblokir"), null);
+  assert.equal(routinePair("Cron memproses 10 pair (...)"), null);
+  assert.equal(routinePair("HOLD BTC_IDR karena sesuatu"), null);
 });
 
-test("per pair dan per jenis dihitung terpisah", () => {
-  assert.equal(shouldWriteLog("info", ml, 0), true);
-  assert.equal(shouldWriteLog("info", tv, 0), true);
-  assert.equal(shouldWriteLog("info", ml.replace("BTC_IDR", "ETH_IDR"), 0), true);
-  assert.equal(shouldWriteLog("info", ml, 1), false);
-});
-
-test("warning/danger/error TIDAK PERNAH ditahan, walau teks identik", () => {
-  for (let i = 0; i < 5; i++) {
-    assert.equal(shouldWriteLog("danger", ml, i), true);
-    assert.equal(shouldWriteLog("warning", "Trading Engine (btc_idr): gagal", i), true);
-    assert.equal(shouldWriteLog("error", "x", i), true);
+test("warning/danger/error TIDAK PERNAH disampling", () => {
+  for (const t of ["warning", "danger", "error"]) {
+    for (let i = 0; i < 50; i++) {
+      assert.equal(shouldWriteLog(t, "[Confidence Info BTC_IDR] x", i * SAMPLE_BUCKET_MS), true);
+    }
   }
 });
 
-test("info/success identik persis ditekan dalam jendela, lalu lolos lagi", () => {
-  const m = "Cron execution started (btc_idr).";
-  assert.equal(shouldWriteLog("info", m, 0), true);
-  assert.equal(shouldWriteLog("info", m, 60_000), false);
-  assert.equal(shouldWriteLog("info", m, DUPLICATE_LOG_WINDOW_MS), true);
+test("log non-rutin info/success SELALU ditulis", () => {
+  for (let i = 0; i < 50; i++) {
+    const now = i * SAMPLE_BUCKET_MS;
+    assert.equal(shouldWriteLog("success", "[PAPER] BUY BTC_IDR @ 1000", now), true);
+    assert.equal(shouldWriteLog("info", "Cron memproses 10 pair", now), true);
+  }
 });
 
-test("teks berbeda, pair berbeda, atau tipe berbeda TIDAK ditekan", () => {
-  assert.equal(shouldWriteLog("info", "Cron execution started (btc_idr).", 0), true);
-  assert.equal(shouldWriteLog("info", "Cron execution started (eth_idr).", 1), true);
-  assert.equal(shouldWriteLog("success", "Cron execution started (btc_idr).", 2), true);
-  assert.equal(shouldWriteLog("info", "[Paper] BUY btc_idr @ 1000", 3), true);
-  assert.equal(shouldWriteLog("info", "[Paper] BUY btc_idr @ 1001", 4), true);
+test("tiap pair menulis tepat 1 dari SAMPLE_EVERY jendela (per jam)", () => {
+  for (const p of pairs) {
+    let n = 0;
+    for (let b = 0; b < SAMPLE_EVERY * 10; b++) {
+      if (isSampleTurn(p, b * SAMPLE_BUCKET_MS + 5_000)) n++;
+    }
+    assert.equal(n, 10, `${p}: 1 dari ${SAMPLE_EVERY} jendela`);
+  }
 });
 
-test("advisoryKey hanya mengenali dua prefix advisory", () => {
-  assert.equal(advisoryKey(ml), "ML Advisory|BTC_IDR");
-  assert.equal(advisoryKey("[AI Consensus BTC_IDR] x"), "AI Consensus|BTC_IDR");
-  assert.equal(advisoryKey("[Effective Config ETH_IDR] x"), "Effective Config|ETH_IDR");
-  assert.equal(advisoryKey("[Trailing Stop BTC_IDR] naik"), null);
-  assert.equal(advisoryKey("[EXPOSURE TOTAL] BUY diblokir"), null);
-  assert.equal(advisoryKey("halo"), null);
+test("beban tersebar: tiap siklus hanya sebagian kecil pair yang menulis", () => {
+  let total = 0;
+  const cycles = 60;
+  for (let b = 0; b < cycles; b++) {
+    for (const p of pairs) if (isSampleTurn(p, b * SAMPLE_BUCKET_MS + 1000)) total++;
+  }
+  // rata-rata ~10/6 pair per siklus, bukan 10
+  assert.ok(total / cycles < 4, `rata-rata ${total / cycles} pair/siklus`);
+  assert.ok(total / cycles > 0.5);
+});
+
+test("tanpa state: hasil sama untuk panggilan berulang di jendela yang sama", () => {
+  const now = 123 * SAMPLE_BUCKET_MS + 1;
+  const a = shouldWriteLog("info", "HOLD BTC_IDR", now);
+  for (let i = 0; i < 5; i++) assert.equal(shouldWriteLog("info", "HOLD BTC_IDR", now + i), a);
 });

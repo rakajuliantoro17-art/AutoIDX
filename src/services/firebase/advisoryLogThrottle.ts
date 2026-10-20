@@ -1,83 +1,53 @@
 /**
- * Throttle log advisory (observability-only), per pair.
+ * Sampling log RUTIN per pair - TANPA state (aman untuk serverless).
  *
- * `[Trend+Volume Advisory PAIR]`, `[ML Advisory PAIR]`, `[AI Advisory/Explainability/Consensus PAIR]` dan `[Effective Config PAIR]` ditulis ke
- * Firestore untuk SETIAP pair kandidat di SETIAP siklus (tiap menit).
- * Keduanya murni informasi (bukan gate BUY/SELL), jadi cukup satu kali
- * per pair per jendela waktu. Menghemat write Firestore (Spark 20K/hari).
+ * Diukur 2026-10-20 (lastWriteCounts): satu siklus scan menulis ~80 log
+ * aktivitas (~85% dari semua write Firestore). Hampir semuanya log rutin
+ * per pair yang isinya sama tiap siklus (started, Confidence Info,
+ * Trend+Volume, ML, AI advisory, HOLD, ...). Cron berjalan tiap 10 menit
+ * dan instance Vercel dingin di antaranya, jadi throttle berbasis memori
+ * tidak pernah bekerja. Di sini keputusan murni fungsi waktu + nama pair:
+ * tiap pair menulis log rutin pada 1 dari SAMPLE_EVERY jendela
+ * SAMPLE_BUCKET_MS, bergiliran antar pair (beban write merata).
  *
- * Hanya pesan dengan prefix advisory yang di-throttle. Log lain
- * (trade, order, alarm, error) SELALU ditulis. State in-memory per
- * instance serverless: kalau instance dingin, log tertulis (gagal-aman
- * ke arah "lebih banyak log", bukan lebih sedikit).
+ * Hanya log info/success yang polanya dikenali di bawah yang disampling.
+ * Trade, order, sanity check, warning, danger, dan error SELALU ditulis.
  */
 
-export const ADVISORY_LOG_INTERVAL_MS = 5 * 60 * 1000;
+export const SAMPLE_BUCKET_MS = 10 * 60 * 1000;
+export const SAMPLE_EVERY = 6; // 6 x 10 menit = sekali per jam per pair
 
-// Semua log observability per-pair yang ditulis tiap siklus untuk tiap
-// pair kandidat. Murni informasi, tidak pernah dipakai sebagai gate.
-const ADVISORY_PREFIX =
-  /^\[(Trend\+Volume Advisory|ML Advisory|AI Advisory|AI Explainability|AI Consensus|Effective Config) ([^\]]+)\]/;
+const ROUTINE =
+  /^(?:\[(?:Trend\+Volume Advisory|ML Advisory|AI Advisory|AI Explainability|AI Consensus|Effective Config|Confidence Info) ([^\]]+)\]|Cron execution started \(([^)]+)\)|HOLD ([A-Za-z0-9_]+)\s*$)/;
 
-const lastWritten = new Map<string, number>();
-
-/** Kunci throttle (jenis+pair) atau null bila pesan bukan log advisory. */
-export function advisoryKey(message: string): string | null {
-  const m = ADVISORY_PREFIX.exec(message);
-  return m ? `${m[1]}|${m[2]}` : null;
+function hash(text: string): number {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) {
+    h = (h * 31 + text.charCodeAt(i)) >>> 0;
+  }
+  return h;
 }
 
-/**
- * Jendela penekanan duplikat persis. Log info/success dengan TEKS SAMA
- * PERSIS untuk pesan yang sama tidak membawa informasi baru, jadi hanya
- * ditulis ulang setelah jendela ini lewat. Tiap pair tiap siklus,
- * cron.ts menulis "Cron execution started", "Trading Engine ... HOLD",
- * "[Confidence Info]" dst. - ini yang paling banyak memakan write.
- */
-export const DUPLICATE_LOG_WINDOW_MS = 10 * 60 * 1000;
-const MAX_TRACKED = 500;
+/** Nama pair bila pesan adalah log rutin per pair, selain itu null. */
+export function routinePair(message: string): string | null {
+  const m = ROUTINE.exec(message);
+  if (!m) return null;
+  return (m[1] ?? m[2] ?? m[3] ?? "").toLowerCase() || null;
+}
 
-const lastExact = new Map<string, number>();
-
-function pruneExact(now: number, windowMs: number): void {
-  if (lastExact.size <= MAX_TRACKED) return;
-  for (const [k, t] of lastExact) {
-    if (now - t >= windowMs) lastExact.delete(k);
-  }
+/** Giliran pair ini menulis log rutin pada jendela waktu `now`? */
+export function isSampleTurn(pair: string, now: number = Date.now()): boolean {
+  const bucket = Math.floor(now / SAMPLE_BUCKET_MS);
+  return (bucket + hash(pair.toLowerCase())) % SAMPLE_EVERY === 0;
 }
 
 export function shouldWriteLog(
   type: string,
   message: string,
-  now: number = Date.now(),
-  intervalMs: number = ADVISORY_LOG_INTERVAL_MS,
-  duplicateWindowMs: number = DUPLICATE_LOG_WINDOW_MS
+  now: number = Date.now()
 ): boolean {
-  // warning / danger / error: SELALU ditulis.
   if (type !== "info" && type !== "success") return true;
-
-  // 1) Advisory per-pair (hanya info): sekali per interval per pair+jenis.
-  if (type === "info") {
-    const key = advisoryKey(message);
-    if (key !== null) {
-      const last = lastWritten.get(key);
-      if (last !== undefined && now - last < intervalMs) return false;
-      lastWritten.set(key, now);
-      return true;
-    }
-  }
-
-  // 2) Duplikat persis (info/success): tekan dalam jendela.
-  const exactKey = `${type}|${message}`;
-  const prev = lastExact.get(exactKey);
-  if (prev !== undefined && now - prev < duplicateWindowMs) return false;
-  lastExact.set(exactKey, now);
-  pruneExact(now, duplicateWindowMs);
-  return true;
-}
-
-/** Hanya untuk test. */
-export function resetAdvisoryThrottle(): void {
-  lastWritten.clear();
-  lastExact.clear();
+  const pair = routinePair(message);
+  if (pair === null) return true;
+  return isSampleTurn(pair, now);
 }

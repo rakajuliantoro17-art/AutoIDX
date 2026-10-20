@@ -50,6 +50,7 @@ import {
 import type { IndicatorFeatureVector } from "../indicators";
 import { TradingEngine } from "../trading/engine";
 import { recordLog } from "../firebase/logService";
+import { isSampleTurn } from "../firebase/advisoryLogThrottle";
 import { isFeatureEnabled } from "../firebase/featureFlags";
 import { getOpenPositionPairs } from "../firebase/botState";
 import { getBotControl } from "../firebase/botControl";
@@ -233,11 +234,20 @@ async function processPair(pair: string): Promise<CronPairResult> {
       candles,
     });
 
-    await recordLog(
-      "BOT",
-      engineResult.success ? "success" : "warning",
-      `Trading Engine (${pair}): ${engineResult.reason}`
-    );
+    // HOLD rutin (tanpa aksi, tanpa error) disampling 1x/jam per pair untuk
+    // hemat write Firestore (lihat advisoryLogThrottle.ts). Aksi, sinyal
+    // non-HOLD, dan kegagalan SELALU ditulis.
+    const routineHold =
+      engineResult.success &&
+      !engineResult.actionExecuted &&
+      engineResult.signal === "HOLD";
+    if (!routineHold || isSampleTurn(pair)) {
+      await recordLog(
+        "BOT",
+        engineResult.success ? "success" : "warning",
+        `Trading Engine (${pair}): ${engineResult.reason}`
+      );
+    }
 
     // --- Confidence Engine (INFO ONLY - lihat docs/claude.md,
     // strategyScore.ts SENGAJA dilepas dari gerbang keputusan BUY
