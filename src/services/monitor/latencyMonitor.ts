@@ -122,9 +122,22 @@ export class LatencyMonitor {
 
     private recordFailure(error: unknown): void {
         try {
-            const e = error as { status?: number; message?: string } | null;
-            const text = (e?.message ?? String(error ?? "unknown")).slice(0, 80);
-            const key = e?.status ? `${e.status} ${text}` : text;
+            // Tembus pembungkus (mis. RetryError "Error is not retryable")
+            // sampai penyebab aslinya: status HTTP, nama error, endpoint.
+            let root = error as Record<string, unknown> | null;
+            for (let i = 0; i < 4; i++) {
+                const cause = root?.cause as Record<string, unknown> | undefined;
+                if (!cause || typeof cause !== "object") break;
+                root = cause;
+            }
+            const name = String(root?.name ?? "");
+            const parts = [
+                name && name !== "Error" ? name : "",
+                root?.status ? String(root.status) : "",
+                root?.endpoint ? String(root.endpoint) : "",
+                String(root?.message ?? error ?? "unknown").slice(0, 60),
+            ].filter(Boolean);
+            const key = parts.join(" ");
             this.failures.set(key, (this.failures.get(key) ?? 0) + 1);
         } catch {
             // diagnostik saja

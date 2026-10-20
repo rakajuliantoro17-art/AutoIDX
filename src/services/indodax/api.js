@@ -68,6 +68,8 @@ async function fetchPublicWithRetry(url, options = {}) {
         if (!response.ok) {
           const httpError = new Error(`HTTP Error: ${response.status}`);
           httpError.status = response.status;
+          // Untuk diagnostik: endpoint mana yang gagal (ticker/depth/trades/...).
+          httpError.endpoint = String(url).split('?')[0].split('/').slice(-1)[0];
           throw httpError;
         }
 
