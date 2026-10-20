@@ -28,6 +28,7 @@ import {
   resetWriteCounts,
   getWriteCounts,
 } from "@/services/firebase/writeCounter";
+import { latencyMonitor } from "@/services/monitor/latencyMonitor";
 
 export type RunCycleOutcome =
   | {
@@ -75,6 +76,7 @@ export async function runCycle(
     try {
       installWriteCounter();
       resetWriteCounts();
+      latencyMonitor.takeFailureSummary();
     } catch {
       // diagnostik saja
     }
@@ -88,6 +90,7 @@ export async function runCycle(
       qualifiedCount: result.summary.qualifiedCount,
       phasesMs: result.phasesMs,
       writeCounts: getWriteCounts(),
+      publicFailures: latencyMonitor.takeFailureSummary(),
     });
 
     return { status: "completed", result, durationMs };

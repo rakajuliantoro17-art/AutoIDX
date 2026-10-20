@@ -71,6 +71,8 @@ export async function recordHeartbeat(meta: {
   phasesMs?: Record<string, number>;
   /** Jumlah write per koleksi selama siklus ini (diagnostik kuota). */
   writeCounts?: Record<string, number>;
+  /** Penyebab kegagalan request publik Indodax (5 teratas) selama siklus ini. */
+  publicFailures?: Record<string, number>;
 }): Promise<void> {
 
   try {
@@ -81,6 +83,7 @@ export async function recordHeartbeat(meta: {
       lastQualifiedCount: meta.qualifiedCount,
       lastPhasesMs: meta.phasesMs ?? null,
       lastWriteCounts: meta.writeCounts ?? null,
+      lastPublicFailures: meta.publicFailures ?? null,
     });
 
   } catch (error) {

@@ -25,7 +25,6 @@ composite index Firestore yang harus dibuat manual.
 ==========================================================
 */
 
-import logger from "@/services/logger";
 import { adminDb } from "@/services/firebase/admin";
 
 /*
@@ -94,11 +93,14 @@ export class LatencyMonitor {
             const latency =
                 performance.now() - started;
 
-            logger.error(
-                "Latency measurement failed.",
-                error,
-                { target, latency },
-            );
+            // TIDAK lagi menulis log DANGER ke Firestore per kegagalan:
+            // diukur 2026-10-20, ~30 request publik gagal per siklus =
+            // ~30 write/siklus + "210 error/24 jam" di Agen, dengan teks
+            // statis tanpa penyebab. Ringkasan penyebabnya dititipkan ke
+            // heartbeat (lastPublicFailures). Error tetap sampai ke
+            // pemanggil: measure() mengembalikan success:false, dan
+            // indodax/api.js (fetchPublicWithRetry) melempar error aslinya.
+            this.recordFailure(error);
 
             return {
                 target,
@@ -109,6 +111,33 @@ export class LatencyMonitor {
 
         }
 
+    }
+
+    /*
+    ======================================================
+    Ringkasan kegagalan per siklus (in-memory)
+    ======================================================
+    */
+    private readonly failures = new Map<string, number>();
+
+    private recordFailure(error: unknown): void {
+        try {
+            const e = error as { status?: number; message?: string } | null;
+            const text = (e?.message ?? String(error ?? "unknown")).slice(0, 80);
+            const key = e?.status ? `${e.status} ${text}` : text;
+            this.failures.set(key, (this.failures.get(key) ?? 0) + 1);
+        } catch {
+            // diagnostik saja
+        }
+    }
+
+    /** Ambil ringkasan kegagalan (5 teratas) lalu kosongkan. */
+    public takeFailureSummary(): Record<string, number> {
+        const top = [...this.failures.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+        this.failures.clear();
+        return Object.fromEntries(top);
     }
 
     /*
