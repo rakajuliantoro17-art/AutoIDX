@@ -23,6 +23,11 @@ import { acquireCronLock } from "@/services/scheduler/cronLock";
 import { recordHeartbeat } from "@/services/scheduler/cronHeartbeat";
 import { handleError } from "@/services/errors/errorHandler";
 import { recordLog } from "@/services/firebase/logService";
+import {
+  installWriteCounter,
+  resetWriteCounts,
+  getWriteCounts,
+} from "@/services/firebase/writeCounter";
 
 export type RunCycleOutcome =
   | {
@@ -67,6 +72,12 @@ export async function runCycle(
   try {
     const startedAt = Date.now();
 
+    try {
+      installWriteCounter();
+      resetWriteCounts();
+    } catch {
+      // diagnostik saja
+    }
     const result = await runScanCycle();
     const durationMs = Date.now() - startedAt;
 
@@ -76,6 +87,7 @@ export async function runCycle(
       durationMs,
       qualifiedCount: result.summary.qualifiedCount,
       phasesMs: result.phasesMs,
+      writeCounts: getWriteCounts(),
     });
 
     return { status: "completed", result, durationMs };

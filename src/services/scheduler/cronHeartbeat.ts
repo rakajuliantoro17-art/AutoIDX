@@ -69,6 +69,8 @@ export async function recordHeartbeat(meta: {
   qualifiedCount: number;
   /** Durasi per tahap siklus (ms), opsional -- untuk diagnosis CPU. */
   phasesMs?: Record<string, number>;
+  /** Jumlah write per koleksi selama siklus ini (diagnostik kuota). */
+  writeCounts?: Record<string, number>;
 }): Promise<void> {
 
   try {
@@ -78,6 +80,7 @@ export async function recordHeartbeat(meta: {
       lastDurationMs: meta.durationMs,
       lastQualifiedCount: meta.qualifiedCount,
       lastPhasesMs: meta.phasesMs ?? null,
+      lastWriteCounts: meta.writeCounts ?? null,
     });
 
   } catch (error) {
