@@ -408,17 +408,21 @@ export async function executeCron(
     // Flag watchlistOnly: abaikan kandidat scanner, proses watchlist
     // tetap + posisi terbuka saja (kandidat tetap discan/ditampilkan).
     const watchlistOnly = await isFeatureEnabled("watchlistOnly");
-    if (watchlistOnly && (candidatePairs?.length ?? 0) > 0) {
+    // Kandidat scanner HANYA dieksekusi bila scannerExecution menyala
+    // (default mati) dan watchlistOnly mati. Lihat featureFlags.ts.
+    const scannerExecution = await isFeatureEnabled("scannerExecution");
+    const executeCandidates = scannerExecution && !watchlistOnly;
+    if (!executeCandidates && (candidatePairs?.length ?? 0) > 0) {
       await recordLog(
         "BOT",
         "info",
-        `[Watchlist Only] ${candidatePairs!.length} kandidat scanner TIDAK dieksekusi siklus ini; hanya watchlist (${effectiveWatchlist.length} pair) + posisi terbuka.`
+        `[Watchlist Only] ${candidatePairs!.length} kandidat scanner TIDAK dieksekusi siklus ini (scannerExecution mati atau watchlistOnly menyala); hanya watchlist (${effectiveWatchlist.length} pair) + posisi terbuka.`
       );
     }
     pairs = Array.from(
       new Set(
         [
-          ...(watchlistOnly ? [] : candidatePairs ?? []),
+          ...(executeCandidates ? candidatePairs ?? [] : []),
           ...openPositionPairs,
           ...effectiveWatchlist,
         ]

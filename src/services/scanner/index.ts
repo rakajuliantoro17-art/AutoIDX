@@ -124,6 +124,8 @@ function clamp(value: number, min: number, max: number): number {
 // pun. Diturunkan ke 30 supaya jumlah gelombang PASTI kecil,
 // terlepas kondisi pasar.
 const DEEP_SCAN_LIMIT = 30;
+// Resolusi candle untuk skor peluang (menit). Sama dengan default mesin trading.
+const SCAN_RESOLUTION = "60";
 
 // Berapa banyak request "trades" boleh berjalan bersamaan.
 //
@@ -265,9 +267,15 @@ export class MarketScanner {
     //    dengan concurrency terbatas.
     await mapWithConcurrency(candidates, TRADES_CONCURRENCY, async (ticker) => {
       try {
-        const prices = await breaker.execute(() =>
-          indodaxMarketService.getPriceSeriesOrThrow(ticker.pair, 50)
+        // Sumber harga: candle TradingView Indodax (sama dengan mesin trading).
+        // Sebelumnya endpoint /trades, yang DIBLOKIR Indodax dari server kita
+        // (HTTP 403, 30x per siklus, diukur 2026-10-20) sehingga scanner buta
+        // dan lastQualifiedCount selalu 0. Candle yang sama dipakai ulang
+        // untuk volume surge di bawah (tanpa request tambahan).
+        const candles = await breaker.execute(() =>
+          getCandles({ pair: ticker.pair, resolution: SCAN_RESOLUTION, limit: 50 })
         );
+        const prices = candles.map((c) => c.close);
 
         if (prices.length < 25) {
           return;
@@ -342,9 +350,6 @@ export class MarketScanner {
         let priceRangePercent: number | undefined;
 
         try {
-          const candles = await breaker.execute(() =>
-            getCandles({ pair: ticker.pair, limit: 50 })
-          );
           const surge = evaluateVolumeSurge(candles, ticker.pair);
 
           if (surge) {

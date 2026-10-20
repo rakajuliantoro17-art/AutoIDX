@@ -73,6 +73,13 @@ export const FEATURE_FLAG_DEFAULTS = {
    * Mati = perilaku lama (watchlist + kandidat scanner).
    */
   watchlistOnly: false,
+  /**
+   * Kandidat scanner (pair di luar watchlist) BARU ikut dieksekusi bot bila
+   * flag ini menyala DAN watchlistOnly mati. Default MATI: scanner hanya
+   * mengamati/menampilkan kandidat. Dinyalakan sengaja saat perluasan pair
+   * bertahap (10 -> 25), bukan otomatis karena scanner mulai menemukan pair.
+   */
+  scannerExecution: false,
 } as const;
 
 export type FeatureFlagName = keyof typeof FEATURE_FLAG_DEFAULTS;
