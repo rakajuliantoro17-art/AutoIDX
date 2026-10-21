@@ -46,6 +46,17 @@ function isRetryablePublicError(error) {
 }
 
 /**
+ * Endpoint publik per-pair resmi Indodax: /api/ticker/{id}, /api/depth/{id},
+ * /api/trades/{id} dengan id TANPA garis bawah (btcidr). Format lama
+ * /api/btc_idr/{depth|trades} sekarang dijawab HTTP 403 dari server kita
+ * (diukur 2026-10-21 lewat lastPublicFailures), sehingga scanner buta.
+ * Lihat github.com/btcid/indodax-official-api-docs (Public-RestAPI.md).
+ */
+function toPairId(pair) {
+  return String(pair).replace('_', '').toLowerCase();
+}
+
+/**
  * Bungkus fetch endpoint PUBLIK Indodax dengan rate limiter (sudah
  * ada) + retry exponential backoff (baru). Melempar Error yang sama
  * seperti sebelumnya kalau semua percobaan gagal -- method pemanggil
@@ -121,7 +132,7 @@ class IndodaxService {
    */
   async getTicker(pair = 'btc_idr') {
     try {
-      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/${pair}/ticker`, {
+      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/ticker/${toPairId(pair)}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });
@@ -158,7 +169,7 @@ class IndodaxService {
    */
   async getDepth(pair = 'btc_idr') {
     try {
-      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/${pair}/depth`);
+      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/depth/${toPairId(pair)}`);
       return await response.json();
     } catch (error) {
       console.error(`[Indodax API Error] Failed to fetch depth (${pair}):`, error.message);
@@ -191,7 +202,7 @@ class IndodaxService {
    */
   async getTradesOrThrow(pair = 'btc_idr') {
     try {
-      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/${pair}/trades`);
+      const response = await fetchPublicWithRetry(`${this.publicBaseUrl}/trades/${toPairId(pair)}`);
       return await response.json();
     } catch (error) {
       // Error dari retryExecutor dibungkus RetryError -- status HTTP asli ada di .cause.
