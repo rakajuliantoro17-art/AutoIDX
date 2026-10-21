@@ -33,6 +33,8 @@ export default function IndodaxAccountManager() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -139,6 +141,34 @@ export default function IndodaxAccountManager() {
     }
   }
 
+  async function handleTest() {
+    if (!user || testing) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/settings/indodax-test", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? `Request gagal (${res.status})`);
+      if (j.ok) {
+        const skew = typeof j.clockSkewMs === "number" ? `, selisih jam ${Math.round(j.clockSkewMs)} ms` : "";
+        setTestResult({
+          ok: true,
+          text: `Terhubung (${j.latencyMs} ms${skew}). Saldo IDR Rp ${Math.round(j.idrBalance).toLocaleString("id-ID")}. Izin trade belum terbukti (hanya bisa diuji lewat order sungguhan).`,
+        });
+      } else {
+        setTestResult({ ok: false, text: `${j.diagnosis ?? "GAGAL"}: ${j.message ?? "tidak diketahui"}` });
+      }
+    } catch (err) {
+      setTestResult({ ok: false, text: err instanceof Error ? err.message : "Uji koneksi gagal." });
+    } finally {
+      setTesting(false);
+    }
+  }
+
   const activeCount = accounts.filter((a) => a.isActive).length;
 
   return (
@@ -210,6 +240,19 @@ export default function IndodaxAccountManager() {
           {saving ? "Menyimpan..." : "Tambah Akun"}
         </button>
       </form>
+
+      <div className="mb-4">
+        <button
+          onClick={handleTest}
+          disabled={testing || activeCount === 0}
+          className="text-xs px-3 py-2 rounded-md bg-sky-500/20 text-sky-300 disabled:opacity-50"
+        >
+          {testing ? "Menguji..." : "Uji Koneksi Akun Aktif (baca-saja)"}
+        </button>
+        {testResult && (
+          <p className={`text-xs mt-2 ${testResult.ok ? "text-emerald-300" : "text-rose-400"}`}>{testResult.text}</p>
+        )}
+      </div>
 
       {/* List akun tersimpan */}
       <div className="space-y-2">
