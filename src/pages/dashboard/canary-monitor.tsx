@@ -16,6 +16,7 @@ otomatis memblokir BUY live baru (lihat services/trading/live.ts)
 import { useState, useEffect, useCallback } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { useAuth } from "@/services/auth/AuthContext";
+import CanaryReadinessPanel from "@/components/CanaryReadinessPanel";
 import { formatIDR, formatFullDateTime, formatRelativeTime } from "@/utils";
 
 interface CanarySnapshot {
@@ -144,6 +145,8 @@ export default function CanaryMonitorPage() {
             {loading ? "Memuat..." : "Refresh"}
           </button>
         </div>
+
+        <CanaryReadinessPanel />
 
         {error && (
           <div className="rounded bg-red-950 border border-red-800 p-3 text-sm text-red-300">
