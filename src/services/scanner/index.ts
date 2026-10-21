@@ -22,6 +22,7 @@ Perubahan dari versi sebelumnya:
 ==========================================================
 */
 
+import { isStablecoinPair } from "./stablecoins";
 import indodaxMarketService from "../indodax/market";
 import { TRADING_CONFIG } from "@/config/trading";
 
@@ -221,7 +222,7 @@ export class MarketScanner {
     // 3. Pair yang benar-benar dipertimbangkan pada siklus ini
     //    (irisan antara universe & pair yang datanya tersedia di
     //    snapshot Indodax).
-    const consideredPairs = marketSnapshot.filter((t) => universeSet.has(t.pair));
+    const consideredPairs = marketSnapshot.filter((t) => universeSet.has(t.pair) && !isStablecoinPair(t.pair));
 
     // 4. Prefilter volume TANPA request tambahan (data sudah ada di snapshot),
     //    lalu ambil kandidat volume tertinggi untuk dianalisa lebih dalam.

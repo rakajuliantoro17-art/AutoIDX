@@ -37,6 +37,7 @@ mengurangi risiko timeout. Kalau checklist kosong (default),
 TIDAK ADA PERUBAHAN dari perilaku union lama.
 ==========================================================
 */
+import { selectCyclePairs } from "@/services/scheduler/pairSelection";
 import { getCandles } from "../indodax/candles";
 import {
   calculateRSI,
@@ -368,69 +369,30 @@ export async function executeCron(
     control.watchlist && control.watchlist.length > 0
       ? control.watchlist.map((p) => p.trim().toLowerCase()).filter(Boolean)
       : TRADING_CONFIG.pairs;
-  let pairs: string[];
+  const watchlistOnly = await isFeatureEnabled("watchlistOnly");
+  const scannerExecution = await isFeatureEnabled("scannerExecution");
+  const selection = selectCyclePairs({
+    candidatePairs: candidatePairs ?? [],
+    openPositionPairs,
+    watchlist: effectiveWatchlist,
+    priorityPairs,
+    scannerExecution,
+    watchlistOnly,
+  });
+  const pairs = selection.pairs;
 
-  if (priorityPairs.length > 0) {
-
-    const candidateSet = new Set(
-      (candidatePairs ?? []).map((p) => p.trim().toLowerCase())
+  if (selection.priorityIgnored) {
+    await recordLog(
+      "BOT",
+      "warning",
+      `[Priority Pairs] Checklist (${priorityPairs.length} pair) DIABAIKAN untuk eksekusi: scannerExecution mati atau watchlistOnly menyala. Bot memproses watchlist (${effectiveWatchlist.length} pair) + posisi terbuka.`
     );
-
-    const focusedFromCandidates = priorityPairs.filter((p) =>
-      candidateSet.has(p)
+  } else if (selection.skippedCandidates.length > 0) {
+    await recordLog(
+      "BOT",
+      "info",
+      `[Watchlist Only] ${selection.skippedCandidates.length} kandidat scanner TIDAK dieksekusi siklus ini; hanya watchlist (${effectiveWatchlist.length} pair) + posisi terbuka.`
     );
-
-    pairs = Array.from(
-      new Set([
-        ...openPositionPairs.map((p) => p.trim().toLowerCase()),
-        ...focusedFromCandidates,
-      ])
-    );
-
-    const skippedCandidates = (candidatePairs ?? []).filter(
-      (p) => !priorityPairs.includes(p.trim().toLowerCase())
-    );
-
-    if (skippedCandidates.length > 0) {
-      await recordLog(
-        "BOT",
-        "info",
-        `[Priority Pairs] Checklist aktif (${priorityPairs.length} pair) -- ` +
-          `${skippedCandidates.length} kandidat scanner TIDAK dieksekusi otomatis ` +
-          `siklus ini (second alternative, cuma observability): ${skippedCandidates
-            .map((p) => p.toUpperCase())
-            .join(", ")}.`
-      );
-    }
-
-  } else {
-
-    // Flag watchlistOnly: abaikan kandidat scanner, proses watchlist
-    // tetap + posisi terbuka saja (kandidat tetap discan/ditampilkan).
-    const watchlistOnly = await isFeatureEnabled("watchlistOnly");
-    // Kandidat scanner HANYA dieksekusi bila scannerExecution menyala
-    // (default mati) dan watchlistOnly mati. Lihat featureFlags.ts.
-    const scannerExecution = await isFeatureEnabled("scannerExecution");
-    const executeCandidates = scannerExecution && !watchlistOnly;
-    if (!executeCandidates && (candidatePairs?.length ?? 0) > 0) {
-      await recordLog(
-        "BOT",
-        "info",
-        `[Watchlist Only] ${candidatePairs!.length} kandidat scanner TIDAK dieksekusi siklus ini (scannerExecution mati atau watchlistOnly menyala); hanya watchlist (${effectiveWatchlist.length} pair) + posisi terbuka.`
-      );
-    }
-    pairs = Array.from(
-      new Set(
-        [
-          ...(executeCandidates ? candidatePairs ?? [] : []),
-          ...openPositionPairs,
-          ...effectiveWatchlist,
-        ]
-          .map((p) => p.trim().toLowerCase())
-          .filter(Boolean)
-      )
-    );
-
   }
 
   if (candidatePairs && candidatePairs.length > 0) {
