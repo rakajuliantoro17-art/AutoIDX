@@ -196,20 +196,6 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
   for (const t of topQualified) {
     pair.push(`${upper(t.pair)}: skor ${t.opportunityScore.toFixed(0)}, RSI ${t.rsi14.toFixed(0)}, tren ${t.trend}, sinyal ${t.signalRecommendation}.`);
   }
-  const wanted = topQualified.slice(0, 3).map((t) => t.pair.toLowerCase());
-  const current = input.priorityPairs.map((p) => p.toLowerCase());
-  const same = wanted.length === current.length && wanted.every((p) => current.includes(p));
-  if (wanted.length > 0 && !same) {
-    recs.push({
-      role: "PAIR",
-      key: "priority_pairs",
-      kind: "priority_pairs",
-      title: `Fokus ke ${wanted.map(upper).join(", ")}`,
-      detail: `Tiga pair lolos scanner dengan skor tertinggi. Menerapkan ini membatasi pair yang diproses bot ke daftar tersebut (plus posisi terbuka).`,
-      patch: { priorityPairs: wanted },
-    });
-  }
-
   // Perluasan watchlist bertahap: usulan 1 pair per minggu (ISO-week) menuju target.
   pair.push(`Watchlist: ${input.watchlist.length}/${WATCHLIST_TARGET} pair (${input.watchlist.map(upper).join(", ")}).`);
   if (input.watchlist.length < WATCHLIST_TARGET) {

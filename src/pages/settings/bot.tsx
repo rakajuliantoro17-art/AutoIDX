@@ -83,9 +83,9 @@ export default function BotSettingsPage() {
           <div>
             <h1 className="text-xl font-bold">Bot Configuration</h1>
             <p className="text-xs text-slate-500 mt-1">
-              Scan Interval tersimpan ke Firestore. Untuk memilih pair mana
-              yang boleh ditradingkan bot secara aktif, pakai checklist
-              "Priority Pairs" di panel kontrol di atas.
+              Scan Interval tersimpan ke Firestore. Pair yang ditradingkan bot
+              adalah watchlist; penambahan pair datang dari usulan agen yang
+              Anda setujui di halaman Agen.
             </p>
           </div>
 

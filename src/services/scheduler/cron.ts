@@ -360,9 +360,9 @@ export async function executeCron(
   // tidak pernah menghentikan siklus cron.
   const control = await getBotControl();
 
-  const priorityPairs = (control.priorityPairs ?? [])
-    .map((p) => p.trim().toLowerCase())
-    .filter(Boolean);
+  // Checklist Priority Pairs sudah dihapus dari UI dan diabaikan: pair yang
+  // diproses ditentukan watchlist (+ kandidat scanner bila scannerExecution nyala).
+  const priorityPairs: string[] = [];
 
   // Watchlist efektif: dari portal (Firestore) bila ada, jika tidak env/default.
   const effectiveWatchlist =
