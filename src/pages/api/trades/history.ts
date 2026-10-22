@@ -67,13 +67,15 @@ export interface OrderHistoryRow {
 
 async function fetchLiveHistory(): Promise<OrderHistoryRow[]> {
 
+  // Hanya trade live (koleksi "trades" dipakai bersama paper, dibedakan
+  // field `mode`). Tanpa orderBy agar tidak butuh composite index.
   const snapshot = await adminDb
     .collection("trades")
-    .orderBy("timestamp", "desc")
-    .limit(HISTORY_LIMIT)
+    .where("mode", "==", "live")
+    .limit(300)
     .get();
 
-  return snapshot.docs.map((doc) => {
+  const rows: OrderHistoryRow[] = snapshot.docs.map((doc) => {
 
     const data = doc.data();
 
@@ -83,7 +85,7 @@ async function fetchLiveHistory(): Promise<OrderHistoryRow[]> {
 
     return {
       id: data.orderId ? String(data.orderId) : doc.id,
-      type: data.type === "SELL" ? "SELL" : "BUY",
+      type: (data.type === "SELL" ? "SELL" : "BUY") as "BUY" | "SELL",
       pair: String(data.pair ?? "-").toUpperCase(),
       price,
       amount,
@@ -98,6 +100,10 @@ async function fetchLiveHistory(): Promise<OrderHistoryRow[]> {
     };
 
   });
+
+  return rows
+    .sort((a, b) => b.timestampMs - a.timestampMs)
+    .slice(0, HISTORY_LIMIT);
 
 }
 

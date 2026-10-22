@@ -408,10 +408,13 @@ async function buildLiveSummary(): Promise<PortfolioSummaryResponse> {
   }
 
   // --- Pairing BUY -> SELL dari koleksi "trades" (live) ---
+  // Koleksi "trades" dipakai bersama paper & live (field `mode`). Hanya
+  // trade live yang dihitung di sini; tanpa orderBy supaya tidak butuh
+  // composite index (urutan ditegakkan lewat sort di bawah).
   const tradeLogsSnapshot = await adminDb
     .collection("trades")
-    .orderBy("timestamp", "desc")
-    .limit(100)
+    .where("mode", "==", "live")
+    .limit(300)
     .get();
 
   const logsAscending = tradeLogsSnapshot.docs
