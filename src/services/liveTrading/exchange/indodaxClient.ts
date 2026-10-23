@@ -471,6 +471,27 @@ export class IndodaxClient {
   }
 
   /**
+   * Batalkan satu order OPEN (private endpoint "cancelOrder"). Dipakai
+   * uji izin trade (services/accounts/tradePermissionTest.ts).
+   */
+  async cancelOrder(
+    params: { pair: string; orderId: string | number; type: "buy" | "sell" }
+  ): Promise<
+    | { success: true; data: unknown }
+    | { success: false; message: string }
+  > {
+    const result = await this.privateRequest("cancelOrder", {
+      pair: params.pair,
+      order_id: params.orderId,
+      type: params.type,
+    });
+    if (!result.success) {
+      return { success: false, message: result.message ?? "Unknown error" };
+    }
+    return { success: true, data: result.data };
+  }
+
+  /**
    * Check API connection
    */
   async ping() {

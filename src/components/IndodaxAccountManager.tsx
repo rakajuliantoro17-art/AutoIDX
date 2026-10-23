@@ -35,6 +35,8 @@ export default function IndodaxAccountManager() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [tradeTesting, setTradeTesting] = useState(false);
+  const [tradeTestResult, setTradeTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -169,6 +171,33 @@ export default function IndodaxAccountManager() {
     }
   }
 
+  async function handleTradeTest() {
+    if (!user || tradeTesting) return;
+    if (
+      !confirm(
+        "Uji izin TRADE: bot memasang satu limit BUY BTC/IDR sebesar Rp10.000 pada harga ~40% di bawah pasar (tidak akan terisi), lalu langsung membatalkannya. Tidak ada uang yang berpindah. Lanjutkan?"
+      )
+    )
+      return;
+    setTradeTesting(true);
+    setTradeTestResult(null);
+    try {
+      const idToken = await user.getIdToken();
+      const res = await fetch("/api/settings/indodax-trade-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({ confirm: true }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error ?? `Request gagal (${res.status})`);
+      setTradeTestResult({ ok: !!j.ok, text: `${j.verdict}: ${j.message}${j.orderId ? ` (order ${j.orderId})` : ""}` });
+    } catch (err) {
+      setTradeTestResult({ ok: false, text: err instanceof Error ? err.message : "Uji izin trade gagal." });
+    } finally {
+      setTradeTesting(false);
+    }
+  }
+
   const activeCount = accounts.filter((a) => a.isActive).length;
 
   return (
@@ -252,6 +281,18 @@ export default function IndodaxAccountManager() {
         {testResult && (
           <p className={`text-xs mt-2 ${testResult.ok ? "text-emerald-300" : "text-rose-400"}`}>{testResult.text}</p>
         )}
+        <div className="mt-3">
+          <button
+            onClick={handleTradeTest}
+            disabled={tradeTesting || activeCount === 0}
+            className="text-xs px-3 py-2 rounded-md bg-amber-500/20 text-amber-300 disabled:opacity-50"
+          >
+            {tradeTesting ? "Menguji izin trade..." : "Uji Izin Trade (order dibatalkan, tanpa uang berpindah)"}
+          </button>
+          {tradeTestResult && (
+            <p className={`text-xs mt-2 ${tradeTestResult.ok ? "text-emerald-300" : "text-rose-400"}`}>{tradeTestResult.text}</p>
+          )}
+        </div>
       </div>
 
       {/* List akun tersimpan */}

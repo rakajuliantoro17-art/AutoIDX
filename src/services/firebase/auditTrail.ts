@@ -25,7 +25,8 @@ export type AuditAction =
   | "bot_control.update"
   | "indodax_account.create"
   | "indodax_account.update"
-  | "indodax_account.delete";
+  | "indodax_account.delete"
+  | "indodax_trade_test.run";
 
 export interface AuditChange {
   field: string;
