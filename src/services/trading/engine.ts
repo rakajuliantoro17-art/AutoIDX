@@ -78,6 +78,7 @@ import { explainDecision } from "@/services/intelligence/ai/decisionExplainer";
 
 import PaperTradingService from "./paper";
 import LiveTradingService from "./live";
+import { BelowMinimumOrderError, checkSellableAtStop } from "./minOrder";
 
 import RiskManager from "./risk";
 
@@ -127,6 +128,10 @@ import { getTrendVolumeAdvisory } from "@/services/strategy/trendVolumeAdvisor";
 import mlAdvisor from "@/services/intelligence/ml/mlAdvisor";
 import { recordShadowPrediction } from "@/services/ml/shadow/shadowStore";
 import type { PredictionLabel } from "@/services/ml/types";
+
+
+/** Throttle log SELL di bawah minimum (best-effort, per instance). */
+const belowMinLogAt = new Map<string, number>();
 
 export interface TradingEngineInput {
 
@@ -1273,6 +1278,29 @@ export class TradingEngine {
             }
           }
 
+          // Guard sellability (live): posisi harus tetap >= minimum order
+          // Indodax pada level stop-loss, kalau tidak SL tidak bisa jalan.
+          if (modeLabel === "live") {
+            const sellable = checkSellableAtStop(tradeAmountIdr, effectiveConfig.stopLossPercent);
+            if (!sellable.ok) {
+              await recordLog(
+                "RISK",
+                "warning",
+                `[MIN ORDER] BUY ${input.pair.toUpperCase()} diblokir: nilai posisi di SL ~Rp${Math.round(sellable.valueAtStopIdr)} < Rp${Math.round(sellable.requiredIdr)} (min order Indodax + margin). Naikkan nominal ke minimal ~Rp${sellable.minTradeAmountIdr}.`
+              );
+              return {
+                success: true,
+                signal: "HOLD",
+                confidence: decision.confidence,
+                reason: `[MIN ORDER] Nominal terlalu kecil agar stop-loss bisa dieksekusi (minimal ~Rp${sellable.minTradeAmountIdr}).`,
+                actionExecuted: false,
+                riskBlocked: true,
+                mode: modeLabel,
+                timestamp: new Date().toISOString(),
+              };
+            }
+          }
+
           const result = await tradingService.buy({
 
             pair: input.pair,
@@ -1453,6 +1481,29 @@ export class TradingEngine {
       };
 
     } catch (error) {
+
+      if (error instanceof BelowMinimumOrderError) {
+        // Posisi tidak bisa dijual sampai harga naik. Bukan error sistem.
+        const now = Date.now();
+        const last = belowMinLogAt.get(input.pair) ?? 0;
+        if (now - last > 60 * 60 * 1000) {
+          belowMinLogAt.set(input.pair, now);
+          await recordLog(
+            "RISK",
+            "warning",
+            `[MIN ORDER] SELL ${input.pair.toUpperCase()} ditunda: nilai posisi Rp${Math.round(error.valueIdr)} < Rp10000 (minimum Indodax). Menunggu harga naik; log ini dibatasi 1x/jam.`
+          );
+        }
+        return {
+          success: true,
+          signal: "HOLD",
+          confidence: 0,
+          reason: "[MIN ORDER] SELL ditunda: di bawah minimum order Indodax.",
+          actionExecuted: false,
+          mode: modeLabel,
+          timestamp: new Date().toISOString(),
+        };
+      }
 
       // handleError() (services/errors/*, sebelumnya orphan) --
       // menormalisasi error apa pun jadi AURAError terstruktur

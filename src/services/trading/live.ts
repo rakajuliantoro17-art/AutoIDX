@@ -31,6 +31,7 @@ import { evaluateOrderBreaker } from "@/services/safety/orderBreaker";
 import { raiseAlert } from "@/services/alerts/raiseAlert";
 import { readOrderBreaker, recordOrderFailure, recordOrderSuccess } from "@/services/firebase/orderBreakerStore";
 import { validateLiveSellOrder } from "./liveSellValidator";
+import { BelowMinimumOrderError, isBelowMinOrderValue, isMinOrderError } from "./minOrder";
 import { getCanarySnapshot, getRecentCanaryOrders, recordCanaryOrder } from "@/services/liveTrading/monitoring/canaryStore";
 import { CanaryOrderMetric } from "@/services/liveTrading/monitoring/canaryMetrics";
 import { getLiveTradingConfig } from "@/services/liveTrading/risk/liveTradingConfig";
@@ -731,6 +732,9 @@ class LiveTradingService {
 
     } catch (error) {
 
+      // Di bawah minimum order: tidak dicatat sebagai FAILED/EXECUTION_FAILED.
+      if (error instanceof BelowMinimumOrderError) throw error;
+
       await this.auditSafe("EXECUTION_FAILED", localOrderId, {
         metadata: { error: error instanceof Error ? error.message : String(error) },
       });
@@ -819,6 +823,12 @@ class LiveTradingService {
     // lockResolved. SELL sama pentingnya untuk dijaga dari
     // duplikat - overlap cron yang mengirim SELL dua kali bisa
     // menjual koin lebih dari posisi yang sebenarnya tercatat. ---
+    // Di bawah minimum order Indodax: order pasti ditolak. Jangan kirim,
+    // jangan ambil lock, jangan hitung sebagai kegagalan.
+    if (request.price && isBelowMinOrderValue(request.amount, request.price)) {
+      throw new BelowMinimumOrderError(request.pair, request.amount * request.price);
+    }
+
     await acquireLiveOrderLock(request.pair, "SELL");
 
     let lockResolved = false;
@@ -863,6 +873,15 @@ class LiveTradingService {
           await this.auditSafe("RECONCILIATION_UNKNOWN", localOrderId, {
             metadata: { message: result.message, reason: "exception sebelum respons jelas dari Indodax - lihat uncertainOrderReconciler.ts" },
           });
+
+        } else if (isMinOrderError(result.message)) {
+
+          // Ditolak karena di bawah minimum: bukan kegagalan sistem.
+          throw new BelowMinimumOrderError(
+            request.pair,
+            request.amount * (request.price || 0),
+            result.message
+          );
 
         } else {
 
