@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { farLimitPrice, runTradePermissionTest, type TradeTestClient } from "../src/services/accounts/tradePermissionTest";
+import { coinAmountForIdr, farLimitPrice, runTradePermissionTest, type TradeTestClient } from "../src/services/accounts/tradePermissionTest";
 
 const noSleep = async () => {};
 
@@ -60,4 +60,18 @@ test("harga pasar tidak terbaca: tidak ada order dikirim", async () => {
   const r = await runTradePermissionTest(c, { sleep: noSleep });
   assert.equal(r.verdict, "NO_PRICE");
   assert.equal(c.calls.length, 0);
+});
+
+test("jumlah koin dibulatkan ke atas sehingga nilai order >= nominal", () => {
+  const price = 878_000_000;
+  const coin = coinAmountForIdr(10_000, price);
+  assert.ok(coin * price >= 10_000);
+  assert.equal(coin, 0.00001139);
+});
+
+test("limit BUY dikirim dengan coinAmount, bukan idr", async () => {
+  let got: { coinAmount?: number; idr?: number } = {};
+  const c = fake({ placeLimitBuy: async (p) => { got = p; return { success: true, orderId: "9" }; } });
+  await runTradePermissionTest(c, { sleep: noSleep });
+  assert.equal(got.coinAmount, 0.00001139);
 });

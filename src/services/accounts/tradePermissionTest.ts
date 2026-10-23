@@ -7,7 +7,7 @@
  */
 export interface TradeTestClient {
   getLastPrice(pair: string): Promise<number | null>;
-  placeLimitBuy(p: { pair: string; price: number; idr: number }): Promise<
+  placeLimitBuy(p: { pair: string; price: number; idr: number; coinAmount: number }): Promise<
     { success: true; orderId: string } | { success: false; message: string }
   >;
   cancel(p: { pair: string; orderId: string }): Promise<{ success: true } | { success: false; message: string }>;
@@ -42,6 +42,11 @@ export interface TradeTestReport {
   message: string;
 }
 
+/** Jumlah koin untuk nominal IDR, dibulatkan KE ATAS (8 desimal) agar nilai order tidak jatuh di bawah minimum. */
+export function coinAmountForIdr(idr: number, price: number): number {
+  return Math.ceil((idr / price) * 1e8) / 1e8;
+}
+
 export function farLimitPrice(last: number, discount: number, roundTo: number): number {
   return Math.floor((last * (1 - discount)) / roundTo) * roundTo;
 }
@@ -66,7 +71,7 @@ export async function runTradePermissionTest(
     return { ok: false, verdict: "NO_PRICE", pair, message: "Harga uji tidak aman (terlalu dekat pasar); uji dibatalkan." };
   }
 
-  const placed = await client.placeLimitBuy({ pair, price, idr });
+  const placed = await client.placeLimitBuy({ pair, price, idr, coinAmount: coinAmountForIdr(idr, price) });
   if (!placed.success) {
     return { ok: false, verdict: "PLACE_REJECTED", pair, price, message: `Indodax menolak order uji: ${placed.message}` };
   }

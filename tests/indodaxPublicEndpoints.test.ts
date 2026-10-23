@@ -24,3 +24,9 @@ test("toPairId menghapus garis bawah dan huruf kecil", () => {
   assert.equal(fn("BTC_IDR"), "btcidr");
   assert.equal(fn("doge_idr"), "dogeidr");
 });
+
+test("limit BUY memakai jumlah koin, market BUY tetap idr (source guard)", () => {
+  const src = readFileSync("src/services/liveTrading/exchange/indodaxClient.ts", "utf8");
+  assert.match(src, /params\.type === "buy" && orderType === "limit"/);
+  assert.match(src, /body\.idr = params\.idr/);
+});

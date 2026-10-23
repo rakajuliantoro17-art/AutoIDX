@@ -320,19 +320,30 @@ export class IndodaxClient {
 
     }
 
-    if (params.type === "buy") {
+    if (params.type === "buy" && orderType === "limit") {
 
+      // Limit BUY di Indodax WAJIB menyebut jumlah koin ("btc"), bukan
+      // nominal IDR (respons: "Please submit Limit order type with btc
+      // quantity specified"). Market BUY tetap memakai `idr`.
+      if (!params.coinAmount) {
+        return {
+          success: false,
+          message: "Limit BUY order butuh parameter coinAmount.",
+        };
+      }
+
+      const coin = params.pair.replace(/_idr$/i, "");
+
+      body[coin] = Number(params.coinAmount).toFixed(8);
+
+    } else if (params.type === "buy") {
       if (!params.idr) {
-
         return {
           success: false,
           message: "BUY order butuh parameter idr (nominal IDR).",
         };
-
       }
-
       body.idr = params.idr;
-
     } else {
 
       if (!params.coinAmount) {

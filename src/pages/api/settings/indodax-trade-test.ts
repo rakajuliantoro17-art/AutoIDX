@@ -25,8 +25,8 @@ function toTradeTestClient(client: IndodaxClient): TradeTestClient {
       const last = Number((r.data as { ticker?: { last?: string } } | null)?.ticker?.last);
       return r.success && Number.isFinite(last) ? last : null;
     },
-    async placeLimitBuy({ pair, price, idr }) {
-      const r = await client.trade({ pair, type: "buy", orderType: "limit", price, idr });
+    async placeLimitBuy({ pair, price, coinAmount }) {
+      const r = await client.trade({ pair, type: "buy", orderType: "limit", price, coinAmount });
       if (!r.success) return { success: false, message: r.message };
       return { success: true, orderId: String(r.data.order_id) };
     },
