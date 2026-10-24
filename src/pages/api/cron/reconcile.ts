@@ -55,6 +55,7 @@ yang SAMA dengan /api/cron/scan.
 ==========================================================
 */
 
+import { getUnmanagedHoldings, subtractUnmanaged } from "@/services/positions/unmanaged";
 import { verifyCronSecret } from "@/lib/auth/cronAuth";
 import type { NextApiRequest, NextApiResponse } from "next";
 
@@ -186,13 +187,20 @@ async function buildLiveReconciliationContext(): Promise<ReconciliationContext> 
   const positions: PositionSnapshot[] = [];
   const unknownOrderIds: string[] = [];
 
+  // Koin yang dilepas dari kelolaan bot (posisi di bawah minimum order)
+  // tidak dihitung sebagai bagian posisi bot.
+  const unmanaged = await getUnmanagedHoldings();
+
   for (const pair of openPairs) {
 
     const state = await getBotState(pair);
 
     const baseAsset = pair.split("_")[0];
 
-    const exchangeQuantity = Number(info.data.balance[baseAsset] ?? 0);
+    const exchangeQuantity = subtractUnmanaged(
+      Number(info.data.balance[baseAsset] ?? 0),
+      unmanaged[baseAsset] ?? 0
+    );
 
     positions.push({
       symbol: pair,

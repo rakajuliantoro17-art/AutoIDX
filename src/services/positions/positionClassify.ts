@@ -7,6 +7,10 @@ export interface PositionRow {
   entryPrice: number;
   exchangeQty: number;
   status: PositionStatus;
+  /** Nilai posisi (IDR) pada harga pasar terakhir; undefined bila harga tak tersedia. */
+  valueIdr?: number;
+  /** true bila posisi di bawah minimum order dan boleh dilepas dari bot. */
+  releasable?: boolean;
 }
 
 /** Saldo di bawah ambang ini (relatif terhadap catatan bot) dianggap kosong. */

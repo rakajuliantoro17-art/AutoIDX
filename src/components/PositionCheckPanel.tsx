@@ -13,6 +13,8 @@ interface Row {
   entryPrice: number;
   exchangeQty: number;
   status: "COCOK" | "HANTU" | "SELISIH";
+  valueIdr?: number;
+  releasable?: boolean;
 }
 
 const BADGE: Record<Row["status"], string> = {
@@ -80,6 +82,31 @@ export default function PositionCheckPanel() {
     }
   }
 
+  async function release(row: Row) {
+    if (
+      !window.confirm(
+        `Lepas ${row.pair.toUpperCase()} dari kelolaan bot?\nNilai posisi ~Rp${row.valueIdr ?? "?"} (di bawah minimum order Indodax Rp10.000, tidak bisa dijual bot). Tidak ada order dikirim; koin tetap di dompet Indodax dan tidak lagi dijual otomatis oleh bot.`
+      )
+    )
+      return;
+    setBusy(row.pair);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/positions/release", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ pair: row.pair, confirm: true }),
+      });
+      const j = await r.json();
+      setMsg(j.message ?? j.error ?? (r.ok ? "Selesai." : "Gagal."));
+      if (r.ok) await check();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="card">
       <h2 className="text-xl font-semibold">Cek Posisi vs Saldo Indodax</h2>
@@ -120,6 +147,20 @@ export default function PositionCheckPanel() {
                   >
                     {busy === r.pair ? "Membersihkan..." : "Bersihkan posisi hantu"}
                   </button>
+                ) : null}
+                {r.releasable ? (
+                  <div className="mt-3">
+                    <p className="text-xs text-amber-400">
+                      Nilai ~Rp{r.valueIdr} di bawah minimum order Indodax (Rp10.000): bot tidak bisa menjualnya.
+                    </p>
+                    <button
+                      onClick={() => release(r)}
+                      disabled={busy !== null}
+                      className="mt-2 w-full rounded-full bg-amber-500 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
+                    >
+                      {busy === r.pair ? "Melepas..." : "Lepas dari bot (tanpa jual)"}
+                    </button>
+                  </div>
                 ) : null}
                 {r.status === "SELISIH" ? (
                   <p className="mt-2 text-xs text-[var(--text-muted)]">
