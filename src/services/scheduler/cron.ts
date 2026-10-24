@@ -270,7 +270,7 @@ async function processPair(pair: string): Promise<CronPairResult> {
       await recordLog(
         "BOT",
         "info",
-        `[Confidence Info ${pair.toUpperCase()}] ${confidenceResult.level} (${confidenceResult.confidence}) - ${confidenceResult.explanation.join("; ")}. TIDAK mempengaruhi keputusan di atas.`
+        `[Confidence Info ${pair.toUpperCase()}] ${confidenceResult.level} (${confidenceResult.confidence}) - ${confidenceResult.explanation.join("; ")}. (Indikator analitik terpisah, BUKAN dasar keputusan BUY/SELL; level di sini bisa berbeda dari hasil ScoreEngine.)`
       );
 
     } catch (error) {

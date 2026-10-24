@@ -34,7 +34,7 @@ const fakeDb = {
 };
 
 // ---------- Bursa palsu ----------
-type Outcome = "ok" | "reject" | "timeout";
+type Outcome = "ok" | "reject" | "timeout" | "minorder";
 let nextOutcome: Outcome | ((side: string) => Outcome) = "ok";
 const exchangeCalls: { type: string; pair: string }[] = [];
 let tradeDelayMs = 0;
@@ -45,12 +45,14 @@ class FakeIndodaxClient {
     if (tradeDelayMs) await new Promise((r) => setTimeout(r, tradeDelayMs));
     const o = typeof nextOutcome === "function" ? nextOutcome(p.type) : nextOutcome;
     if (o === "ok") return { success: true, data: { order_id: exchangeCalls.length, spend_rp: 10000, receive_btc: 0.0001, fee: 10 } };
+    if (o === "minorder") return { success: false, message: "Minimum order 2.59268861 ADA", certainty: "CERTAIN" };
     if (o === "reject") return { success: false, message: "ditolak bursa", certainty: "CERTAIN" };
     return { success: false, message: "timeout jaringan", certainty: "UNCERTAIN" };
   }
 }
 
 const alerts: string[] = [];
+const canaryRecords: any[] = [];
 const trades: any[] = [];
 const root = "../src/";
 let live: any;
@@ -65,7 +67,7 @@ before(async () => {
   mock.module(root + "services/liveTrading/monitoring/canaryStore.ts", { namedExports: {
     getCanarySnapshot: async () => ({ status: "OK", reasons: [] }),
     getRecentCanaryOrders: async () => [],
-    recordCanaryOrder: async () => {},
+    recordCanaryOrder: async (m: any) => { canaryRecords.push(m); },
   } });
   mock.module(root + "services/firebase/reconciliationStatus.ts", { namedExports: { getReconciliationStatus: async () => ({}) } });
   mock.module(root + "services/firebase/executionAuditSink.ts", { defaultExport: { record: async () => {} }, namedExports: { executionAudit: { record: async () => {} } } });
@@ -75,7 +77,7 @@ before(async () => {
 });
 
 beforeEach(() => {
-  store.clear(); exchangeCalls.length = 0; alerts.length = 0; trades.length = 0;
+  store.clear(); canaryRecords.length = 0; exchangeCalls.length = 0; alerts.length = 0; trades.length = 0;
   dbFail = null; nextOutcome = "ok"; tradeDelayMs = 0;
 });
 
@@ -214,4 +216,33 @@ test("FUZZ: 150 skenario acak, invarian kunci & pemutus tak pernah dilanggar", a
       }
     } finally { mock.timers.reset(); }
   }
+});
+
+test("SELL di bawah minimum order: tidak ke bursa, bukan FAILED canary, lock bersih, tidak ada alert", async () => {
+  const req = { pair: "ada_idr", price: 3857, amount: 2.54566326, strategy: "t" };
+  let err: any;
+  try { await live.sell(req); } catch (e) { err = e; }
+  assert.equal(err?.name, "BelowMinimumOrderError");
+  assert.equal(exchangeCalls.length, 0, "tidak boleh mengirim order di bawah minimum");
+  assert.equal(canaryRecords.filter((m) => m.status === "FAILED").length, 0);
+  assert.equal(lockStatus("ada_idr", "SELL"), undefined);
+  assert.equal(alerts.length, 0);
+});
+
+test("SELL ditolak bursa 'Minimum order': BelowMinimumOrderError, bukan FAILED, bukan UNCERTAIN, bisa dicoba lagi", async () => {
+  nextOutcome = "minorder";
+  let err: any;
+  try { await live.sell(sellReq()); } catch (e) { err = e; }
+  assert.equal(err?.name, "BelowMinimumOrderError");
+  assert.equal(canaryRecords.filter((m) => m.status === "FAILED").length, 0);
+  assert.notEqual(lockStatus("btc_idr", "SELL"), "UNCERTAIN");
+  assert.equal(alerts.length, 0);
+  nextOutcome = "ok";
+  assert.equal(await trySell(), "ok", "setelah harga naik SELL harus bisa lewat");
+});
+
+test("SELL gagal biasa (ditolak bursa) tetap dicatat FAILED canary", async () => {
+  nextOutcome = "reject";
+  assert.match(await trySell(), /ditolak bursa/);
+  assert.equal(canaryRecords.filter((m) => m.status === "FAILED").length, 1);
 });
