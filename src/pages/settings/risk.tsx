@@ -39,13 +39,13 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 // Selaras dengan MIN_TRADE_AMOUNT_IDR di
 // services/trading/effectiveConfig.ts -- kalau diubah di sana, ubah
 // juga di sini.
-// FASE UJI COBA AWAL: dikunci ke Rp10.000 tetap (bukan rentang) --
-// selaras dengan BOT_CONFIG.defaultTradeAmount/maxTradeAmount di
-// config/bot.ts yang sengaja dikunci sama. Setelah BUY live terbukti
+// FASE CANARY: rentang Rp10.000-15.000. Rp10.000 tidak bisa dijual di
+// level stop-loss (min order Indodax Rp10.000 + fee), jadi Rp15.000
+// dipakai. Selaras dengan env BOT_MAX_TRADE_AMOUNT (=15000). Setelah BUY live terbukti
 // jalan beberapa siklus, lebarkan TRADE_AMOUNT_MAX ke 500_000 di sini
 // DAN BOT_MAX_TRADE_AMOUNT di config/bot.ts (env var atau default).
 const TRADE_AMOUNT_MIN: number = 10_000;
-const TRADE_AMOUNT_MAX: number = 10_000;
+const TRADE_AMOUNT_MAX: number = 15_000;
 const TRADE_AMOUNT_STEP = 5_000;
 
 // Selaras dengan MIN/MAX di services/trading/effectiveConfig.ts --

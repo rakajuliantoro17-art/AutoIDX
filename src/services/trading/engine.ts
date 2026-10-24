@@ -1281,7 +1281,17 @@ export class TradingEngine {
           // Guard sellability (live): posisi harus tetap >= minimum order
           // Indodax pada level stop-loss, kalau tidak SL tidak bisa jalan.
           if (modeLabel === "live") {
-            const sellable = checkSellableAtStop(tradeAmountIdr, effectiveConfig.stopLossPercent);
+            // SL aktual berbasis ATR (0.5-8%), bisa lebih lebar dari slider.
+            const atrStopPercent = RiskManager.calculateAtrStopLevels(
+              input.price,
+              input.features.atr,
+              effectiveConfig.stopLossPercent,
+              effectiveConfig.targetProfitPercent
+            ).stopLossPercent;
+            const sellable = checkSellableAtStop(
+              tradeAmountIdr,
+              Math.max(effectiveConfig.stopLossPercent, atrStopPercent)
+            );
             if (!sellable.ok) {
               await recordLog(
                 "RISK",
