@@ -88,6 +88,7 @@ export default function PositionCheckPanel() {
     status: "DIKELOLA" | "DI_LUAR_KELOLAAN" | "TAK_TERLACAK";
     extraQty: number;
     history: { time: string; type: string; price: number; amount: number }[] | null;
+    orderHistoryRaw?: unknown;
   }
   const [wallet, setWallet] = useState<{ idr: { available: number; hold: number }; holdings: WalletRow[]; transfers?: { withdrawIdr?: unknown[]; depositIdr?: unknown[] } | null; historyError?: string | null } | null>(null);
 
@@ -188,6 +189,11 @@ export default function PositionCheckPanel() {
                     ))}
                   </ul>
                 )
+              ) : null}
+              {h.orderHistoryRaw ? (
+                <p className="mt-1 text-xs text-[var(--text-secondary)] break-words">
+                  Riwayat order: {JSON.stringify(h.orderHistoryRaw).slice(0, 1500)}
+                </p>
               ) : null}
             </div>
           ))}

@@ -444,6 +444,28 @@ export class IndodaxClient {
   }
 
   /**
+   * Riwayat ORDER akun (private method "orderHistory"). Dicoba sebagai
+   * pengganti "tradeHistory" yang pada 27 Okt 2026 membalas teks
+   * "DEPRECATED" (bukan JSON). BACA-SAJA; bentuk respons belum diverifikasi,
+   * jadi dikembalikan apa adanya.
+   */
+  async orderHistory(
+    params: { pair: string; count?: number }
+  ): Promise<
+    | { success: true; data: unknown }
+    | { success: false; message: string }
+  > {
+    const result = await this.privateRequest("orderHistory", {
+      pair: params.pair,
+      count: params.count ?? 20,
+    });
+    if (!result.success) {
+      return { success: false, message: result.message ?? "Unknown error" };
+    }
+    return { success: true, data: result.data };
+  }
+
+  /**
    * Riwayat deposit/penarikan akun (private method "transHistory").
    * BACA-SAJA; dipakai laporan dompet untuk menjelaskan perubahan saldo IDR.
    */

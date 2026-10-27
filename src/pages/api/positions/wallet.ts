@@ -53,9 +53,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let historyError: string | null = null;
     for (const row of rows.slice(0, 8)) {
       let history: { time: string; type: string; price: number; amount: number }[] | null = null;
+      let orderHistoryRaw: unknown = null;
       if (row.status === "TAK_TERLACAK") {
         const r = await client.tradeHistory({ pair: `${row.asset}_idr`, since, count: 20 });
-        if (!r.success) historyError = r.message;
+        if (!r.success) {
+          historyError = r.message;
+          // tradeHistory membalas "DEPRECATED" -- coba orderHistory (bentuk
+          // respons belum diverifikasi, jadi ditampilkan apa adanya, dipangkas).
+          try {
+            const o = await client.orderHistory({ pair: `${row.asset}_idr`, count: 10 });
+            orderHistoryRaw = o.success ? o.data : { error: o.message };
+          } catch (e) {
+            orderHistoryRaw = { error: e instanceof Error ? e.message : String(e) };
+          }
+        }
         if (r.success) {
           history = (r.data as Record<string, unknown>[]).map((t) => ({
             time: new Date(num(t.trade_time) * 1000).toISOString(),
@@ -65,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }));
         }
       }
-      withHistory.push({ ...row, history });
+      withHistory.push({ ...row, history, orderHistoryRaw });
     }
 
     // Deposit/penarikan IDR (BACA-SAJA). Struktur respons Indodax tidak
