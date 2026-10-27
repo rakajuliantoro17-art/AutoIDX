@@ -206,6 +206,8 @@ export async function reconcileUncertainOrders(): Promise<ReconciliationResult> 
     const client = new IndodaxClient({
       apiKey: account.apiKey,
       secretKey: account.secretKey,
+      v2ApiKey: account.v2ApiKey,
+      v2SecretKey: account.v2SecretKey,
     });
 
     for (const doc of pending) {

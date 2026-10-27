@@ -106,6 +106,9 @@ export interface IndodaxTradeResult {
 export interface IndodaxCredentials {
   apiKey: string;
   secretKey: string;
+  /** Kunci TAPIv2 khusus (opsional) -- hanya dipakai endpoint v2 (riwayat). */
+  v2ApiKey?: string;
+  v2SecretKey?: string;
 }
 
 export type IndodaxGetInfoResponse =
@@ -139,6 +142,10 @@ export class IndodaxClient {
 
   private secretKey: string;
 
+  private v2ApiKey: string | undefined;
+
+  private v2SecretKey: string | undefined;
+
   private baseURL: string;
 
   constructor(credentials?: IndodaxCredentials) {
@@ -152,6 +159,9 @@ export class IndodaxClient {
       credentials?.secretKey
       ?? process.env.INDODAX_SECRET_KEY
       ?? "";
+
+    this.v2ApiKey = credentials?.v2ApiKey || undefined;
+    this.v2SecretKey = credentials?.v2SecretKey || undefined;
 
     // INDODAX_API_URL cuma untuk override host, path /tapi
     // selalu ditambahkan otomatis (konsisten dengan docs).
@@ -463,8 +473,8 @@ export class IndodaxClient {
       // API v2 WAJIB kunci TAPIv2 khusus (kunci TAPI lama ditolak 401).
       // Pakai INDODAX_V2_API_KEY/INDODAX_V2_SECRET_KEY bila ada (disarankan
       // kunci BACA-SAJA), kalau tidak jatuh ke kunci akun aktif.
-      const v2Key = process.env.INDODAX_V2_API_KEY;
-      const v2Secret = process.env.INDODAX_V2_SECRET_KEY;
+      const v2Key = this.v2ApiKey ?? process.env.INDODAX_V2_API_KEY;
+      const v2Secret = this.v2SecretKey ?? process.env.INDODAX_V2_SECRET_KEY;
       const useV2 = Boolean(v2Key && v2Secret);
       const apiKey = useV2 ? (v2Key as string) : this.apiKey;
       const secret = useV2 ? (v2Secret as string) : this.secretKey;
@@ -482,7 +492,7 @@ export class IndodaxClient {
       }
       const err = json as { code?: unknown; msg?: unknown };
       if (!res.ok || (err && typeof err === "object" && err.code !== undefined && err.msg !== undefined)) {
-        const hint = res.status === 401 && !useV2 ? " -- kunci TAPI lama tidak berlaku di v2; buat kunci TAPIv2 (indodax.com/trade_api) dan isi INDODAX_V2_API_KEY/INDODAX_V2_SECRET_KEY" : "";
+        const hint = res.status === 401 && !useV2 ? " -- kunci TAPI lama tidak berlaku di v2; buat kunci TAPIv2 (indodax.com/trade_api) dan simpan di Settings > API Indodax (Kunci API v2) atau env INDODAX_V2_API_KEY/INDODAX_V2_SECRET_KEY" : "";
         return { success: false, message: `Indodax v2 ${res.status}: ${String(err?.msg ?? "error")} (${String(err?.code ?? "")})${hint}` };
       }
       return { success: true, data: json };

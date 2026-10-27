@@ -19,7 +19,7 @@ export interface LoadedWallet {
 export async function loadWallet(): Promise<LoadedWallet> {
   const account = await getActiveIndodaxAccount();
   if (!account) throw new Error("Tidak ada akun Indodax aktif.");
-  const client = new IndodaxClient({ apiKey: account.apiKey, secretKey: account.secretKey });
+  const client = new IndodaxClient({ apiKey: account.apiKey, secretKey: account.secretKey, v2ApiKey: account.v2ApiKey, v2SecretKey: account.v2SecretKey });
   const info = await client.getInfo();
   if (!info.success) throw new Error(`Gagal ambil saldo Indodax: ${info.message}`);
 

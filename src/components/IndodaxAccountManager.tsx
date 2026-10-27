@@ -21,6 +21,7 @@ interface IndodaxAccountMasked {
   id: string;
   label: string;
   apiKeyMasked: string;
+  v2Configured?: boolean;
   isActive: boolean;
   createdAt: number;
 }
@@ -37,6 +38,10 @@ export default function IndodaxAccountManager() {
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
   const [tradeTesting, setTradeTesting] = useState(false);
   const [tradeTestResult, setTradeTestResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const [v2Open, setV2Open] = useState<string | null>(null);
+  const [v2Key, setV2Key] = useState("");
+  const [v2Secret, setV2Secret] = useState("");
 
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -109,6 +114,38 @@ export default function IndodaxAccountManager() {
       setError(err instanceof Error ? err.message : "Gagal menyimpan akun.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveV2(accountId: string) {
+    if (!user || busyId || !v2Key || !v2Secret) return;
+    setBusyId(accountId);
+    setError(null);
+    setNotice(null);
+    try {
+      await authedFetch("PATCH", { accountId, v2ApiKey: v2Key.trim(), v2SecretKey: v2Secret.trim() });
+      setNotice("Kunci API v2 disimpan (terenkripsi). Dipakai untuk riwayat trade/order; kunci v1 tetap untuk trading.");
+      setV2Key("");
+      setV2Secret("");
+      setV2Open(null);
+      await loadAccounts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan kunci v2.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function handleClearV2(accountId: string) {
+    if (!user || busyId || !confirm("Hapus kunci API v2 dari akun ini? Riwayat trade/order tidak akan terbaca sampai kunci v2 diisi lagi.")) return;
+    setBusyId(accountId);
+    try {
+      await authedFetch("PATCH", { accountId, clearV2: true });
+      await loadAccounts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menghapus kunci v2.");
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -310,6 +347,40 @@ export default function IndodaxAccountManager() {
               <div>
                 <p className="font-medium">{acc.label}</p>
                 <p className="text-[var(--text-muted)] text-xs mt-1">{acc.apiKeyMasked}</p>
+                <p className={`text-xs mt-1 ${acc.v2Configured ? "text-emerald-300" : "text-amber-300"}`}>
+                  Kunci v2 (riwayat): {acc.v2Configured ? "terpasang" : "belum diisi"}
+                </p>
+                {v2Open === acc.id ? (
+                  <div className="mt-2 space-y-2">
+                    <input
+                      value={v2Key}
+                      onChange={(e) => setV2Key(e.target.value)}
+                      placeholder="API Key TAPIv2 (izin Reading saja disarankan)"
+                      autoComplete="off"
+                      className="w-full rounded-md bg-white/10 px-3 py-2 text-xs"
+                    />
+                    <input
+                      value={v2Secret}
+                      onChange={(e) => setV2Secret(e.target.value)}
+                      placeholder="Secret Key TAPIv2"
+                      type="password"
+                      autoComplete="off"
+                      className="w-full rounded-md bg-white/10 px-3 py-2 text-xs"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSaveV2(acc.id)}
+                        disabled={busyId !== null || !v2Key || !v2Secret}
+                        className="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 disabled:opacity-50"
+                      >
+                        Simpan kunci v2
+                      </button>
+                      <button onClick={() => setV2Open(null)} className="text-xs px-3 py-1 rounded-full bg-white/10 text-[var(--text-secondary)]">
+                        Batal
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {acc.isActive ? (
@@ -334,6 +405,22 @@ export default function IndodaxAccountManager() {
                     {busyId === acc.id ? "Memproses..." : "Jadikan Aktif"}
                   </button>
                 )}
+                <button
+                  onClick={() => setV2Open(v2Open === acc.id ? null : acc.id)}
+                  disabled={busyId !== null}
+                  className="text-xs px-3 py-1 rounded-full bg-violet-500/20 text-violet-300 disabled:opacity-50"
+                >
+                  {acc.v2Configured ? "Ganti kunci v2" : "Tambah kunci v2"}
+                </button>
+                {acc.v2Configured ? (
+                  <button
+                    onClick={() => handleClearV2(acc.id)}
+                    disabled={busyId !== null}
+                    className="text-xs px-3 py-1 rounded-full bg-white/10 text-[var(--text-secondary)] disabled:opacity-50"
+                  >
+                    Hapus v2
+                  </button>
+                ) : null}
                 <button
                   onClick={() => handleDelete(acc.id)}
                   disabled={busyId !== null}

@@ -23,6 +23,9 @@ export interface ActiveIndodaxCredentials {
   label: string;
   apiKey: string;
   secretKey: string;
+  /** Kunci TAPIv2 (opsional, untuk riwayat trade/order). */
+  v2ApiKey?: string;
+  v2SecretKey?: string;
 }
 
 export async function getActiveIndodaxAccount(): Promise<ActiveIndodaxCredentials | null> {
@@ -82,6 +85,9 @@ export async function getActiveIndodaxAccount(): Promise<ActiveIndodaxCredential
       label: data.label,
       apiKey: decrypt(data.apiKey),
       secretKey: decrypt(data.secretKey),
+      ...(data.v2ApiKey && data.v2SecretKey
+        ? { v2ApiKey: decrypt(data.v2ApiKey), v2SecretKey: decrypt(data.v2SecretKey) }
+        : {}),
     };
 
   } catch (error) {

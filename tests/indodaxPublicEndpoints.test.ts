@@ -53,3 +53,30 @@ test("normalizeV2Trade memetakan ke field gaya legacy (detik, type, qty per aset
   assert.equal(n.doge, "6");
   assert.equal(normalizeV2Trade({ isBuyer: false, time: 1000 }, "doge").type, "sell");
 });
+
+test("riwayat v2 memakai kunci v2 dari kredensial akun (bukan kunci v1), v1 tetap untuk method lain", async () => {
+  const { IndodaxClient } = await import("../src/services/liveTrading/exchange/indodaxClient");
+  const seen: { url: string; headers: Record<string, string> }[] = [];
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    seen.push({ url: String(url), headers: init?.headers as Record<string, string> });
+    return new Response(JSON.stringify({ data: [{ tradeId: "1", orderId: "avaxidr-market-1", price: "161941", qty: "0.09243489", quoteQty: "14968", commission: "30", isBuyer: true, time: 1792609251000 }] }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const c = new IndodaxClient({ apiKey: "V1KEY", secretKey: "V1SECRET", v2ApiKey: "V2KEY", v2SecretKey: "V2SECRET" });
+    const r = await c.tradeHistory({ pair: "avax_idr", since: Math.floor(Date.now() / 1000) - 3600, count: 20 });
+    assert.equal(r.success, true);
+    assert.equal(seen[0].headers["X-APIKEY"], "V2KEY");
+    assert.match(seen[0].url, /api\/v2\/myTrades\?symbol=avaxidr/);
+    const rows = (r as { data: Record<string, unknown>[] }).data;
+    assert.equal(rows[0].type, "buy");
+    assert.equal(rows[0].avax, "0.09243489");
+
+    seen.length = 0;
+    const c2 = new IndodaxClient({ apiKey: "V1KEY", secretKey: "V1SECRET" });
+    await c2.tradeHistory({ pair: "avax_idr", count: 10 });
+    assert.equal(seen[0].headers["X-APIKEY"], "V1KEY");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

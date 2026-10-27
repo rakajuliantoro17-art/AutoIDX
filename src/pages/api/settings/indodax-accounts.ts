@@ -13,6 +13,7 @@ utuh - cuma versi masked.
 */
 
 import type { NextApiRequest, NextApiResponse } from "next";
+import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/services/firebase/admin";
 import { encrypt } from "@/services/security/encryption";
 import { recordAudit } from "@/services/firebase/auditTrail";
@@ -123,6 +124,7 @@ export default async function handler(
             id: d.id,
             label: data.label,
             apiKeyMasked: maskKey(data.apiKey ?? ""),
+            v2Configured: Boolean(data.v2ApiKey && data.v2SecretKey),
             isActive: data.isActive,
             createdAt: data.createdAt,
           };
@@ -135,7 +137,10 @@ export default async function handler(
 
       case "POST": {
 
-        const { label, apiKey, secretKey } = req.body ?? {};
+        const { label, apiKey, secretKey, v2ApiKey, v2SecretKey } = req.body ?? {};
+        if (Boolean(v2ApiKey) !== Boolean(v2SecretKey)) {
+          return res.status(400).json({ error: "Kunci v2: isi apiKey dan secretKey sekaligus, atau kosongkan keduanya." });
+        }
 
         if (!label || !apiKey || !secretKey) {
 
@@ -155,6 +160,7 @@ export default async function handler(
           label,
           apiKey: encryptedApiKey,
           secretKey: encryptedSecretKey,
+          ...(v2ApiKey && v2SecretKey ? { v2ApiKey: encrypt(v2ApiKey), v2SecretKey: encrypt(v2SecretKey) } : {}),
           isActive,
           createdAt: Date.now(),
         });
@@ -169,7 +175,26 @@ export default async function handler(
 
       case "PATCH": {
 
-        const { accountId, isActive } = req.body ?? {};
+        const { accountId, isActive, v2ApiKey, v2SecretKey, clearV2 } = req.body ?? {};
+
+        // Simpan/hapus kunci v2 pada akun yang sudah ada. Tidak mengubah akun aktif
+        // dan tidak menyentuh kunci v1, jadi tidak perlu pemeriksaan ganti-akun.
+        if (accountId && (clearV2 === true || v2ApiKey || v2SecretKey)) {
+          const ref = accountsCollection(uid).doc(accountId);
+          const doc = await ref.get();
+          if (!doc.exists) return res.status(404).json({ error: "Akun tidak ditemukan." });
+          if (clearV2 === true) {
+            await ref.update({ v2ApiKey: FieldValue.delete(), v2SecretKey: FieldValue.delete() });
+            await recordAudit("indodax_account.update", uid, [{ field: "v2Key", before: "set", after: "cleared" }], { accountId });
+            return res.status(200).json({ success: true });
+          }
+          if (!v2ApiKey || !v2SecretKey || typeof v2ApiKey !== "string" || typeof v2SecretKey !== "string") {
+            return res.status(400).json({ error: "v2ApiKey dan v2SecretKey wajib diisi keduanya." });
+          }
+          await ref.update({ v2ApiKey: encrypt(v2ApiKey), v2SecretKey: encrypt(v2SecretKey) });
+          await recordAudit("indodax_account.update", uid, [{ field: "v2Key", before: doc.data()?.v2ApiKey ? "set" : "none", after: "set" }], { accountId });
+          return res.status(200).json({ success: true });
+        }
 
         if (!accountId || typeof isActive !== "boolean") {
 
