@@ -116,6 +116,23 @@ export type IndodaxTradeResponse =
   | { success: true; data: IndodaxTradeResult }
   | { success: false; message: string; certainty?: "CERTAIN" | "UNCERTAIN" };
 
+/** Normalisasi satu trade v2 (myTrades) ke field gaya legacy. */
+export function normalizeV2Trade(t: Record<string, unknown>, asset: string): Record<string, unknown> {
+  const timeMs = Number(t.time);
+  const sec = Number.isFinite(timeMs) ? Math.floor(timeMs / 1000) : NaN;
+  return {
+    trade_id: t.tradeId,
+    order_id: t.orderId,
+    type: t.isBuyer === true ? "buy" : "sell",
+    price: t.price,
+    fee: t.commission,
+    date: sec,
+    trade_time: sec,
+    [asset]: t.qty,
+    idr: t.quoteQty,
+  };
+}
+
 export class IndodaxClient {
 
   private apiKey: string;
@@ -405,42 +422,64 @@ export class IndodaxClient {
     | { success: true; data: unknown[] }
     | { success: false; message: string }
   > {
-
-    const body: Record<string, unknown> = {
-      pair: params.pair,
-      order: "desc",
-      count: params.count ?? 50,
+    // Method legacy "tradeHistory" dihentikan Indodax (membalas teks
+    // "DEPRECATED"); penggantinya GET /api/v2/myTrades. Bentuk keluaran
+    // dinormalisasi ke field legacy (type, date/trade_time dalam DETIK,
+    // price, fee, order_id, <asset>) supaya pemanggil lama tetap jalan.
+    const asset = params.pair.split("_")[0];
+    const query: Record<string, string | number> = {
+      symbol: params.pair.replace("_", ""),
+      limit: Math.min(Math.max(params.count ?? 50, 10), 1000),
+      sort: "desc",
     };
-
     if (params.since !== undefined) {
-      body.since = Math.floor(params.since);
+      // since = detik (legacy) -> startTime ms. Rentang maks 7 hari.
+      const now = Date.now();
+      query.startTime = Math.max(Math.floor(params.since) * 1000, now - 7 * 24 * 3600 * 1000 + 60_000);
+      query.endTime = now;
     }
+    const result = await this.signedGetV2("/api/v2/myTrades", query);
+    if (!result.success) return result;
+    const rows = Array.isArray((result.data as { data?: unknown })?.data)
+      ? ((result.data as { data: Record<string, unknown>[] }).data)
+      : [];
+    return { success: true, data: rows.map((t) => normalizeV2Trade(t, asset)) };
+  }
 
-    // Nama method API privat Indodax adalah "tradeHistory" ("trades" hanya
-    // nama endpoint publik) -- lihat tests/indodaxPublicEndpoints.test.ts.
-    const result = await this.privateRequest("tradeHistory", body);
-
-    if (!result.success) {
-
-      return {
-        success: false,
-        message: result.message ?? "Unknown error",
-      };
-
+  /**
+   * GET bertanda tangan ke API v2 (X-APIKEY + Sign = HMAC-SHA256 hex atas
+   * query string). BACA-SAJA: dipakai hanya untuk riwayat. Kegagalan
+   * dikembalikan sebagai {success:false}, tidak pernah melempar.
+   */
+  private async signedGetV2(
+    path: string,
+    query: Record<string, string | number>
+  ): Promise<{ success: true; data: unknown } | { success: false; message: string }> {
+    try {
+      const host = (process.env.INDODAX_V2_API_URL ?? "https://api.indodax.com").replace(/\/$/, "");
+      const qs = new URLSearchParams(
+        Object.entries({ ...query, timestamp: Date.now(), recvWindow: 10_000 }).map(([k, v]) => [k, String(v)])
+      ).toString();
+      const sign = crypto.createHmac("sha256", this.secretKey).update(qs).digest("hex");
+      const res = await fetchWithTimeout(`${host}${path}?${qs}`, {
+        method: "GET",
+        headers: { Accept: "application/json", "X-APIKEY": this.apiKey, Sign: sign },
+      });
+      const text = await res.text();
+      let json: unknown;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        return { success: false, message: `Respons v2 bukan JSON (HTTP ${res.status}): ${text.slice(0, 120)}` };
+      }
+      const err = json as { code?: unknown; msg?: unknown };
+      if (!res.ok || (err && typeof err === "object" && err.code !== undefined && err.msg !== undefined)) {
+        return { success: false, message: `Indodax v2 ${res.status}: ${String(err?.msg ?? "error")} (${String(err?.code ?? "")})` };
+      }
+      return { success: true, data: json };
+    } catch (e) {
+      return { success: false, message: e instanceof Error ? e.message : String(e) };
     }
-
-    return {
-      success: true,
-      // Beberapa versi API membungkus array langsung di data,
-      // beberapa di data[pair] -- normalisasi keduanya di sini
-      // supaya caller tidak perlu tahu bedanya.
-      data: Array.isArray(result.data)
-        ? result.data
-        : (((result.data as Record<string, unknown>)?.trades as unknown[]) ??
-            ((result.data as Record<string, unknown>)?.[params.pair] as unknown[]) ??
-            []),
-    };
-
   }
 
   /**
@@ -450,19 +489,19 @@ export class IndodaxClient {
    * jadi dikembalikan apa adanya.
    */
   async orderHistory(
-    params: { pair: string; count?: number }
+    params: { pair: string; count?: number; since?: number }
   ): Promise<
     | { success: true; data: unknown }
     | { success: false; message: string }
   > {
-    const result = await this.privateRequest("orderHistory", {
-      pair: params.pair,
-      count: params.count ?? 20,
+    const now = Date.now();
+    return this.signedGetV2("/api/v2/order/histories", {
+      symbol: params.pair.replace("_", ""),
+      limit: Math.min(Math.max(params.count ?? 20, 10), 1000),
+      sort: "desc",
+      startTime: params.since !== undefined ? Math.max(params.since * 1000, now - 7 * 24 * 3600 * 1000 + 60_000) : now - 7 * 24 * 3600 * 1000 + 60_000,
+      endTime: now,
     });
-    if (!result.success) {
-      return { success: false, message: result.message ?? "Unknown error" };
-    }
-    return { success: true, data: result.data };
   }
 
   /**

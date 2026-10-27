@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     for (const row of rows.slice(0, 8)) {
       let history: { time: string; type: string; price: number; amount: number }[] | null = null;
       let orderHistoryRaw: unknown = null;
-      if (row.status === "TAK_TERLACAK") {
+      if (row.status !== "DIKELOLA") {
         const r = await client.tradeHistory({ pair: `${row.asset}_idr`, since, count: 20 });
         if (!r.success) {
           historyError = r.message;

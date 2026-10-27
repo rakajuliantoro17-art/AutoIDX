@@ -31,10 +31,25 @@ test("limit BUY memakai jumlah koin, market BUY tetap idr (source guard)", () =>
   assert.match(src, /body\.idr = params\.idr/);
 });
 
-test("tradeHistory memanggil method privat 'tradeHistory' (bukan 'trades') dan membaca data.trades", async () => {
+test("tradeHistory memakai API v2 myTrades (legacy 'tradeHistory' DEPRECATED) dan tidak memanggil method legacy", async () => {
   const { readFileSync } = await import("node:fs");
   const src = readFileSync("src/services/liveTrading/exchange/indodaxClient.ts", "utf8");
-  assert.match(src, /privateRequest\("tradeHistory"/);
-  assert.doesNotMatch(src, /privateRequest\("trades"/);
-  assert.match(src, /\.trades as unknown\[\]/);
+  assert.match(src, /\/api\/v2\/myTrades/);
+  assert.match(src, /\/api\/v2\/order\/histories/);
+  assert.doesNotMatch(src, /privateRequest\("tradeHistory"/);
+  assert.doesNotMatch(src, /privateRequest\("orderHistory"/);
+  assert.match(src, /X-APIKEY/);
+});
+
+test("normalizeV2Trade memetakan ke field gaya legacy (detik, type, qty per aset)", async () => {
+  const { normalizeV2Trade } = await import("../src/services/liveTrading/exchange/indodaxClient");
+  const n = normalizeV2Trade(
+    { tradeId: "1", orderId: "dogeidr-market-9", price: "2500", qty: "6", quoteQty: "15000", commission: "33", isBuyer: true, time: 1723442692520 },
+    "doge"
+  );
+  assert.equal(n.type, "buy");
+  assert.equal(n.date, 1723442692);
+  assert.equal(n.trade_time, 1723442692);
+  assert.equal(n.doge, "6");
+  assert.equal(normalizeV2Trade({ isBuyer: false, time: 1000 }, "doge").type, "sell");
 });
