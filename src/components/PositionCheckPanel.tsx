@@ -90,7 +90,7 @@ export default function PositionCheckPanel() {
     history: { time: string; type: string; price: number; amount: number }[] | null;
     orderHistoryRaw?: unknown;
   }
-  const [wallet, setWallet] = useState<{ idr: { available: number; hold: number }; holdings: WalletRow[]; transfers?: { withdrawIdr?: unknown[]; depositIdr?: unknown[] } | null; historyError?: string | null } | null>(null);
+  const [wallet, setWallet] = useState<{ idr: { available: number; hold: number }; holdings: WalletRow[]; transfers?: { withdrawIdr?: unknown[]; depositIdr?: unknown[] } | null; historyError?: string | null; recentTrades?: { pair: string; time: string; type: string; price: number; idr: number; fee: number; orderId: string }[]; recentErrors?: string[] } | null>(null);
 
   async function loadWallet() {
     if (!user) return;
@@ -187,6 +187,18 @@ export default function PositionCheckPanel() {
           <p className="text-[var(--text-secondary)]">
             IDR tersedia Rp{Math.round(wallet.idr.available)} · tertahan Rp{Math.round(wallet.idr.hold)}
           </p>
+          {wallet.recentTrades ? (
+            <div className="rounded-lg border border-slate-700 p-2 text-xs text-slate-300">
+              <p className="font-semibold">Trade terbaru semua pair ({wallet.recentTrades.length}):</p>
+              {wallet.recentTrades.length === 0 ? <p>Tidak ada trade pada rentang ini.</p> : null}
+              {wallet.recentTrades.map((t, i) => (
+                <p key={i} className="font-mono">
+                  {new Date(t.time).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })} · {t.pair} · {t.type.toUpperCase()} · Rp{fmt(t.idr)} @ {fmt(t.price)} · fee {fmt(t.fee)}
+                </p>
+              ))}
+              {wallet.recentErrors?.length ? <p className="text-red-400">Gagal: {wallet.recentErrors.join(" | ")}</p> : null}
+            </div>
+          ) : null}
           {wallet.historyError ? <p className="text-xs text-red-400">Riwayat trade gagal dibaca: {wallet.historyError}</p> : null}
           {wallet.transfers ? (
             <div className="rounded-xl border border-white/10 p-3 text-xs text-[var(--text-secondary)] break-words">

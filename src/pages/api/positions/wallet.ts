@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyApiAuth } from "@/lib/auth/verifyApiAuth";
 import { isOwner } from "@/services/agents/decisions";
 import { loadWallet } from "@/services/positions/walletLoad";
+import { TRADING_CONFIG } from "@/config/trading";
 
 export const config = { maxDuration: 30 };
 
@@ -71,7 +72,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       transfers = null;
     }
 
-    return res.status(200).json({ idr, holdings: withHistory, transfers, historyError, hours });
+    // Trade terbaru lintas pair (mis. untuk melacak selisih saldo IDR): pair yang
+    // pernah diperdagangkan bot + watchlist statis + ?pairs=a,b. Paralel, BACA-SAJA.
+    const extra = String(req.query.pairs ?? "").split(",").map((p) => p.trim().toLowerCase()).filter(Boolean);
+    const pairSet = new Set<string>([
+      ...["zerebro", "bnb", "br", "ada", "birb", "doge", "avax"].map((a) => `${a}_idr`),
+      ...TRADING_CONFIG.pairs,
+      ...extra.map((p) => (p.includes("_") ? p : `${p}_idr`)),
+    ]);
+    const recentSince = Math.floor(Date.now() / 1000) - Math.min(hours, 168) * 3600;
+    const recentErrors: string[] = [];
+    const recentTrades = (
+      await Promise.all(
+        [...pairSet].slice(0, 30).map(async (pair) => {
+          const r = await client.tradeHistory({ pair, since: recentSince, count: 20 });
+          if (!r.success) {
+            recentErrors.push(`${pair}: ${r.message}`);
+            return [];
+          }
+          return (r.data as Record<string, unknown>[]).map((t) => ({
+            pair,
+            time: new Date(num(t.trade_time) * 1000).toISOString(),
+            type: String(t.type ?? ""),
+            price: num(t.price),
+            idr: num(t.idr),
+            fee: num(t.fee),
+            orderId: String(t.order_id ?? ""),
+          }));
+        })
+      )
+    )
+      .flat()
+      .sort((a, b) => (a.time < b.time ? 1 : -1));
+
+    return res.status(200).json({ idr, holdings: withHistory, transfers, historyError, hours, recentTrades, recentErrors: recentErrors.slice(0, 5) });
   } catch (error) {
     console.error("[WALLET REPORT ERROR]", error);
     return res.status(500).json({ error: error instanceof Error ? error.message : "Gagal membaca dompet." });
