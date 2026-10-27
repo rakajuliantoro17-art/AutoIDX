@@ -80,3 +80,37 @@ test("riwayat v2 memakai kunci v2 dari kredensial akun (bukan kunci v1), v1 teta
     globalThis.fetch = realFetch;
   }
 });
+
+test("fetchWithTimeout membatasi pembacaan BODY (body menggantung tidak boleh menunggu tanpa akhir)", async () => {
+  const { fetchWithTimeout } = await import("../src/services/liveTrading/exchange/indodaxClient");
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+    const stream = new ReadableStream({
+      start(controller) {
+        init?.signal?.addEventListener("abort", () => controller.error(new DOMException("Aborted", "AbortError")));
+        // header sudah "tiba", tetapi body tidak pernah selesai
+      },
+    });
+    return new Response(stream, { status: 200 });
+  }) as typeof fetch;
+  try {
+    const started = Date.now();
+    await assert.rejects(() => fetchWithTimeout("https://x.test/tapi", {}, 200), /timed out after 200ms/);
+    assert.ok(Date.now() - started < 2000);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+test("fetchWithTimeout tetap mengembalikan respons normal yang bisa dibaca", async () => {
+  const { fetchWithTimeout } = await import("../src/services/liveTrading/exchange/indodaxClient");
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ success: 1 }), { status: 200 })) as typeof fetch;
+  try {
+    const r = await fetchWithTimeout("https://x.test/tapi", {}, 1000);
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { success: 1 });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

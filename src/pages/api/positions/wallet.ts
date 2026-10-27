@@ -28,10 +28,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const since = Math.floor(Date.now() / 1000) - hours * 3600;
     const withHistory = [];
     let historyError: string | null = null;
-    for (const row of rows.slice(0, 8)) {
+    for (const row of rows.slice(0, 14)) {
       let history: { time: string; type: string; price: number; amount: number }[] | null = null;
       let orderHistoryRaw: unknown = null;
-      if (row.status !== "DIKELOLA") {
+      if (row.status !== "DIKELOLA" && row.total > 1e-8) {
         const r = await client.tradeHistory({ pair: `${row.asset}_idr`, since, count: 20 });
         if (!r.success) {
           historyError = r.message;

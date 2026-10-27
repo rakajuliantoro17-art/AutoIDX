@@ -29,3 +29,11 @@ test("koin dibeli di pair yang juga di luar kelolaan: selisih terdeteksi", () =>
 test("saldo nol atau debu diabaikan", () => {
   assert.equal(classifyHoldings({ balances: { btc: 0, eth: 1e-10 }, open: {}, unmanaged: {} }).length, 0);
 });
+
+test("penandaan di luar kelolaan yang saldonya sudah 0 tetap ditampilkan (basi) agar bisa dibatalkan", () => {
+  const rows = classifyHoldings({ balances: { avax: 0 }, open: {}, unmanaged: { avax: 0.0924 } });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].asset, "avax");
+  assert.equal(rows[0].status, "DI_LUAR_KELOLAAN");
+  assert.equal(rows[0].total, 0);
+});

@@ -40,7 +40,7 @@ import type { ExchangeResponse } from "../types";
  */
 const DEFAULT_REQUEST_TIMEOUT_MS = 6_000;
 
-async function fetchWithTimeout(
+export async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
   timeoutMs: number = DEFAULT_REQUEST_TIMEOUT_MS,
@@ -52,9 +52,20 @@ async function fetchWithTimeout(
 
   try {
 
-    return await fetch(url, {
+    const response = await fetch(url, {
       ...options,
       signal: controller.signal,
+    });
+
+    // Timer HARUS tetap berjalan sampai BODY selesai dibaca. Sebelumnya timer
+    // dibatalkan begitu header tiba, sehingga body yang menggantung (response.json())
+    // tidak punya batas waktu -- BUY bisa tereksekusi tetapi bot menunggu tanpa
+    // akhir (insiden AVAX 27 Okt 2026). Body dibaca penuh di sini lalu dibungkus ulang.
+    const bodyText = await response.text();
+    return new Response(bodyText, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
     });
 
   } catch (error) {

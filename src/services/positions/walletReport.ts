@@ -23,10 +23,15 @@ export function classifyHoldings(input: {
   unmanaged: Record<string, number>;
 }): HoldingRow[] {
   const rows: HoldingRow[] = [];
-  for (const [asset, totalRaw] of Object.entries(input.balances)) {
+  // Aset yang masih ditandai "di luar kelolaan" tetap ditampilkan walau saldonya
+  // sudah 0 (penandaan basi) supaya bisa dibatalkan -- penandaan basi bisa
+  // memicu emergency stop saat bot membeli aset yang sama lagi.
+  const assets = new Set([...Object.keys(input.balances), ...Object.keys(input.unmanaged)]);
+  for (const asset of assets) {
     if (asset === "idr") continue;
-    const total = Number(totalRaw);
-    if (!Number.isFinite(total) || total <= 1e-8) continue;
+    const total = Number(input.balances[asset] ?? 0);
+    if (!Number.isFinite(total)) continue;
+    if (total <= 1e-8 && !((input.unmanaged[asset] ?? 0) > 0)) continue;
     const managedQty = input.open[asset] ?? 0;
     const unmanagedQty = input.unmanaged[asset] ?? 0;
     const extraQty = total - managedQty - unmanagedQty;

@@ -237,7 +237,7 @@ export default function PositionCheckPanel() {
             <div key={h.asset} className="rounded-xl border border-white/10 p-3">
               <p className="font-semibold uppercase">
                 {h.asset} · {fmt(h.total)} ·{" "}
-                {h.status === "DIKELOLA" ? "dikelola bot" : h.status === "DI_LUAR_KELOLAAN" ? "di luar kelolaan" : `TAK TERLACAK (selisih ${fmt(h.extraQty)})`}
+                {h.status === "DIKELOLA" ? "dikelola bot" : h.status === "DI_LUAR_KELOLAAN" ? (h.total <= 1e-8 ? "penandaan BASI (saldo 0) -- batalkan penandaan" : "di luar kelolaan") : `TAK TERLACAK (selisih ${fmt(h.extraQty)})`}
               </p>
               {h.history ? (
                 h.history.length === 0 ? (
