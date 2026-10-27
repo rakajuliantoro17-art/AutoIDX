@@ -82,6 +82,31 @@ export default function PositionCheckPanel() {
     }
   }
 
+  interface WalletRow {
+    asset: string;
+    total: number;
+    status: "DIKELOLA" | "DI_LUAR_KELOLAAN" | "TAK_TERLACAK";
+    extraQty: number;
+    history: { time: string; type: string; price: number; amount: number }[] | null;
+  }
+  const [wallet, setWallet] = useState<{ idr: { available: number; hold: number }; holdings: WalletRow[] } | null>(null);
+
+  async function loadWallet() {
+    if (!user) return;
+    setBusy("wallet");
+    setMsg(null);
+    try {
+      const r = await fetch("/api/positions/wallet", { headers: { Authorization: `Bearer ${await token()}` } });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? "Gagal membaca dompet.");
+      setWallet(j);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function release(row: Row) {
     if (
       !window.confirm(
@@ -122,6 +147,44 @@ export default function PositionCheckPanel() {
       >
         {busy === "check" ? "Memeriksa..." : "Periksa posisi sekarang"}
       </button>
+
+      <button
+        onClick={loadWallet}
+        disabled={busy !== null}
+        className="mt-3 w-full rounded-full border border-white/20 px-5 py-3 font-bold transition hover:bg-white/10 disabled:opacity-50 sm:ml-3 sm:w-auto"
+      >
+        {busy === "wallet" ? "Membaca..." : "Lihat isi dompet"}
+      </button>
+
+      {wallet ? (
+        <div className="mt-4 space-y-2 text-sm">
+          <p className="text-[var(--text-secondary)]">
+            IDR tersedia Rp{Math.round(wallet.idr.available)} · tertahan Rp{Math.round(wallet.idr.hold)}
+          </p>
+          {wallet.holdings.length === 0 ? <p className="text-[var(--text-muted)]">Tidak ada koin di dompet.</p> : null}
+          {wallet.holdings.map((h) => (
+            <div key={h.asset} className="rounded-xl border border-white/10 p-3">
+              <p className="font-semibold uppercase">
+                {h.asset} · {fmt(h.total)} ·{" "}
+                {h.status === "DIKELOLA" ? "dikelola bot" : h.status === "DI_LUAR_KELOLAAN" ? "di luar kelolaan" : `TAK TERLACAK (selisih ${fmt(h.extraQty)})`}
+              </p>
+              {h.history ? (
+                h.history.length === 0 ? (
+                  <p className="text-xs text-[var(--text-muted)]">Tidak ada transaksi pada periode ini.</p>
+                ) : (
+                  <ul className="mt-1 text-xs text-[var(--text-secondary)]">
+                    {h.history.map((t, i) => (
+                      <li key={i}>
+                        {t.time.replace("T", " ").slice(0, 19)} UTC · {t.type} · {fmt(t.amount)} @ {t.price}
+                      </li>
+                    ))}
+                  </ul>
+                )
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {msg ? <p className="mt-3 text-sm text-[var(--text-secondary)] break-words">{msg}</p> : null}
 
