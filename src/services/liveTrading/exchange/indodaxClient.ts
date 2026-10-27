@@ -460,10 +460,18 @@ export class IndodaxClient {
       const qs = new URLSearchParams(
         Object.entries({ ...query, timestamp: Date.now(), recvWindow: 10_000 }).map(([k, v]) => [k, String(v)])
       ).toString();
-      const sign = crypto.createHmac("sha256", this.secretKey).update(qs).digest("hex");
+      // API v2 WAJIB kunci TAPIv2 khusus (kunci TAPI lama ditolak 401).
+      // Pakai INDODAX_V2_API_KEY/INDODAX_V2_SECRET_KEY bila ada (disarankan
+      // kunci BACA-SAJA), kalau tidak jatuh ke kunci akun aktif.
+      const v2Key = process.env.INDODAX_V2_API_KEY;
+      const v2Secret = process.env.INDODAX_V2_SECRET_KEY;
+      const useV2 = Boolean(v2Key && v2Secret);
+      const apiKey = useV2 ? (v2Key as string) : this.apiKey;
+      const secret = useV2 ? (v2Secret as string) : this.secretKey;
+      const sign = crypto.createHmac("sha256", secret).update(qs).digest("hex");
       const res = await fetchWithTimeout(`${host}${path}?${qs}`, {
         method: "GET",
-        headers: { Accept: "application/json", "X-APIKEY": this.apiKey, Sign: sign },
+        headers: { Accept: "application/json", "X-APIKEY": apiKey, Sign: sign },
       });
       const text = await res.text();
       let json: unknown;
@@ -474,7 +482,8 @@ export class IndodaxClient {
       }
       const err = json as { code?: unknown; msg?: unknown };
       if (!res.ok || (err && typeof err === "object" && err.code !== undefined && err.msg !== undefined)) {
-        return { success: false, message: `Indodax v2 ${res.status}: ${String(err?.msg ?? "error")} (${String(err?.code ?? "")})` };
+        const hint = res.status === 401 && !useV2 ? " -- kunci TAPI lama tidak berlaku di v2; buat kunci TAPIv2 (indodax.com/trade_api) dan isi INDODAX_V2_API_KEY/INDODAX_V2_SECRET_KEY" : "";
+        return { success: false, message: `Indodax v2 ${res.status}: ${String(err?.msg ?? "error")} (${String(err?.code ?? "")})${hint}` };
       }
       return { success: true, data: json };
     } catch (e) {
