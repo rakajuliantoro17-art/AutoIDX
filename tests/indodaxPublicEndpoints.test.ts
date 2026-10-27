@@ -30,3 +30,11 @@ test("limit BUY memakai jumlah koin, market BUY tetap idr (source guard)", () =>
   assert.match(src, /params\.type === "buy" && orderType === "limit"/);
   assert.match(src, /body\.idr = params\.idr/);
 });
+
+test("tradeHistory memanggil method privat 'tradeHistory' (bukan 'trades') dan membaca data.trades", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync("src/services/liveTrading/exchange/indodaxClient.ts", "utf8");
+  assert.match(src, /privateRequest\("tradeHistory"/);
+  assert.doesNotMatch(src, /privateRequest\("trades"/);
+  assert.match(src, /\.trades as unknown\[\]/);
+});

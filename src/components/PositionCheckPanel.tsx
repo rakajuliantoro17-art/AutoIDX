@@ -89,7 +89,7 @@ export default function PositionCheckPanel() {
     extraQty: number;
     history: { time: string; type: string; price: number; amount: number }[] | null;
   }
-  const [wallet, setWallet] = useState<{ idr: { available: number; hold: number }; holdings: WalletRow[] } | null>(null);
+  const [wallet, setWallet] = useState<{ idr: { available: number; hold: number }; holdings: WalletRow[]; transfers?: { withdrawIdr?: unknown[]; depositIdr?: unknown[] } | null; historyError?: string | null } | null>(null);
 
   async function loadWallet() {
     if (!user) return;
@@ -161,6 +161,14 @@ export default function PositionCheckPanel() {
           <p className="text-[var(--text-secondary)]">
             IDR tersedia Rp{Math.round(wallet.idr.available)} · tertahan Rp{Math.round(wallet.idr.hold)}
           </p>
+          {wallet.historyError ? <p className="text-xs text-red-400">Riwayat trade gagal dibaca: {wallet.historyError}</p> : null}
+          {wallet.transfers ? (
+            <div className="rounded-xl border border-white/10 p-3 text-xs text-[var(--text-secondary)] break-words">
+              <p className="font-semibold">Deposit/penarikan IDR terbaru</p>
+              <p>Penarikan: {JSON.stringify(wallet.transfers.withdrawIdr ?? [])}</p>
+              <p>Deposit: {JSON.stringify(wallet.transfers.depositIdr ?? [])}</p>
+            </div>
+          ) : null}
           {wallet.holdings.length === 0 ? <p className="text-[var(--text-muted)]">Tidak ada koin di dompet.</p> : null}
           {wallet.holdings.map((h) => (
             <div key={h.asset} className="rounded-xl border border-white/10 p-3">
