@@ -108,6 +108,31 @@ export default function PositionCheckPanel() {
     }
   }
 
+  async function markUnmanaged(asset: string, qty: number) {
+    if (
+      !window.confirm(
+        `Tandai ${asset.toUpperCase()} (${fmt(qty)}) sebagai "di luar kelolaan"?\nGunakan HANYA jika koin ini milik Anda sendiri (bukan hasil beli bot). Tidak ada order dikirim; jumlah ini hanya dikurangkan dari saldo bursa saat rekonsiliasi supaya pembelian bot di pair yang sama tidak memicu emergency stop.`
+      )
+    )
+      return;
+    setBusy(`mark:${asset}`);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/positions/mark-unmanaged", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ asset, confirm: true }),
+      });
+      const j = await r.json();
+      setMsg(j.message ?? j.error ?? (r.ok ? "Selesai." : "Gagal."));
+      if (r.ok) await loadWallet();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function release(row: Row) {
     if (
       !window.confirm(
@@ -189,6 +214,15 @@ export default function PositionCheckPanel() {
                     ))}
                   </ul>
                 )
+              ) : null}
+              {h.status === "TAK_TERLACAK" ? (
+                <button
+                  onClick={() => markUnmanaged(h.asset, h.extraQty)}
+                  disabled={busy !== null}
+                  className="mt-2 w-full rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-600 disabled:opacity-50 sm:w-auto"
+                >
+                  {busy === `mark:${h.asset}` ? "Menandai..." : "Tandai di luar kelolaan"}
+                </button>
               ) : null}
               {h.orderHistoryRaw ? (
                 <p className="mt-1 text-xs text-[var(--text-secondary)] break-words">

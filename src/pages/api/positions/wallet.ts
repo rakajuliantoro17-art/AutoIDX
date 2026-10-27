@@ -2,11 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { verifyApiAuth } from "@/lib/auth/verifyApiAuth";
 import { isOwner } from "@/services/agents/decisions";
-import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
-import { getBotState, getOpenPositionPairs } from "@/services/firebase/botState";
-import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
-import { getUnmanagedHoldings } from "@/services/positions/unmanaged";
-import { classifyHoldings } from "@/services/positions/walletReport";
+import { loadWallet } from "@/services/positions/walletLoad";
 
 export const config = { maxDuration: 30 };
 
@@ -25,27 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!isOwner(user.uid)) return res.status(403).json({ error: "Hanya pemilik." });
 
   try {
-    const account = await getActiveIndodaxAccount();
-    if (!account) return res.status(409).json({ error: "Tidak ada akun Indodax aktif." });
-    const client = new IndodaxClient({ apiKey: account.apiKey, secretKey: account.secretKey });
-    const info = await client.getInfo();
-    if (!info.success) return res.status(502).json({ error: `Gagal ambil saldo Indodax: ${info.message}` });
-
-    const balance = (info.data.balance ?? {}) as Record<string, unknown>;
-    const hold = (info.data.balance_hold ?? {}) as Record<string, unknown>;
-    const totals: Record<string, number> = {};
-    for (const k of new Set([...Object.keys(balance), ...Object.keys(hold)])) {
-      totals[k] = num(balance[k]) + num(hold[k]);
-    }
-
-    const open: Record<string, number> = {};
-    for (const pair of await getOpenPositionPairs()) {
-      const st = await getBotState(pair);
-      const asset = pair.split("_")[0];
-      open[asset] = (open[asset] ?? 0) + st.coinAmount;
-    }
-    const unmanaged = await getUnmanagedHoldings();
-    const rows = classifyHoldings({ balances: totals, open, unmanaged });
+    const { client, idr, rows } = await loadWallet();
 
     const hours = Math.min(Math.max(num(req.query.hours) || 72, 1), 240);
     const since = Math.floor(Date.now() / 1000) - hours * 3600;
@@ -95,13 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       transfers = null;
     }
 
-    return res.status(200).json({
-      idr: { available: num(balance.idr), hold: num(hold.idr) },
-      holdings: withHistory,
-      transfers,
-      historyError,
-      hours,
-    });
+    return res.status(200).json({ idr, holdings: withHistory, transfers, historyError, hours });
   } catch (error) {
     console.error("[WALLET REPORT ERROR]", error);
     return res.status(500).json({ error: error instanceof Error ? error.message : "Gagal membaca dompet." });
