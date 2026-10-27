@@ -108,6 +108,31 @@ export default function PositionCheckPanel() {
     }
   }
 
+  async function unmarkUnmanaged(asset: string) {
+    if (
+      !window.confirm(
+        `Batalkan penandaan "di luar kelolaan" untuk ${asset.toUpperCase()}?\nLakukan HANYA setelah koin ini sudah dijual/dipindahkan. Jika masih ada di dompet, saldonya akan terbaca sebagai selisih dan bisa memicu emergency stop saat rekonsiliasi.`
+      )
+    )
+      return;
+    setBusy(`unmark:${asset}`);
+    setMsg(null);
+    try {
+      const r = await fetch("/api/positions/unmark-unmanaged", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${await token()}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ asset, confirm: true }),
+      });
+      const j = await r.json();
+      setMsg(j.message ?? j.error ?? (r.ok ? "Selesai." : "Gagal."));
+      if (r.ok) await loadWallet();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function markUnmanaged(asset: string, qty: number) {
     if (
       !window.confirm(
@@ -226,6 +251,15 @@ export default function PositionCheckPanel() {
                     ))}
                   </ul>
                 )
+              ) : null}
+              {h.status === "DI_LUAR_KELOLAAN" ? (
+                <button
+                  onClick={() => unmarkUnmanaged(h.asset)}
+                  disabled={busy !== null}
+                  className="mt-2 w-full rounded-full bg-slate-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-500 disabled:opacity-50 sm:w-auto"
+                >
+                  {busy === `unmark:${h.asset}` ? "Membatalkan..." : "Batalkan penandaan"}
+                </button>
               ) : null}
               {h.status === "TAK_TERLACAK" ? (
                 <button

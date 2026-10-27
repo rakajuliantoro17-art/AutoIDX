@@ -60,3 +60,12 @@ export async function addUnmanagedHolding(asset: string, qty: number): Promise<v
     .doc(DOC_ID)
     .set({ ...current, [asset]: (current[asset] ?? 0) + qty, updatedAt: Date.now() });
 }
+
+/** Hapus penandaan "di luar kelolaan" satu aset (mis. setelah koinnya dijual manual). */
+export async function removeUnmanagedHolding(asset: string): Promise<number> {
+  const current = await getUnmanagedHoldings();
+  const prev = current[asset] ?? 0;
+  delete current[asset];
+  await adminDb.collection(COLLECTION).doc(DOC_ID).set({ ...current, updatedAt: Date.now() });
+  return prev;
+}
