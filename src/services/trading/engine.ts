@@ -1319,6 +1319,8 @@ export class TradingEngine {
 
             tradeAmountIdr: effectiveConfig.tradeAmountIdr,
 
+            maxOpenPositions: effectiveConfig.maxOpenPositions,
+
             strategy: strategyResult.strategy,
 
           });

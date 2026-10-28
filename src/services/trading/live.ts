@@ -21,6 +21,7 @@ fatal seperti recordCanarySafe -- lihat auditSafe().
 ==========================================================
 */
 
+import { resolveCanaryPositionLimit } from "./canaryLimit";
 import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
 import { recordTrade, recordLog } from "@/services/firebase/logService";
@@ -52,6 +53,12 @@ export interface LiveTradeRequest {
    * Kalau tidak diisi, fallback ke BOT_CONFIG.defaultTradeAmount.
    */
   tradeAmountIdr?: number;
+  /**
+   * Batas posisi terbuka dari Settings (Max Open Position). Bila diisi, gerbang
+   * canary MENGIKUTI nilai ini -- tidak perlu mengubah env/kode tiap batas
+   * posisi diubah. Kosong -> fallback BOT_CANARY_MAX_OPEN_ORDERS.
+   */
+  maxOpenPositions?: number;
   /**
    * Nama strategi yang menghasilkan sinyal ini - dicatat ke
    * TradeLog untuk atribusi profit->strategi (strategyAnalytics.ts).
@@ -289,9 +296,11 @@ class LiveTradingService {
 
     const openPositions = await getOpenPositionsCount();
 
-    if (openPositions >= canaryConfig.maxOpenOrders) {
+    const canaryPositionLimit = resolveCanaryPositionLimit(request.maxOpenPositions, canaryConfig.maxOpenOrders);
 
-      const reason = `Fase canary aktif - posisi terbuka (${openPositions}) sudah mencapai batas ${canaryConfig.maxOpenOrders}.`;
+    if (openPositions >= canaryPositionLimit) {
+
+      const reason = `Fase canary aktif - posisi terbuka (${openPositions}) sudah mencapai batas ${canaryPositionLimit}.`;
 
       await recordLog("RISK", "warning", `LIVE BUY ditolak: ${reason}`);
 

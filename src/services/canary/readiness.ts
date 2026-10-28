@@ -56,8 +56,8 @@ export function evaluateCanaryReadiness(i: ReadinessInput): { ready: boolean; ch
   add("minOrder", "Nominal >= minimum order", i.tradeAmountIdr >= i.minOrderValue ? "pass" : "fail",
     `Nominal ${idr(i.tradeAmountIdr)}, minimum ${idr(i.minOrderValue)}.`);
 
-  add("positions", "Batas posisi bersamaan", i.maxOpenPositions === 1 && i.canaryMaxOpenOrders === 1 ? "pass" : "warn",
-    `Settings ${i.maxOpenPositions}, canary ${i.canaryMaxOpenOrders}. Disarankan 1 selama saldo kecil.`);
+  add("positions", "Batas posisi bersamaan", i.maxOpenPositions === 1 ? "pass" : "warn",
+    `Settings ${i.maxOpenPositions}; gerbang canary mengikuti Settings (env BOT_CANARY_MAX_OPEN_ORDERS=${i.canaryMaxOpenOrders} hanya cadangan). Disarankan 1 sampai canary lolos.`);
 
   if (i.idrBalance === null) {
     add("balance", "Saldo Indodax", "fail", `Gagal membaca saldo: ${i.balanceError ?? "tidak diketahui"}.`);
