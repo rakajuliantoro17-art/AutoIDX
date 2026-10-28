@@ -24,3 +24,9 @@ test("canReleaseStuck: tolak bila nilai >= minimum, saldo kurang, atau harga kos
   assert.equal(canReleaseStuck({ localQty: 2.5, exchangeQty: 2.5, price: 0 }).ok, false);
   assert.equal(canReleaseStuck({ localQty: 0, exchangeQty: 2.5, price: 3857 }).ok, false);
 });
+
+test("getUnmanagedHoldings melewati field metadata updatedAt (source guard)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync("src/services/positions/unmanaged.ts", "utf8");
+  assert.match(src, /k === "updatedAt"\) continue/);
+});

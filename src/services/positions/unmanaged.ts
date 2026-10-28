@@ -43,6 +43,7 @@ export async function getUnmanagedHoldings(): Promise<Record<string, number>> {
     const raw = snap.exists ? (snap.data() as Record<string, unknown>) : {};
     const out: Record<string, number> = {};
     for (const [k, v] of Object.entries(raw)) {
+      if (k === "updatedAt") continue; // metadata dokumen, bukan aset
       const n = Number(v);
       if (Number.isFinite(n) && n > 0) out[k] = n;
     }

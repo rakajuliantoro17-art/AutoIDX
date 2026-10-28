@@ -126,12 +126,14 @@ import positionSizing from "@/services/execution/risk/positionSizing";
 import type { Candle } from "@/services/indodax/candles";
 import { getTrendVolumeAdvisory } from "@/services/strategy/trendVolumeAdvisor";
 import mlAdvisor from "@/services/intelligence/ml/mlAdvisor";
+import { claimBuySlot, releaseBuySlot } from "./buySlots";
 import { recordShadowPrediction } from "@/services/ml/shadow/shadowStore";
 import type { PredictionLabel } from "@/services/ml/types";
 
 
 /** Throttle log SELL di bawah minimum (best-effort, per instance). */
 const belowMinLogAt = new Map<string, number>();
+const alreadyHeldLogAt = new Map<string, number>();
 
 export interface TradingEngineInput {
 
@@ -991,6 +993,35 @@ export class TradingEngine {
 
         case "BUY": {
 
+          // Guard per-pair: JANGAN BUY lagi di pair yang posisinya sudah terbuka.
+          // Tanpa ini BUY kedua menimpa bot_state (entry/jumlah koin) dan lot
+          // pertama menjadi koin tak terlacak (BIRB 28 Okt 13.10).
+          if (state.inPosition) {
+
+            const lastLogged = alreadyHeldLogAt.get(input.pair) ?? 0;
+
+            if (Date.now() - lastLogged > 60 * 60 * 1000) {
+              alreadyHeldLogAt.set(input.pair, Date.now());
+              await recordLog(
+                "RISK",
+                "info",
+                `[POSISI ADA] BUY ${input.pair.toUpperCase()} dilewati: posisi pair ini sudah terbuka (tidak menambah lot).`
+              );
+            }
+
+            return {
+              success: true,
+              signal: "HOLD",
+              confidence: decision.confidence,
+              reason: "Posisi pair ini sudah terbuka -- BUY tambahan tidak diizinkan.",
+              actionExecuted: false,
+              riskBlocked: true,
+              mode: modeLabel,
+              timestamp: new Date().toISOString(),
+            };
+
+          }
+
           if (RISK_CONFIG.emergencyStop || control.emergencyStop) {
 
             await recordLog(
@@ -1311,6 +1342,41 @@ export class TradingEngine {
             }
           }
 
+          // Reservasi slot atomik (live): cegah beberapa BUY serentak melewati
+          // batas Max Open Position karena bot_state baru ditulis setelah order.
+          if (modeLabel === "live") {
+
+            const slot = await claimBuySlot(
+              input.pair,
+              openPositionsCount,
+              effectiveConfig.maxOpenPositions
+            );
+
+            if (!slot.granted) {
+
+              await recordLog(
+                "RISK",
+                "warning",
+                slot.error
+                  ? `[SLOT BUY] BUY ${input.pair.toUpperCase()} diblokir: gagal memastikan slot (${slot.error}).`
+                  : `[SLOT BUY] BUY ${input.pair.toUpperCase()} diblokir: slot penuh (${slot.held}/${effectiveConfig.maxOpenPositions}) termasuk BUY lain yang sedang berjalan.`
+              );
+
+              return {
+                success: true,
+                signal: "HOLD",
+                confidence: decision.confidence,
+                reason: "Slot posisi penuh (termasuk BUY lain yang sedang diproses).",
+                actionExecuted: false,
+                riskBlocked: true,
+                mode: modeLabel,
+                timestamp: new Date().toISOString(),
+              };
+
+            }
+
+          }
+
           const result = await tradingService.buy({
 
             pair: input.pair,
@@ -1357,6 +1423,8 @@ export class TradingEngine {
             strategyAtEntry: strategyResult.strategy,
 
           });
+
+          if (modeLabel === "live") await releaseBuySlot(input.pair);
 
           await recordLog(
             "RISK",
