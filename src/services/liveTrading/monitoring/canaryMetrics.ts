@@ -152,11 +152,25 @@ export interface CanaryMetricsSnapshot {
   reasons: string[];
 }
 
+/**
+ * Batas latensi rata-rata order. Latensi dasar bot ~4,1-4,7 dtk (beberapa
+ * panggilan Indodax berurutan per order), jadi 5.000 ms terlalu dekat dan
+ * satu order lambat saja membuat canary CRITICAL. Default 8.000 ms tetap
+ * jauh di bawah insiden request menggantung (74.645 ms). Bisa diatur lewat
+ * BOT_CANARY_MAX_AVG_LATENCY_MS (angka tak valid -> default).
+ */
+export function resolveMaxAverageLatencyMs(raw: string | undefined): number {
+  const n = Number(raw);
+  return raw !== undefined && raw.trim() !== "" && Number.isFinite(n) && n >= 1_000 ? n : 8_000;
+}
+
 const DEFAULT_CANARY_METRICS_CONFIG: CanaryMetricsConfig =
   {
     maxErrorRate: 0.05,
 
-    maxAverageLatencyMs: 5_000,
+    maxAverageLatencyMs: resolveMaxAverageLatencyMs(
+      process.env.BOT_CANARY_MAX_AVG_LATENCY_MS,
+    ),
 
     maxDrawdown: 0.03,
 
