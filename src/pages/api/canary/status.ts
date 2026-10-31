@@ -16,7 +16,7 @@ dari nol (mis. setelah ganti strategi/parameter).
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { adminAuth } from "@/services/firebase/admin";
-import { getCanarySnapshot, resetCanary } from "@/services/liveTrading/monitoring/canaryStore";
+import { getCanarySnapshot, getRecentCanaryOrders, resetCanary } from "@/services/liveTrading/monitoring/canaryStore";
 import { checkRateLimit } from "@/services/security/rateLimitStore";
 
 const RESET_RATE_LIMIT = 3;
@@ -50,7 +50,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "GET") {
     try {
       const snapshot = await getCanarySnapshot();
-      return res.status(200).json({ snapshot });
+      // Daftar order terbaru (waktu, pair, sisi, latensi) untuk melihat order mana yang lambat.
+      const recentOrders = (await getRecentCanaryOrders(15))
+        .map((o) => ({
+          timestamp: o.timestamp,
+          symbol: o.symbol,
+          side: o.side,
+          status: o.status,
+          latencyMs: o.latencyMs,
+        }))
+        .reverse();
+      return res.status(200).json({ snapshot, recentOrders });
     } catch (error: any) {
       console.error("[Canary Status API]", error);
       return res.status(500).json({ error: error?.message ?? "Gagal ambil status canary" });

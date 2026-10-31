@@ -53,6 +53,9 @@ export default function CanaryMonitorPage() {
   const { user, loading: authLoading } = useAuth();
 
   const [snapshot, setSnapshot] = useState<CanarySnapshot | null>(null);
+  const [recentOrders, setRecentOrders] = useState<
+    { timestamp: number; symbol: string; side: string; status: string; latencyMs: number }[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -74,6 +77,7 @@ export default function CanaryMonitorPage() {
         setError(data.error ?? `HTTP ${res.status}`);
       } else {
         setSnapshot(data.snapshot);
+        setRecentOrders(Array.isArray(data.recentOrders) ? data.recentOrders : []);
       }
     } catch (err: any) {
       setError(err?.message ?? "Gagal memuat status canary");
@@ -212,6 +216,19 @@ export default function CanaryMonitorPage() {
                 )}
               </div>
             </div>
+
+            {recentOrders.length > 0 && (
+              <div className="card mt-4">
+                <p className="text-xs text-[var(--text-secondary)] mb-2">Order terbaru dan latensinya</p>
+                <div className="space-y-1 text-xs font-mono">
+                  {recentOrders.map((o, i) => (
+                    <p key={i} className={o.latencyMs > 15000 ? "text-amber-300" : ""}>
+                      {new Date(o.timestamp).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })} · {o.symbol} · {o.side} · {o.status} · {Math.round(o.latencyMs)} ms
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <button
               onClick={handleReset}
