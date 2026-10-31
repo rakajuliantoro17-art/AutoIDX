@@ -21,6 +21,7 @@ fatal seperti recordCanarySafe -- lihat auditSafe().
 ==========================================================
 */
 
+import { PhaseTimer, SLOW_ORDER_LOG_MS } from "./phaseTimer";
 import { resolveCanaryPositionLimit } from "./canaryLimit";
 import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
@@ -444,10 +445,14 @@ class LiveTradingService {
       metadata: { pair: request.pair, tradeAmountIdr },
     });
 
+    const phases = new PhaseTimer();
+
     const client = await this.getClient();
+    phases.mark("getClient");
 
     // --- Cek saldo IDR cukup sebelum order ---
     const info = await client.getInfo();
+    phases.mark("getInfo");
 
     if (!info.success) {
 
@@ -527,6 +532,7 @@ class LiveTradingService {
     }
 
     await acquireLiveOrderLock(request.pair, "BUY");
+    phases.mark("lock");
 
     // Sengaja BUKAN try/finally biasa dengan release tanpa syarat
     // - kasus certainty==="UNCERTAIN" (exception network SEBELUM
@@ -601,6 +607,8 @@ class LiveTradingService {
 
       await recordOrderSuccess();
 
+      phases.mark("trade");
+
       await releaseLiveOrderLock(request.pair, "BUY", true);
       lockResolved = true;
 
@@ -664,6 +672,16 @@ class LiveTradingService {
           0
         )} (order_id: ${result.data.order_id})`
       );
+
+      phases.mark("catat");
+
+      if (phases.totalMs() > SLOW_ORDER_LOG_MS) {
+        await recordLog(
+          "RISK",
+          "warning",
+          `[LATENSI LAMBAT] BUY ${request.pair.toUpperCase()} total ${phases.totalMs()}ms: ${phases.summary()}`
+        );
+      }
 
       return {
 
@@ -825,7 +843,10 @@ class LiveTradingService {
       metadata: { pair: request.pair, amount: request.amount },
     });
 
+    const phases = new PhaseTimer();
+
     const client = await this.getClient();
+    phases.mark("getClient");
 
     // --- Idempotency guard, sama seperti buyInternal() di atas -
     // lihat komentar di sana untuk penjelasan lengkap pola
@@ -839,6 +860,7 @@ class LiveTradingService {
     }
 
     await acquireLiveOrderLock(request.pair, "SELL");
+    phases.mark("lock");
 
     let lockResolved = false;
 
@@ -910,6 +932,8 @@ class LiveTradingService {
 
       }
 
+      phases.mark("trade");
+
       await releaseLiveOrderLock(request.pair, "SELL", true);
       lockResolved = true;
 
@@ -974,6 +998,16 @@ class LiveTradingService {
           0
         )} (order_id: ${data.order_id})`
       );
+
+      phases.mark("catat");
+
+      if (phases.totalMs() > SLOW_ORDER_LOG_MS) {
+        await recordLog(
+          "RISK",
+          "warning",
+          `[LATENSI LAMBAT] SELL ${request.pair.toUpperCase()} total ${phases.totalMs()}ms: ${phases.summary()}`
+        );
+      }
 
       return {
 
