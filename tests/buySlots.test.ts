@@ -17,11 +17,20 @@ test("slot: BUY serentak tidak boleh melewati batas (kasus 13.10: 1 terbuka, bat
   assert.equal(c.granted, false);
 });
 
-test("slot: klaim kedaluwarsa dilepas otomatis; klaim pair sendiri tidak dihitung ganda", () => {
+test("slot: klaim kedaluwarsa dilepas otomatis", () => {
   const old = { "dot_idr": now - 1 };
   assert.equal(planSlotClaim({ claims: old, now, pair: "x_idr", openCount: 1, max: 2 }).granted, true);
-  const own = { "x_idr": now + 10_000 };
-  assert.equal(planSlotClaim({ claims: own, now, pair: "x_idr", openCount: 1, max: 2 }).granted, true);
+  // klaim pair sendiri yang sudah kedaluwarsa tidak menghalangi
+  assert.equal(planSlotClaim({ claims: { "x_idr": now - 1 }, now, pair: "x_idr", openCount: 0, max: 2 }).granted, true);
+});
+
+test("slot: BUY serentak untuk PAIR YANG SAMA ditolak walau slot masih lowong (kasus fartcoin 3 Nov)", () => {
+  const first = planSlotClaim({ claims: {}, now, pair: "fartcoin_idr", openCount: 0, max: 2 });
+  assert.equal(first.granted, true);
+  const second = planSlotClaim({ claims: first.claims, now, pair: "fartcoin_idr", openCount: 0, max: 2 });
+  assert.equal(second.granted, false);
+  // pair lain tetap boleh selama slot ada
+  assert.equal(planSlotClaim({ claims: first.claims, now, pair: "br_idr", openCount: 0, max: 2 }).granted, true);
 });
 
 test("slot: tanpa posisi terbuka, batas 2 -> dua klaim diterima, ketiga ditolak", () => {

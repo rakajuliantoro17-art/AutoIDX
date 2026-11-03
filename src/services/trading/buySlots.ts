@@ -33,7 +33,13 @@ export function planSlotClaim(input: {
   for (const [pair, exp] of Object.entries(input.claims)) {
     if (Number.isFinite(exp) && exp > input.now) live[pair] = exp;
   }
-  const others = Object.keys(live).filter((p) => p !== input.pair).length;
+  // BUY lain untuk pair YANG SAMA masih berjalan (klaim hidup) -> tolak. Tanpa
+  // ini dua eksekusi serentak untuk pair yang sama (mis. dua pemicu cron yang
+  // tumpang tindih) sama-sama lolos dan membeli dua kali.
+  if (live[input.pair] !== undefined) {
+    return { granted: false, claims: live, held: input.openCount + Object.keys(live).length - 1 };
+  }
+  const others = Object.keys(live).length;
   const held = input.openCount + others;
   if (held >= input.max) return { granted: false, claims: live, held };
   live[input.pair] = input.now + (input.ttlMs ?? SLOT_TTL_MS);
