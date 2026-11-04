@@ -456,6 +456,12 @@ export class MarketScanner {
       maxVolIdrSeen,
       qualifiedCount: qualified.length,
       topOpportunities: qualified.slice(0, 10),
+      qualifiedPool: qualified.slice(0, 40).map((q) => ({
+        pair: q.pair,
+        opportunityScore: q.opportunityScore,
+        priceRangePercent: q.priceRangePercent,
+        volIdr: q.volIdr,
+      })),
       qualifiedPairs: qualified.map((q) => q.pair),
       scoreStats,
       scannedAt: new Date().toISOString(),

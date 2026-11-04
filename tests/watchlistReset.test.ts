@@ -2,11 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-test("watchlist-reset: hanya pemilik, wajib confirm, kosongkan watchlist, ter-audit", () => {
+test("watchlist-reset: hanya pemilik, wajib confirm, pilih seimbang, ter-audit", () => {
   const src = readFileSync("src/pages/api/bot/watchlist-reset.ts", "utf8");
   assert.match(src, /isOwner\(user\.uid\)/);
   assert.match(src, /confirm !== true/);
-  assert.match(src, /updateBotControl\(\{ watchlist: \[\] \}/);
+  assert.match(src, /updateBotControl\(\{ watchlist: next \}/);
   assert.match(src, /recordAudit\("bot_control\.update"/);
 });
 

@@ -11,7 +11,7 @@ export default function WatchlistResetButton({ onDone, count }: { onDone?: () =>
 
   async function reset() {
     if (!user || busy) return;
-    if (!window.confirm(`Kembalikan watchlist (${count} pair) ke daftar awal? Pair yang punya posisi terbuka tetap diproses bot. Tidak ada order dikirim.`)) return;
+    if (!window.confirm(`Reset watchlist (${count} pair) menjadi 10 pair rekomendasi seimbang (rendah/sedang/tinggi) dari scan terakhir? Pair yang punya posisi terbuka tetap diproses bot. Tidak ada order dikirim.`)) return;
     setBusy(true);
     setMsg(null);
     try {
@@ -34,7 +34,7 @@ export default function WatchlistResetButton({ onDone, count }: { onDone?: () =>
   return (
     <div className="mt-4 flex flex-wrap items-center gap-3">
       <button type="button" onClick={reset} disabled={busy} className="rounded-lg border border-white/20 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50">
-        {busy ? "Memproses..." : "Recek watchlist (kembali ke pair awal)"}
+        {busy ? "Memproses..." : "Recek watchlist (10 pair rekomendasi seimbang)"}
       </button>
       {msg && <span className="text-xs text-[var(--text-muted)]">{msg}</span>}
     </div>

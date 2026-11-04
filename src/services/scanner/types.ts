@@ -269,6 +269,8 @@ qualifiedCount:number;
 
 
 
+/** Pool kandidat lolos scanner (slim) untuk memilih watchlist awal yang seimbang. */
+qualifiedPool?: { pair: string; opportunityScore: number; priceRangePercent?: number; volIdr?: number }[];
 topOpportunities:
 
 ScannedPairResult[];
