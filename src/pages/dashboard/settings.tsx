@@ -28,6 +28,7 @@ import BotControlPanel from "@/components/BotControlPanel";
 import FeatureFlagsPanel from "@/components/FeatureFlagsPanel";
 import PositionCheckPanel from "@/components/PositionCheckPanel";
 import { useAuth } from "@/services/auth/AuthContext";
+import WatchlistResetButton from "@/components/WatchlistResetButton";
 import { setVisibleInterval } from "@/utils/visibleInterval";
 
 interface RuntimeConfig {
@@ -271,6 +272,7 @@ export default function SettingsPage() {
                 Penambahan pair lewat usulan mingguan di{" "}
                 <Link href="/dashboard/agent" className="underline">Agen Operasional</Link>.
               </p>
+              <WatchlistResetButton count={(config.effectiveWatchlist ?? config.pairs).length} onDone={fetchConfig} />
             </div>
           ) : config.fullPairMode ? (
             <div>
@@ -296,6 +298,9 @@ export default function SettingsPage() {
                 </span>
               ))}
             </div>
+          )}
+          {!config.watchlistOnly && (
+            <WatchlistResetButton count={(config.effectiveWatchlist ?? config.pairs).length} onDone={fetchConfig} />
           )}
         </div>
 
