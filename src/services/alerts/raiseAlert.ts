@@ -16,7 +16,8 @@ import automationNotifier from "@/services/automation/notifier";
 export type AlertKind =
   | "DAILY_LOSS_LIMIT"
   | "ORDER_BREAKER"
-  | "ORDER_UNCERTAIN";
+  | "ORDER_UNCERTAIN"
+  | "STATE_PERSIST_FAILED";
 
 export const ALERT_COOLDOWN_MS = 30 * 60 * 1000;
 

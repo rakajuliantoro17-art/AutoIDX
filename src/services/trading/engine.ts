@@ -110,9 +110,11 @@ import {
 } from "@/services/firebase/riskState";
 import { evaluateDailyLoss } from "@/services/safety/dailyLossGuard";
 import { raiseAlert } from "@/services/alerts/raiseAlert";
+import { persistWithRetry } from "@/services/trading/persistFill";
 
 import {
   getBotControl,
+  updateBotControl,
 } from "@/services/firebase/botControl";
 
 import { getPaperPortfolio } from "@/services/firebase/paperTradingStore";
@@ -1391,38 +1393,81 @@ export class TradingEngine {
 
           });
 
-          // Feature flag `fixedTakeProfit` (Firestore bot_control/flags,
-          // default MATI): TP tetap 1-5% dari harga beli sesuai slider
-          // Take Profit. Mati = perilaku lama (TP = rasio x SL ATR).
-          const fixedTakeProfitPercent = (await isFeatureEnabled("fixedTakeProfit"))
-            ? Math.min(5, Math.max(1, effectiveConfig.targetProfitPercent))
-            : undefined;
+          // Order SUDAH terisi di bursa. Apa pun yang gagal di bawah ini tidak
+          // boleh membuat state posisi tidak tersimpan (lihat persistFill.ts).
+          let fixedTakeProfitPercent: number | undefined;
 
-          const atrLevels = RiskManager.calculateAtrStopLevels(
-            result.price,
-            input.features.atr,
-            effectiveConfig.stopLossPercent,
-            effectiveConfig.targetProfitPercent,
-            fixedTakeProfitPercent
+          try {
+            fixedTakeProfitPercent = (await isFeatureEnabled("fixedTakeProfit"))
+              ? Math.min(5, Math.max(1, effectiveConfig.targetProfitPercent))
+              : undefined;
+          } catch {
+            fixedTakeProfitPercent = undefined;
+          }
+
+          let atrLevels: ReturnType<typeof RiskManager.calculateAtrStopLevels>;
+
+          try {
+            atrLevels = RiskManager.calculateAtrStopLevels(
+              result.price,
+              input.features.atr,
+              effectiveConfig.stopLossPercent,
+              effectiveConfig.targetProfitPercent,
+              fixedTakeProfitPercent
+            );
+          } catch {
+            atrLevels = {
+              stopLossPercent: effectiveConfig.stopLossPercent,
+              takeProfitPercent: effectiveConfig.targetProfitPercent,
+              stopLossPrice: result.price * (1 - effectiveConfig.stopLossPercent / 100),
+              takeProfitPrice: result.price * (1 + effectiveConfig.targetProfitPercent / 100),
+            } as typeof atrLevels;
+          }
+
+          const persisted = await persistWithRetry(() =>
+            updateBotState({
+
+              pair: input.pair,
+
+              inPosition: true,
+
+              entryPrice: result.price,
+
+              coinAmount: result.amount,
+
+              stopLossPrice: atrLevels.stopLossPrice,
+
+              takeProfitPrice: atrLevels.takeProfitPrice,
+
+              strategyAtEntry: strategyResult.strategy,
+
+            })
           );
 
-          await updateBotState({
+          if (!persisted.ok) {
 
-            pair: input.pair,
+            // Koin sudah dibeli tapi state tidak tersimpan: hentikan BUY
+            // berikutnya supaya tidak terjadi lot ganda, dan minta operator
+            // memeriksa. Slot BUY sengaja TIDAK dilepas (kedaluwarsa sendiri).
+            try {
+              await updateBotControl({ emergencyStop: true }, "system:persist-fail");
+            } catch (stopError) {
+              console.error("[PERSIST FILL] gagal mengaktifkan emergency stop", stopError);
+            }
 
-            inPosition: true,
+            await recordLog(
+              "RISK",
+              "danger",
+              `[STATE GAGAL TERSIMPAN] BUY ${input.pair.toUpperCase()} terisi @ ${result.price} (${result.amount} koin) tetapi bot_state gagal ditulis setelah ${persisted.attempts} percobaan (${persisted.error}). Emergency stop DIAKTIFKAN. Periksa posisi dan saldo koin ini secara manual.`
+            );
 
-            entryPrice: result.price,
+            await raiseAlert(
+              "STATE_PERSIST_FAILED",
+              `State BUY ${input.pair.toUpperCase()} gagal tersimpan`,
+              `Order terisi (${result.amount} koin @ ${result.price}) tapi posisi tidak tercatat. Emergency stop aktif.`
+            );
 
-            coinAmount: result.amount,
-
-            stopLossPrice: atrLevels.stopLossPrice,
-
-            takeProfitPrice: atrLevels.takeProfitPrice,
-
-            strategyAtEntry: strategyResult.strategy,
-
-          });
+          }
 
           if (modeLabel === "live") await releaseBuySlot(input.pair);
 
