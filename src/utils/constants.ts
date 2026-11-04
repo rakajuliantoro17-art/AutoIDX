@@ -24,5 +24,5 @@ export const REFRESH_INTERVALS = {
   TICKER_MS: 15000,   // Refresh harga tiap 15 detik (dulu 5; tiap tick = 1 invocation Vercel)
   LOGS_MS: 15000,     // Refresh log aktivitas tiap 15 detik (dulu 3)
   PORTFOLIO_MS: 30000,// Refresh portofolio tiap 30 detik
-  STATUS_MS: 30000,   // Refresh status/config dashboard tiap 30 detik (dulu 10)
+  STATUS_MS: 60000,   // Refresh status/config dashboard tiap 60 detik (dulu 10; hemat kuota baca Firestore Spark)
 };

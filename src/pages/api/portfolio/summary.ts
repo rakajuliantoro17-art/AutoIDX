@@ -577,6 +577,12 @@ async function buildLiveSummary(): Promise<PortfolioSummaryResponse> {
 
 }
 
+// Cache ringkasan (per instance): buildLiveSummary membaca sampai 300 dokumen
+// trade per panggilan. Dengan polling dashboard tiap 15 detik itu menghabiskan
+// kuota baca Firestore Spark (50K/hari) dalam kurang dari 1 jam (4 Nov).
+const SUMMARY_CACHE_TTL_MS = 60_000;
+let summaryCache: { at: number; mode: "paper" | "live"; body: PortfolioSummaryResponse } | null = null;
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -606,10 +612,20 @@ export default async function handler(
     const effectiveMode: "paper" | "live" =
       control.mode === "live" && liveConfirmed ? "live" : "paper";
 
+    if (
+      summaryCache &&
+      summaryCache.mode === effectiveMode &&
+      Date.now() - summaryCache.at < SUMMARY_CACHE_TTL_MS
+    ) {
+      return res.status(200).json(summaryCache.body);
+    }
+
     const summary =
       effectiveMode === "live"
         ? await buildLiveSummary()
         : await buildPaperSummary();
+
+    summaryCache = { at: Date.now(), mode: effectiveMode, body: summary };
 
     return res.status(200).json(summary);
 

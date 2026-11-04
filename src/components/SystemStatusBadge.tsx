@@ -28,7 +28,7 @@ import { setVisibleInterval } from "@/utils/visibleInterval";
 
 type BotMode = "paper" | "live";
 
-const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.TICKER_MS;
+const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.STATUS_MS;
 
 export type StatusTone = "ok" | "warn" | "danger";
 

@@ -39,7 +39,7 @@ interface TradeItem {
   time: string | null;
 }
 
-const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.TICKER_MS;
+const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.STATUS_MS;
 
 function levelFromType(type: string): ActivityItem["level"] {
   switch (type) {

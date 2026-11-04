@@ -19,7 +19,6 @@ import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/services/auth/AuthContext";
 import { formatIDR, formatPercent } from "@/utils";
-import { REFRESH_INTERVALS } from "@/utils/constants";
 import { setVisibleInterval } from "@/utils/visibleInterval";
 
 interface TradeRow {
@@ -53,7 +52,8 @@ interface PortfolioSummary {
   };
 }
 
-const REFRESH_INTERVAL_MS = REFRESH_INTERVALS.TICKER_MS;
+// Ringkasan portfolio membaca banyak dokumen Firestore: jangan sering-sering.
+const REFRESH_INTERVAL_MS = 120_000;
 
 const EMPTY_SUMMARY: PortfolioSummary = {
   mode: "paper",

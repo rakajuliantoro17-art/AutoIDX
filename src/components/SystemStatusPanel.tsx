@@ -109,7 +109,7 @@ export function SystemStatusTrigger({
   open: boolean;
 }) {
   const { data, error, loading } = useSystemHealth(
-    REFRESH_INTERVALS.TICKER_MS,
+    REFRESH_INTERVALS.STATUS_MS,
   );
 
   const checks = data?.details?.checks ?? {};
@@ -155,7 +155,7 @@ export default function SystemStatusPanel({
   compact?: boolean;
 }) {
   const { data, error, loading } = useSystemHealth(
-    REFRESH_INTERVALS.TICKER_MS,
+    REFRESH_INTERVALS.STATUS_MS,
   );
 
   if (loading) {
