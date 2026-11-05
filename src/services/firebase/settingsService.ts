@@ -10,6 +10,7 @@ perlu ganti Environment Variable + redeploy.
 ==========================================================
 */
 
+import { getCached, setCached, invalidateCached } from "@/services/firebase/ttlCache";
 import { adminDb } from "./admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { BotSettings } from "@/api/settings/types";
@@ -18,7 +19,14 @@ import { DEFAULT_SETTINGS } from "@/api/settings/defaults";
 const SETTINGS_COLLECTION = "bot_settings";
 const SETTINGS_DOC_ID = "default";
 
+const SETTINGS_CACHE_KEY = "bot_settings";
+export const SETTINGS_CACHE_TTL_MS = 15_000;
+
 export async function getBotSettings(): Promise<BotSettings> {
+
+  const cached = getCached<BotSettings>(SETTINGS_CACHE_KEY, SETTINGS_CACHE_TTL_MS);
+
+  if (cached) return cached;
 
   try {
 
@@ -28,13 +36,17 @@ export async function getBotSettings(): Promise<BotSettings> {
     const snapshot = await ref.get();
 
     if (snapshot.exists) {
-      return {
+      const loaded = {
         ...DEFAULT_SETTINGS,
         ...snapshot.data(),
       } as BotSettings;
+      setCached(SETTINGS_CACHE_KEY, loaded);
+      return loaded;
     }
 
     await ref.set(DEFAULT_SETTINGS);
+
+    setCached(SETTINGS_CACHE_KEY, DEFAULT_SETTINGS);
 
     return DEFAULT_SETTINGS;
 
@@ -66,6 +78,8 @@ export async function updateBotSettings(
       },
       { merge: true }
     );
+
+    invalidateCached(SETTINGS_CACHE_KEY);
 
     return true;
 

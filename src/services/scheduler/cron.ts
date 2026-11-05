@@ -56,6 +56,7 @@ import { isFeatureEnabled } from "../firebase/featureFlags";
 import { getOpenPositionPairs } from "../firebase/botState";
 import { getBotControl } from "../firebase/botControl";
 import { TRADING_CONFIG } from "@/config/trading";
+import { RISK_CONFIG } from "@/config/risk";
 import strategyManager from "@/services/strategy/manager";
 import evaluator from "@/services/strategy/core/evaluator";
 import entryRules from "@/services/strategy/rules/entryRules";
@@ -98,6 +99,12 @@ export const CYCLE_START_DEADLINE_MS = 20_000;
  * boleh tertunda), sisanya diputar berdasarkan `rotation` supaya
  * pair di ekor daftar tidak terus-menerus terlewat saat waktu habis.
  */
+/** Saat emergency stop aktif, hanya pair berposisi terbuka yang diproses. */
+export function pairsForStopState(pairs: string[], openSet: Set<string>, stopActive: boolean): string[] {
+  if (!stopActive) return pairs;
+  return pairs.filter((p) => openSet.has(p.trim().toLowerCase()));
+}
+
 export function orderPairsForCycle(
   pairs: string[],
   openPairs: string[],
@@ -379,7 +386,13 @@ export async function executeCron(
     scannerExecution,
     watchlistOnly,
   });
-  const pairs = selection.pairs;
+  // Emergency stop: BUY diblokir untuk SEMUA pair, jadi hanya pair berposisi
+  // terbuka yang perlu diproses (SELL/SL/TP tetap jalan). Memproses pair lain
+  // hanya menghabiskan kuota baca Firestore (Spark 50K/hari) tanpa hasil.
+  const stopActive = RISK_CONFIG.emergencyStop || control.emergencyStop;
+  const openSet = new Set(openPositionPairs.map((p) => p.trim().toLowerCase()));
+  const pairs = pairsForStopState(selection.pairs, openSet, stopActive);
+
 
   if (selection.priorityIgnored) {
     await recordLog(

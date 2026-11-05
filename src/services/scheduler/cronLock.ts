@@ -54,7 +54,7 @@ export function getLockTtlMs(): number {
  */
 export function getScanMinIntervalMs(): number {
   const raw = Number(process.env.CRON_SCAN_MIN_INTERVAL_SECONDS);
-  const seconds = Number.isFinite(raw) && raw > 0 ? raw : 60;
+  const seconds = Number.isFinite(raw) && raw > 0 ? raw : 120;
   return Math.max(10, seconds) * 1000;
 }
 

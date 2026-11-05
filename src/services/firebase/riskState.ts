@@ -19,6 +19,7 @@ pernah benar-benar bekerja. Sudah diperbaiki pakai Admin SDK.
 ==========================================================
 */
 
+import { getCached, setCached, invalidateCached } from "@/services/firebase/ttlCache";
 import { adminDb } from "@/services/firebase/admin";
 
 export interface RiskState {
@@ -71,9 +72,22 @@ function defaultState(): RiskState {
  * dianggap reset ke 0 (tanpa menulis ulang ke Firestore
  * sampai ada trade baru -- biar hemat write).
  */
-export async function getRiskState(): Promise<RiskState> {
+const RISK_CACHE_KEY = "risk_state";
+export const RISK_CACHE_TTL_MS = 15_000;
+
+/**
+ * Baca risk state. Pembacaan engine per pair memakai cache 15 dtk;
+ * jalur tulis (recordRealizedPnl) memakai { fresh: true } agar tidak
+ * menghitung dari data basi.
+ */
+export async function getRiskState(options: { fresh?: boolean } = {}): Promise<RiskState> {
 
   const fallback = defaultState();
+
+  if (!options.fresh) {
+    const cached = getCached<RiskState>(RISK_CACHE_KEY, RISK_CACHE_TTL_MS);
+    if (cached) return cached;
+  }
 
   try {
 
@@ -88,6 +102,8 @@ export async function getRiskState(): Promise<RiskState> {
 
       await ref.set(fallback);
 
+      setCached(RISK_CACHE_KEY, fallback);
+
       return fallback;
 
     }
@@ -97,21 +113,25 @@ export async function getRiskState(): Promise<RiskState> {
     if (data.dateKey !== todayKey()) {
 
       // Hari sudah berganti -- anggap rugi harian reset ke 0.
-      return {
+      const reset = { ...fallback };
 
-        ...fallback,
+      setCached(RISK_CACHE_KEY, reset);
 
-      };
+      return reset;
 
     }
 
-    return {
+    const loaded = {
 
       ...fallback,
 
       ...data,
 
     };
+
+    setCached(RISK_CACHE_KEY, loaded);
+
+    return loaded;
 
   } catch (error) {
 
@@ -142,7 +162,7 @@ export async function recordRealizedPnl(
 
   try {
 
-    const current = await getRiskState();
+    const current = await getRiskState({ fresh: true });
 
     // Jangan menimpa akumulasi rugi harian dengan default saat baca gagal.
     if (current.readFailed) return false;
@@ -170,6 +190,8 @@ export async function recordRealizedPnl(
       { merge: true }
 
     );
+
+    invalidateCached(RISK_CACHE_KEY);
 
     return true;
 
@@ -205,6 +227,7 @@ export async function latchLossLimit(): Promise<void> {
         { dateKey: todayKey(), lossLimitLatched: true, updatedAt: Date.now() },
         { merge: true }
       );
+    invalidateCached(RISK_CACHE_KEY);
 
   } catch (error) {
 

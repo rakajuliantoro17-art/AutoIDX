@@ -70,6 +70,7 @@ async function scanHandler(req: NextApiRequest, res: NextApiResponse) {
       trading,
       aiCalibration,
       phasesMs,
+      reads: outcome.reads,
     });
 
   } catch (error) {

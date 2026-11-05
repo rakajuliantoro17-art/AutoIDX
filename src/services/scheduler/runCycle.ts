@@ -23,6 +23,7 @@ import { acquireCronLock } from "@/services/scheduler/cronLock";
 import { recordHeartbeat } from "@/services/scheduler/cronHeartbeat";
 import { handleError } from "@/services/errors/errorHandler";
 import { recordLog } from "@/services/firebase/logService";
+import { installReadCounter, resetReadCounts, getReadCounts, totalReads } from "@/services/firebase/readCounter";
 import {
   installWriteCounter,
   resetWriteCounts,
@@ -41,6 +42,8 @@ export type RunCycleOutcome =
       status: "completed";
       result: ScanCycleResult;
       durationMs: number;
+      /** Total pembacaan Firestore selama siklus ini (diagnostik kuota). */
+      reads?: number;
     };
 
 export interface RunCycleOptions {
@@ -75,6 +78,8 @@ export async function runCycle(
 
     try {
       installWriteCounter();
+      installReadCounter();
+      resetReadCounts();
       resetWriteCounts();
       latencyMonitor.takeFailureSummary();
     } catch {
@@ -90,10 +95,11 @@ export async function runCycle(
       qualifiedCount: result.summary.qualifiedCount,
       phasesMs: result.phasesMs,
       writeCounts: getWriteCounts(),
+      readCounts: getReadCounts(),
       publicFailures: latencyMonitor.takeFailureSummary(),
     });
 
-    return { status: "completed", result, durationMs };
+    return { status: "completed", result, durationMs, reads: totalReads() };
   } finally {
     await lock.release();
   }

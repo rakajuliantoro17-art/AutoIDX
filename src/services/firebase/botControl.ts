@@ -17,6 +17,7 @@ dicek di engine.ts -- yang manapun aktif akan memblokir BUY.
 ==========================================================
 */
 
+import { getCached, setCached, invalidateCached } from "@/services/firebase/ttlCache";
 import { adminDb } from "@/services/firebase/admin";
 import { RISK_CONFIG } from "@/config/risk";
 import { TRADING_CONFIG } from "@/config/trading";
@@ -83,9 +84,17 @@ function defaultControl(): BotControl {
  * Ambil status kontrol bot saat ini. Kalau dokumen belum
  * pernah dibuat, otomatis di-seed dari nilai default env var.
  */
+const CONTROL_CACHE_KEY = "bot_control";
+/** Cukup pendek agar emergency stop dari instance lain berlaku < 15 dtk. */
+export const CONTROL_CACHE_TTL_MS = 15_000;
+
 export async function getBotControl(): Promise<BotControl> {
 
   const fallback = defaultControl();
+
+  const cached = getCached<BotControl>(CONTROL_CACHE_KEY, CONTROL_CACHE_TTL_MS);
+
+  if (cached) return cached;
 
   try {
 
@@ -104,13 +113,17 @@ export async function getBotControl(): Promise<BotControl> {
 
     }
 
-    return {
+    const loaded = {
 
       ...fallback,
 
       ...(snapshot.data() as BotControl),
 
     };
+
+    setCached(CONTROL_CACHE_KEY, loaded);
+
+    return loaded;
 
   } catch (error) {
 
@@ -171,6 +184,8 @@ export async function updateBotControl(
     { merge: true }
 
   );
+
+  invalidateCached(CONTROL_CACHE_KEY);
 
   return getBotControl();
 
