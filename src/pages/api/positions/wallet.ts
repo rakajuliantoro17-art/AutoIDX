@@ -33,6 +33,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let orderHistoryRaw: unknown = null;
       if (row.status !== "DIKELOLA" && row.total > 1e-8) {
         const r = await client.tradeHistory({ pair: `${row.asset}_idr`, since, count: 20 });
+        // Error 1109 = pair <aset>_idr tidak ada di Indodax (mis. aset tanpa pasar IDR):
+        // bukan kegagalan, lewati tanpa alarm dan tanpa fallback orderHistory.
+        if (!r.success && /\(1109\)|\b1109\b/.test(r.message)) {
+          withHistory.push({ ...row, history: null, orderHistoryRaw: null, noIdrPair: true });
+          continue;
+        }
         if (!r.success) {
           historyError = r.message;
           // tradeHistory membalas "DEPRECATED" -- coba orderHistory (bentuk
@@ -87,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         [...pairSet].slice(0, 30).map(async (pair) => {
           const r = await client.tradeHistory({ pair, since: recentSince, count: 20 });
           if (!r.success) {
-            recentErrors.push(`${pair}: ${r.message}`);
+            if (!/\b1109\b/.test(r.message)) recentErrors.push(`${pair}: ${r.message}`);
             return [];
           }
           return (r.data as Record<string, unknown>[]).map((t) => ({

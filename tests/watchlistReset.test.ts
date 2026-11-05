@@ -14,3 +14,9 @@ test("tombol reset terpasang di halaman Settings", () => {
   const src = readFileSync("src/pages/dashboard/settings.tsx", "utf8");
   assert.match(src, /<WatchlistResetButton/);
 });
+
+test("wallet: error 1109 (pair tidak ada) dilewati tanpa alarm", () => {
+  const src = readFileSync("src/pages/api/positions/wallet.ts", "utf8");
+  assert.match(src, /noIdrPair: true/);
+  assert.match(src, /1109/);
+});
