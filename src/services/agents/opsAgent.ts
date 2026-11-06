@@ -22,6 +22,8 @@ import openAIProvider from "@/services/intelligence/ai/providers/openai";
 import geminiProvider from "@/services/intelligence/ai/providers/gemini";
 import claudeProvider from "@/services/intelligence/ai/providers/claude";
 import { TRADING_CONFIG } from "@/config/trading";
+import { getCanarySnapshot } from "@/services/liveTrading/monitoring/canaryStore";
+import { resolveMaxLossIdr } from "@/services/liveTrading/monitoring/canaryMetrics";
 import { analyzeOps } from "./analysis";
 import type { OpsAnalysis, OpsInput, Recommendation } from "./types";
 
@@ -42,7 +44,7 @@ function dateKey(ms: number): string {
 }
 
 export async function collectOpsInput(nowMs = Date.now()): Promise<OpsInput> {
-  const [logSnap, tradeSnap, settings, control, openPairs, shadow, scannerSnap] = await Promise.all([
+  const [logSnap, tradeSnap, settings, control, openPairs, shadow, scannerSnap, canary, hbSnap] = await Promise.all([
     adminDb.collection("activity_logs").orderBy("timestamp", "desc").limit(500).get(),
     adminDb.collection("trades").orderBy("timestamp", "desc").limit(400).get(),
     getBotSettings(),
@@ -50,7 +52,13 @@ export async function collectOpsInput(nowMs = Date.now()): Promise<OpsInput> {
     getOpenPositionPairs(),
     getShadowSummaries().catch(() => ({ ml: null, bySource: {}, updatedAtMs: null })),
     adminDb.collection("scannerResults").doc("latest").get(),
+    getCanarySnapshot().catch(() => null),
+    adminDb.collection("system_status").doc("cronHeartbeat").get().catch(() => null),
   ]);
+  const hb = hbSnap && hbSnap.exists ? (hbSnap.data() as Record<string, unknown>) : null;
+  const hbReads = hb && hb.lastReadCounts && typeof hb.lastReadCounts === "object"
+    ? Object.values(hb.lastReadCounts as Record<string, unknown>).reduce<number>((a, v) => a + (Number(v) || 0), 0)
+    : null;
 
   const positions = [];
   for (const pair of openPairs.slice(0, 20)) {
@@ -113,6 +121,22 @@ export async function collectOpsInput(nowMs = Date.now()): Promise<OpsInput> {
         ? control.watchlist.map((p) => p.trim().toLowerCase())
         : TRADING_CONFIG.pairs,
     aiScores,
+    finance: canary
+      ? {
+          totalPnlIdr: canary.totalPnl,
+          maxLossIdr: resolveMaxLossIdr(process.env.BOT_CANARY_MAX_DAILY_LOSS_IDR),
+          canaryStatus: canary.status,
+          totalOrders: canary.totalOrders,
+          failedOrders: canary.failedOrders,
+          avgLatencyMs: canary.averageLatencyMs,
+          maxLatencyMs: canary.maxLatencyMs,
+        }
+      : undefined,
+    infra: {
+      heartbeatAgeMs: hb && typeof hb.lastRunAt === "number" ? nowMs - hb.lastRunAt : null,
+      lastScanDurationMs: hb && typeof hb.lastDurationMs === "number" ? hb.lastDurationMs : null,
+      lastScanReads: hbReads,
+    },
   };
 }
 

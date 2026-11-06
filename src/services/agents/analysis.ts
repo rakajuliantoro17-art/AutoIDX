@@ -17,6 +17,16 @@ const PERIOD_MS = 30 * DAY_MS;
 /** Perkiraan biaya pulang-pergi (fee + slippage) agar angka tidak terlalu optimistis. */
 const ROUND_TRIP_COST_PCT = 0.6;
 const MIN_CLOSED_FOR_EXPANSION = 20;
+/** CFO: usulan bila rugi kumulatif sudah sebesar fraksi ini dari batas canary. */
+const CFO_LOSS_WARN_FRACTION = 0.7;
+/** CFO: SELL dianggap "overshoot" bila rugi melewati SL sebanyak ini (poin persen). */
+const CFO_SL_OVERSHOOT_PP = 1;
+/** CTO: kuota baca Firestore Spark per hari dan interval cron scan yang diasumsikan. */
+export const FIRESTORE_DAILY_READ_LIMIT = 50_000;
+export const ASSUMED_SCAN_INTERVAL_MIN = 10;
+const CTO_READ_WARN_FRACTION = 0.6;
+/** CTO: heartbeat dianggap mati bila umurnya > kelipatan ini dari interval cron. */
+const CTO_HEARTBEAT_DEAD_MULTIPLIER = 2.5;
 const WIN_RATE_FOR_EXPANSION = 0.55;
 const SOURCE_NAMES: Record<string, string> = {
   ml: "ML internal",
@@ -151,12 +161,14 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
   const recent = input.trades.filter((t) => t.ts >= input.nowMs - PERIOD_MS).sort((a, b) => a.ts - b.ts);
   const entry = new Map<string, number>();
   const perPair = new Map<string, number[]>();
+  const closedRaw: { pair: string; rawPct: number }[] = [];
   for (const t of recent) {
     const k = `${t.pair}|${t.mode}`;
     if (t.type === "BUY") entry.set(k, t.price);
     else if (t.type === "SELL" && entry.has(k) && (entry.get(k) ?? 0) > 0) {
       const ret = (t.price / (entry.get(k) as number) - 1) * 100 - ROUND_TRIP_COST_PCT;
       perPair.set(t.pair, [...(perPair.get(t.pair) ?? []), ret]);
+      closedRaw.push({ pair: t.pair, rawPct: (t.price / (entry.get(k) as number) - 1) * 100 });
       entry.delete(k);
     }
   }
@@ -225,11 +237,104 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
     }
   }
 
+  // ---------------- CFO: keuangan & risiko ----------------
+  const cfo: string[] = [];
+  const exposure = input.positions.reduce((a, p) => a + (p.positionValue || 0), 0);
+  cfo.push(`Eksposur posisi terbuka: Rp${Math.round(exposure).toLocaleString("id-ID")} (${input.positions.length} posisi).`);
+  let cfoRec: RecommendationDraft | null = null;
+  if (input.finance) {
+    const f = input.finance;
+    cfo.push(`PnL kumulatif canary (setelah perkiraan fee): Rp${Math.round(f.totalPnlIdr).toLocaleString("id-ID")}.`);
+    if (f.maxLossIdr > 0) {
+      const used = f.totalPnlIdr < 0 ? -f.totalPnlIdr / f.maxLossIdr : 0;
+      cfo.push(`Pemakaian batas rugi: ${pct(used)} dari Rp${Math.round(f.maxLossIdr).toLocaleString("id-ID")}. Status canary: ${f.canaryStatus}.`);
+      if (used >= CFO_LOSS_WARN_FRACTION) {
+        cfoRec = {
+          role: "CFO",
+          key: "loss_limit_near",
+          kind: "note",
+          title: `Rugi kumulatif ${pct(used)} dari batas canary`,
+          detail: `PnL Rp${Math.round(f.totalPnlIdr).toLocaleString("id-ID")} vs batas Rp${Math.round(f.maxLossIdr).toLocaleString("id-ID")}. Di batas 100% BUY otomatis diblokir (SELL tetap jalan). Pertimbangkan menahan penambahan risiko dan mengevaluasi pair yang rugi. Keputusan ada pada Anda.`,
+        };
+      }
+    } else {
+      cfo.push("Batas rugi kumulatif tidak diatur (BOT_CANARY_MAX_DAILY_LOSS_IDR=0).");
+    }
+  } else {
+    cfo.push("Data PnL canary belum tersedia.");
+  }
+  const sl = input.settings.stopLossPercent;
+  const overshoots = closedRaw.filter((c) => c.rawPct < -(sl + CFO_SL_OVERSHOOT_PP));
+  if (overshoots.length > 0) {
+    const worst = overshoots.reduce((m, c) => (c.rawPct < m.rawPct ? c : m));
+    cfo.push(`SL overshoot (30 hari): ${overshoots.length} trade rugi melewati SL ${sl}% lebih dari ${CFO_SL_OVERSHOOT_PP} poin; terburuk ${upper(worst.pair)} ${worst.rawPct.toFixed(2)}%.`);
+    if (!cfoRec) {
+      cfoRec = {
+        role: "CFO",
+        key: "sl_overshoot",
+        kind: "note",
+        title: `SL meleset: ${upper(worst.pair)} ${worst.rawPct.toFixed(2)}% (batas ${sl}%)`,
+        detail: `${overshoots.length} trade selesai rugi lebih dalam dari SL. Penyebab paling mungkin harga melompat di antara dua siklus cron (jeda 10 menit), bukan bug SL -- bersifat dugaan. Kerugian nyata lebih besar dari yang direncanakan; pertimbangkan ukuran posisi lebih kecil pada pair yang volatil.`,
+      };
+    }
+  }
+  if (cfoRec) recs.push(cfoRec);
+
+  // ---------------- CTO: infrastruktur ----------------
+  const cto: string[] = [];
+  let ctoRec: RecommendationDraft | null = null;
+  const infra = input.infra;
+  if (infra) {
+    if (infra.heartbeatAgeMs === null) {
+      cto.push("Heartbeat scan belum pernah tercatat.");
+    } else {
+      const ageMin = Math.round(infra.heartbeatAgeMs / 60000);
+      const deadMin = ASSUMED_SCAN_INTERVAL_MIN * CTO_HEARTBEAT_DEAD_MULTIPLIER;
+      const dead = infra.heartbeatAgeMs > deadMin * 60000;
+      cto.push(`Scan terakhir ${ageMin} menit lalu (cron diasumsikan tiap ${ASSUMED_SCAN_INTERVAL_MIN} menit)${dead ? " -- CRON MATI?" : ""}.`);
+      if (dead) {
+        ctoRec = {
+          role: "CTO",
+          key: "cron_dead",
+          kind: "note",
+          title: `Cron scan tampak mati (${ageMin} menit tanpa siklus)`,
+          detail: "Tanpa scan, SL/TP tidak dijalankan. Buka cron-job.org: pastikan job scan & reconcile Enabled dan tidak Failed, lalu cek Vercel runtime logs.",
+        };
+      }
+    }
+    if (infra.lastScanDurationMs !== null) cto.push(`Durasi scan terakhir ${(infra.lastScanDurationMs / 1000).toFixed(1)} dtk (batas fungsi 30 dtk).`);
+    if (infra.lastScanReads !== null) {
+      const perDay = infra.lastScanReads * Math.round((24 * 60) / ASSUMED_SCAN_INTERVAL_MIN);
+      const frac = perDay / FIRESTORE_DAILY_READ_LIMIT;
+      cto.push(`Baca Firestore: ${infra.lastScanReads}/siklus -> perkiraan ${perDay.toLocaleString("id-ID")}/hari dari scan saja (${pct(frac)} dari ${FIRESTORE_DAILY_READ_LIMIT.toLocaleString("id-ID")}; belum termasuk dashboard).`);
+      if (frac >= CTO_READ_WARN_FRACTION && !ctoRec) {
+        ctoRec = {
+          role: "CTO",
+          key: "reads_high",
+          kind: "note",
+          title: `Proyeksi baca Firestore ${pct(frac)} dari kuota harian`,
+          detail: `Scan saja diperkirakan ${perDay.toLocaleString("id-ID")} baca/hari. Dashboard menambah di atasnya. Pertimbangkan memperlebar interval cron scan atau mengurangi pair; periksa angka pasti di Firebase Console > Usage.`,
+        };
+      }
+    } else {
+      cto.push("Jumlah baca per siklus belum tercatat (jalankan scan lagi setelah deploy).");
+    }
+  } else {
+    cto.push("Data infrastruktur belum tersedia.");
+  }
+  if (input.finance && input.finance.totalOrders > 0) {
+    const f = input.finance;
+    cto.push(`Order canary: ${f.totalOrders} total, ${f.failedOrders} gagal; latensi rata-rata ${Math.round(f.avgLatencyMs)} ms, maks ${Math.round(f.maxLatencyMs)} ms.`);
+  }
+  if (ctoRec) recs.push(ctoRec);
+
   const sections: SectionReport[] = [
     { role: "HRD", title: "HRD -- kinerja tim AI", lines: hrd },
     { role: "MANAJER", title: "Manajer -- kesehatan operasional", lines: mgr },
     { role: "TRADER", title: "Trader -- posisi & sikap pasar", lines: trader },
     { role: "PAIR", title: "Analis Pair -- peluang", lines: pair },
+    { role: "CFO", title: "CFO -- keuangan & risiko", lines: cfo },
+    { role: "CTO", title: "CTO -- infrastruktur", lines: cto },
   ];
 
   return {

@@ -3,7 +3,7 @@
 AURA Trade OS
 Agen Operasional
 ==========================================================
-Laporan harian 4 peran (HRD, Manajer, Trader, Analis Pair) dan usulan
+Laporan harian 6 peran (HRD, Manajer, Trader, Analis Pair, CFO, CTO) dan usulan
 yang menunggu persetujuan. Agen tidak mengubah apa pun sendiri; hanya
 pemilik yang melihat tombol Setujui/Tolak.
 ==========================================================

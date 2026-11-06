@@ -9,7 +9,7 @@ mengubah setting, mode, atau order sendiri; semua usulan berstatus
 ==========================================================
 */
 
-export type AgentRole = "HRD" | "MANAJER" | "TRADER" | "PAIR";
+export type AgentRole = "HRD" | "MANAJER" | "TRADER" | "PAIR" | "CFO" | "CTO";
 
 export type RecommendationKind = "setting" | "priority_pairs" | "watchlist_add" | "note";
 
@@ -84,6 +84,25 @@ export interface OpsInput {
     string,
     { scored: number; accuracy: number; majorityBaselineAccuracy: number; verdict: string }
   >;
+  /** Data keuangan canary (CFO). Opsional: tanpa ini bagian CFO menampilkan "data belum tersedia". */
+  finance?: {
+    totalPnlIdr: number;
+    /** Batas rugi kumulatif (Rp). 0 = tidak dipakai. */
+    maxLossIdr: number;
+    canaryStatus: string;
+    totalOrders: number;
+    failedOrders: number;
+    avgLatencyMs: number;
+    maxLatencyMs: number;
+  };
+  /** Data infrastruktur (CTO). Opsional. */
+  infra?: {
+    /** Umur heartbeat scan (ms); null bila belum pernah ada. */
+    heartbeatAgeMs: number | null;
+    lastScanDurationMs: number | null;
+    /** Total baca Firestore pada siklus scan terakhir; null bila belum tercatat. */
+    lastScanReads: number | null;
+  };
 }
 
 export interface OpsAnalysis {
