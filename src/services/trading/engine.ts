@@ -813,6 +813,8 @@ export class TradingEngine {
 
             amount: state.coinAmount,
 
+            entryPrice: state.entryPrice,
+
             strategy: state.strategyAtEntry,
 
           });
@@ -1520,6 +1522,8 @@ export class TradingEngine {
             price: input.price,
 
             amount: state.coinAmount,
+
+            entryPrice: state.entryPrice,
 
             strategy: state.strategyAtEntry,
 

@@ -164,6 +164,16 @@ export function resolveMaxAverageLatencyMs(raw: string | undefined): number {
   return raw !== undefined && raw.trim() !== "" && Number.isFinite(n) && n >= 1_000 ? n : 8_000;
 }
 
+/**
+ * Batas rugi kumulatif canary (IDR, sejak reset terakhir). Wajib > 0: dengan 0,
+ * SELL rugi pertama langsung membuat status CRITICAL (totalPnl < -0).
+ * Env BOT_CANARY_MAX_DAILY_LOSS_IDR; tidak valid/kosong -> 3000 (~2,7% modal).
+ */
+export function resolveMaxLossIdr(raw: string | undefined): number {
+  const n = Number(raw);
+  return raw !== undefined && raw.trim() !== "" && Number.isFinite(n) && n > 0 ? n : 3_000;
+}
+
 const DEFAULT_CANARY_METRICS_CONFIG: CanaryMetricsConfig =
   {
     maxErrorRate: 0.05,
@@ -174,7 +184,7 @@ const DEFAULT_CANARY_METRICS_CONFIG: CanaryMetricsConfig =
 
     maxDrawdown: 0.03,
 
-    maxLoss: 0,
+    maxLoss: resolveMaxLossIdr(process.env.BOT_CANARY_MAX_DAILY_LOSS_IDR),
 
     minimumSampleSize: 5,
 

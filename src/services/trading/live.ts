@@ -21,6 +21,7 @@ fatal seperti recordCanarySafe -- lihat auditSafe().
 ==========================================================
 */
 
+import { estimateRealizedPnlIdr } from "@/services/trading/pnlEstimate";
 import { PhaseTimer, SLOW_ORDER_LOG_MS } from "./phaseTimer";
 import { resolveCanaryPositionLimit } from "./canaryLimit";
 import { IndodaxClient } from "@/services/liveTrading/exchange/indodaxClient";
@@ -60,6 +61,8 @@ export interface LiveTradeRequest {
    * posisi diubah. Kosong -> fallback BOT_CANARY_MAX_OPEN_ORDERS.
    */
   maxOpenPositions?: number;
+  /** Harga masuk posisi (SELL): dipakai menghitung perkiraan PnL untuk Canary Monitor. */
+  entryPrice?: number;
   /**
    * Nama strategi yang menghasilkan sinyal ini - dicatat ke
    * TradeLog untuk atribusi profit->strategi (strategyAnalytics.ts).
@@ -744,6 +747,15 @@ class LiveTradingService {
 
       const result = await this.sellInternal(request, localOrderId);
 
+      const pnl =
+        request.entryPrice !== undefined
+          ? estimateRealizedPnlIdr({
+              entryPrice: request.entryPrice,
+              exitPrice: result.price,
+              amount: result.amount,
+            })
+          : undefined;
+
       await this.recordCanarySafe({
         orderId: result.orderId,
         symbol: result.pair,
@@ -753,6 +765,7 @@ class LiveTradingService {
         status: "FILLED",
         latencyMs: Date.now() - startedAt,
         timestamp: Date.now(),
+        ...(pnl !== undefined ? { pnl } : {}),
       });
 
       return result;
