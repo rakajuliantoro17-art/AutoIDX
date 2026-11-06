@@ -200,9 +200,16 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
   pair.push(`Watchlist: ${input.watchlist.length}/${WATCHLIST_TARGET} pair (${input.watchlist.map(upper).join(", ")}).`);
   if (input.watchlist.length < WATCHLIST_TARGET) {
     const inList = new Set(input.watchlist.map((p) => p.toLowerCase()));
-    const next = input.scanner.top
-      .filter((t) => !inList.has(t.pair.toLowerCase()) && input.scanner.qualifiedPairs.includes(t.pair))
+    // Keputusan pemilik 6 Nov: usulan penambahan HANYA untuk pair BULLISH.
+    const outsideQualified = input.scanner.top.filter(
+      (t) => !inList.has(t.pair.toLowerCase()) && input.scanner.qualifiedPairs.includes(t.pair)
+    );
+    const next = outsideQualified
+      .filter((t) => t.trend === "BULLISH")
       .sort((a, b) => b.opportunityScore - a.opportunityScore)[0];
+    if (!next && outsideQualified.length > 0) {
+      pair.push(`Ada ${outsideQualified.length} kandidat lolos scanner di luar watchlist, tetapi tidak ada yang tren BULLISH; usulan penambahan ditahan.`);
+    }
     if (next) {
       const week = isoWeekKey(input.nowMs);
       recs.push({
@@ -210,7 +217,7 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
         key: `watchlist_add_${week}`,
         kind: "watchlist_add",
         title: `Tambah ${upper(next.pair)} ke watchlist (${input.watchlist.length + 1}/${WATCHLIST_TARGET})`,
-        detail: `Kandidat terbaik minggu ini di luar watchlist: skor ${next.opportunityScore.toFixed(0)}, RSI ${next.rsi14.toFixed(0)}, tren ${next.trend}. Satu pair per minggu menjaga durasi siklus dan risiko tetap terkendali; setujui hanya bila kinerja watchlist saat ini memuaskan.`,
+        detail: `Kandidat BULLISH terbaik minggu ini di luar watchlist: skor ${next.opportunityScore.toFixed(0)}, RSI ${next.rsi14.toFixed(0)}, tren ${next.trend}. Satu pair per minggu menjaga durasi siklus dan risiko tetap terkendali; setujui hanya bila kinerja watchlist saat ini memuaskan.`,
         patch: { watchlistAdd: next.pair.toLowerCase() },
       });
     } else {
