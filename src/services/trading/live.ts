@@ -63,6 +63,8 @@ export interface LiveTradeRequest {
   maxOpenPositions?: number;
   /** Harga masuk posisi (SELL): dipakai menghitung perkiraan PnL untuk Canary Monitor. */
   entryPrice?: number;
+  /** Konteks exit (alasan, PnL%, kondisi entry) -- dicatat ke dokumen trade SELL. */
+  context?: Record<string, number | string>;
   /**
    * Nama strategi yang menghasilkan sinyal ini - dicatat ke
    * TradeLog untuk atribusi profit->strategi (strategyAnalytics.ts).
@@ -997,6 +999,8 @@ class LiveTradingService {
         orderId: String(data.order_id),
 
         reason: "Live Trading SELL",
+
+        ...(request.context ? { ctx: request.context } : {}),
 
         mode: "live",
 

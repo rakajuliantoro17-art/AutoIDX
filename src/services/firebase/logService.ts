@@ -38,6 +38,9 @@ fee?:number;
 
 orderId?:string;
 
+/** Konteks entry/exit untuk analisis pola SL (lihat trading/tradeContext.ts). */
+ctx?:Record<string,number|string>;
+
 strategySignal?:
 
 "BUY"

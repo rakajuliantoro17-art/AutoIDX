@@ -85,6 +85,7 @@ import RiskManager from "./risk";
 import automationNotifier from "@/services/automation/notifier";
 import { isFeatureEnabled } from "@/services/firebase/featureFlags";
 import { calculateTrailingStop } from "@/services/trading/trailingStop";
+import { buildEntryContext, buildExitContext } from "@/services/trading/tradeContext";
 import { checkPortfolioExposure } from "@/services/trading/exposure";
 import { MAX_EXPOSURE_PERCENT as ABSOLUTE_MAX_EXPOSURE_PERCENT } from "@/config/limits";
 
@@ -817,6 +818,14 @@ export class TradingEngine {
 
             strategy: state.strategyAtEntry,
 
+            context: buildExitContext({
+              exitReason: riskEval.shouldStopLoss ? "STOP_LOSS" : "TAKE_PROFIT",
+              entryPrice: state.entryPrice,
+              exitPrice: input.price,
+              entryContext: state.entryContext,
+              nowMs: Date.now(),
+            }),
+
           });
 
           const pnlIdr =
@@ -839,6 +848,8 @@ export class TradingEngine {
             lastSignal: "SELL",
 
             strategyAtEntry: "",
+
+            entryContext: null,
 
           });
 
@@ -1443,6 +1454,15 @@ export class TradingEngine {
 
               strategyAtEntry: strategyResult.strategy,
 
+              entryContext: buildEntryContext({
+                entryPrice: result.price,
+                atr: input.features.atr,
+                rsi: input.features.rsi,
+                slPercent: atrLevels.stopLossPercent,
+                tpPercent: atrLevels.takeProfitPercent,
+                nowMs: Date.now(),
+              }),
+
             })
           );
 
@@ -1527,6 +1547,15 @@ export class TradingEngine {
 
             strategy: state.strategyAtEntry,
 
+            context: buildExitContext({
+              exitReason: "SIGNAL",
+              entryPrice: state.entryPrice,
+              exitPrice: input.price,
+              entryContext: state.entryContext,
+              nowMs: Date.now(),
+            }),
+
+
           });
 
           const pnlIdr =
@@ -1545,6 +1574,8 @@ export class TradingEngine {
             coinAmount: 0,
 
             strategyAtEntry: "",
+
+            entryContext: null,
 
           });
 

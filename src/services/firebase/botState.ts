@@ -124,6 +124,9 @@ lastSignal:
  */
 strategyAtEntry?:string;
 
+/** Kondisi saat entry untuk fase belajar (lihat trading/tradeContext.ts). null = dihapus saat exit. */
+entryContext?:import("@/services/trading/tradeContext").EntryContext|null;
+
 
 
 lastOrderId?:string;

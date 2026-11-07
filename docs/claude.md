@@ -1303,3 +1303,9 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - `opsAgent.ts` menambah 2 read (canary_metrics/live, system_status/cronHeartbeat) per run harian; tidak menambah read per siklus scan.
 - Catatan: ambang DEAD di `cronHeartbeat.ts` (10x interval 120 dtk = 20 menit, ALIVE <=6 menit) membuat status "STALE" pada cron 10 menit; CTO memakai ambang sendiri (2,5x interval cron).
 - Tes: `tests/cfoCto.test.ts`. 188 pass, tsc bersih, build OK.
+
+### Session Log 56 -- Fase belajar: konteks trade (7 Nov 2026)
+- Keputusan pemilik: fokus profit; target akhir November max 10 open position (bertahap, berbasis data). SL/TP/Max Position TIDAK diubah selama pengumpulan data.
+- `tradeContext.ts` (baru): `buildEntryContext` (ATR%, RSI, SL%, TP%, waktu entry) disimpan di `bot_state.entryContext` saat BUY; `buildExitContext` (alasan STOP_LOSS/TAKE_PROFIT/SIGNAL, PnL% kotor, lama ditahan, kondisi entry) disimpan di field `ctx` dokumen trade SELL. Dibersihkan (`null`) saat exit. Tidak mengubah perilaku trading; tidak menambah read.
+- Berlaku untuk BUY setelah deploy ini; trade lama tidak punya `ctx`. Tes: `tests/tradeContext.test.ts` (193 pass).
+- Rencana: setelah ~20 SELL ber-`ctx`, analisis pola SL (tier, ATR%, RSI saat entry) lalu pilih pengungkit (filter SL% maks, kualitas entry, trailing).
