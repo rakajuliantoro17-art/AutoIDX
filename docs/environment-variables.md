@@ -35,6 +35,7 @@ Variabel	Wajib	Keterangan
 `OPENAI_API_KEY`	Kalau pakai fitur AI OpenAI	
 `CLAUDE_API_KEY`	Kalau pakai fitur AI Anthropic/Claude	
 `GEMINI_API_KEY`	Kalau pakai fitur AI Gemini	Dipanggil lewat raw REST fetch, bukan SDK
+`GEMINI_MODEL`	Opsional (bawaan kode: gemini-2.5-flash)	Di Vercel production diset gemini-3.5-flash-lite sejak 8 Nov 2026 (2.5 memberi 404 untuk kunci baru)
 `DEEPSEEK_API_KEY`	Kalau pakai fitur AI DeepSeek	
 Cron / Scheduled Jobs
 Variabel	Wajib	Keterangan

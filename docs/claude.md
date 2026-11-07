@@ -1314,3 +1314,8 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 ### Session Log 57 -- Sumber baca Firestore (7 Nov 2026)
 - 10.37 WIB: Reads 23K (46%) sejak reset 15.00 WIB kemarin (~1,17K/jam, proyeksi ~28K/hari). Scan hanya ~32 baca/siklus (~4,6K/hari), jadi ~80% berasal dari tempat lain. Dugaan utama: tab dashboard terbuka -> `/api/logs/recent?limit=10` tiap 60 dtk = 10 log + 20 trade = 30 baca/panggilan (~1,8K/jam).
 - `logs/recent.ts`: cache 100 dtk per instance (setengah panggilan kena cache). Dugaan, belum terukur; verifikasi lewat Firebase Usage.
+
+### Session Log 58 -- Perbaikan Gemini 404 (8 Nov 2026)
+- Penyebab (Kemungkinan Besar): `GEMINI_MODEL` tidak diset di Vercel, kode memakai bawaan `gemini-2.5-flash`; dokumentasi Google: model 2.5 hanya untuk pengguna lama, kunci dibuat Agu 2026 -> 404.
+- Perbaikan: env production `GEMINI_MODEL=gemini-3.5-flash-lite` (stabil, tanpa jadwal shutdown). `gemini.ts`: pesan error memuat teks error Google + nama model; konten menggabungkan bagian teks non-thought.
+- Belum terverifikasi: panggilan nyata ke API (tanpa akses jaringan dari sandbox). Verifikasi: log scan tidak lagi memuat "Gemini API Error". Bila masih gagal, pesan error baru menunjukkan sebabnya.
