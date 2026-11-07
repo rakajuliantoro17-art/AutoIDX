@@ -4,7 +4,7 @@ import { verifyApiAuth } from "@/lib/auth/verifyApiAuth";
 import { isOwner } from "@/services/agents/decisions";
 import { adminDb } from "@/services/firebase/admin";
 import { getBotControl } from "@/services/firebase/botControl";
-import { getOpenPositionsCount } from "@/services/firebase/botState";
+import { getOpenPositionsCount, getOpenExposureIdr } from "@/services/firebase/botState";
 import { getFeatureFlags } from "@/services/firebase/featureFlags";
 import { getReconciliationStatus } from "@/services/firebase/reconciliationStatus";
 import { getActiveIndodaxAccount } from "@/services/firebase/indodaxAccountsAdmin";
@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!isOwner(user.uid)) return res.status(403).json({ error: "Hanya pemilik." });
 
   try {
-    const [control, effective, flags, reconcile, openPositions, uncertain, account] = await Promise.all([
+    const [control, effective, flags, reconcile, openPositions, uncertain, account, openExposureIdr] = await Promise.all([
       getBotControl(),
       getEffectiveTradingConfig(),
       getFeatureFlags(),
@@ -33,6 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       getOpenPositionsCount(),
       adminDb.collection("live_order_locks").where("status", "==", "UNCERTAIN").limit(5).get(),
       getActiveIndodaxAccount(),
+      getOpenExposureIdr(),
     ]);
 
     let idrBalance: number | null = null;
@@ -71,6 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       reconcileMaxAgeMs: (Number(process.env.BOT_CANARY_RECONCILIATION_MAX_AGE_MINUTES) || 15) * 60_000,
       uncertainLocks: uncertain.size,
       openPositions,
+      openExposureIdr: openExposureIdr >= Number.MAX_SAFE_INTEGER ? undefined : openExposureIdr,
       now: Date.now(),
     });
     return res.status(200).json(result);

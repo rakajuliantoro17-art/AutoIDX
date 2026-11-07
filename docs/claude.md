@@ -1309,3 +1309,4 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - `tradeContext.ts` (baru): `buildEntryContext` (ATR%, RSI, SL%, TP%, waktu entry) disimpan di `bot_state.entryContext` saat BUY; `buildExitContext` (alasan STOP_LOSS/TAKE_PROFIT/SIGNAL, PnL% kotor, lama ditahan, kondisi entry) disimpan di field `ctx` dokumen trade SELL. Dibersihkan (`null`) saat exit. Tidak mengubah perilaku trading; tidak menambah read.
 - Berlaku untuk BUY setelah deploy ini; trade lama tidak punya `ctx`. Tes: `tests/tradeContext.test.ts` (193 pass).
 - Rencana: setelah ~20 SELL ber-`ctx`, analisis pola SL (tier, ATR%, RSI saat entry) lalu pilih pengungkit (filter SL% maks, kualitas entry, trailing).
+- Panel Kesiapan Canary: baris "exposure total" kini memakai `checkPortfolioExposure` + `getOpenExposureIdr` (sama dengan engine); sebelumnya hanya order/kas sehingga menyesatkan (18,8% vs ~48%). Gerbang BUY asli tidak berubah. 194 pass.

@@ -32,8 +32,12 @@ export interface ReadinessInput {
   reconcileMaxAgeMs: number;
   uncertainLocks: number;
   openPositions: number;
+  /** Nilai beli posisi terbuka (Rp). Dipakai gerbang exposure total, sama dengan engine. */
+  openExposureIdr?: number;
   now: number;
 }
+
+import { checkPortfolioExposure } from "@/services/trading/exposure";
 
 const idr = (n: number) => `Rp ${Math.round(n).toLocaleString("id-ID")}`;
 
@@ -74,9 +78,12 @@ export function evaluateCanaryReadiness(i: ReadinessInput): { ready: boolean; ch
         : `Batas ${cap}% dari ${idr(i.idrBalance)} = ${idr(limit)} < order ${idr(i.tradeAmountIdr)}. Butuh saldo minimal ${idr(needEquity)}.`);
 
     if (i.portfolioExposureLimitOn) {
-      const after = ((i.tradeAmountIdr) / i.idrBalance) * 100;
-      add("exposureTotal", "Batas exposure total (flag aktif)", after <= i.absoluteMaxExposurePercent ? "pass" : "fail",
-        `Setelah order exposure ${after.toFixed(1)}% (batas ${i.absoluteMaxExposurePercent}%).`);
+      // Sama dengan gerbang engine (checkPortfolioExposure): posisi terbuka + order baru
+      // dibandingkan dengan EKUITAS TOTAL (kas + nilai posisi terbuka).
+      const open = Math.max(0, i.openExposureIdr ?? 0);
+      const chk = checkPortfolioExposure(open, i.tradeAmountIdr, i.idrBalance, i.absoluteMaxExposurePercent);
+      add("exposureTotal", "Batas exposure total (flag aktif)", chk.allowed ? "pass" : "fail",
+        `Posisi terbuka ${idr(open)} + order ${idr(i.tradeAmountIdr)} = ${chk.afterTradePercent.toFixed(1)}% dari ekuitas ${idr(chk.totalEquityIdr)} (batas ${i.absoluteMaxExposurePercent}%).`);
     }
   }
 

@@ -44,3 +44,23 @@ test("canary belum aktif, emergency stop, order tak pasti gagal; paper hanya per
 test("gagal baca saldo = gagal (fail-closed)", () => {
   assert.equal(evaluateCanaryReadiness({ ...base, idrBalance: null, balanceError: "403" }).ready, false);
 });
+
+test("exposure total memperhitungkan posisi terbuka (sama dengan engine)", async () => {
+  const { evaluateCanaryReadiness } = await import("../src/services/canary/readiness");
+  const base = {
+    mode: "live" as const, liveConfirm: true, emergencyStop: false, canaryEnabled: true, canaryOnly: true,
+    canaryMaxTradeAmount: 15000, canaryMaxOpenOrders: 2, tradeAmountIdr: 15000, maxOpenPositions: 3,
+    maxExposurePercent: 35, absoluteMaxExposurePercent: 50, portfolioExposureLimitOn: true, minOrderValue: 10000,
+    idrBalance: 79971, hasActiveAccount: true, reconcile: null, reconcileMaxAgeMs: 900000, uncertainLocks: 0,
+    openPositions: 3, now: Date.now(),
+  };
+  const row = (extra: object) =>
+    evaluateCanaryReadiness({ ...base, ...extra }).checks.find((c) => c.id === "exposureTotal")!;
+  const lama = row({});
+  assert.equal(lama.status, "pass");
+  const baru = row({ openExposureIdr: 45000 });
+  assert.match(baru.detail, /Posisi terbuka Rp 45\.000/);
+  assert.match(baru.detail, /48\.\d%/);
+  const penuh = row({ openExposureIdr: 60000 });
+  assert.equal(penuh.status, "fail");
+});
