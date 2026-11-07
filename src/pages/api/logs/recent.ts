@@ -19,6 +19,7 @@ dengan pola keamanan Admin-SDK-only yang sudah dipakai project.
 import type { NextApiRequest, NextApiResponse } from "next";
 import { adminAuth, adminDb } from "@/services/firebase/admin";
 import { getRecentLogs } from "@/services/firebase/logService";
+import { cached } from "@/lib/cache/ttlCache";
 
 async function getUidFromRequest(
   req: NextApiRequest
@@ -83,21 +84,22 @@ export default async function handler(
     const maxLogs =
       Number(req.query.limit ?? 50);
 
-    const [logs, tradesSnapshot] = await Promise.all([
+    // Cache 100 dtk per instance (> interval polling 60 dtk, jadi tiap panggilan kedua kena cache): dashboard memanggil tiap 60 dtk (30+ baca per panggilan);
+    // data log tidak perlu lebih segar dari ini. Hemat kuota baca Firestore Spark.
+    const { logs, tradeDocs } = await cached(`logs:recent:${maxLogs}`, 100_000, async () => {
+      const [logRows, tradesSnap] = await Promise.all([
+        getRecentLogs(maxLogs),
+        adminDb.collection("trades").orderBy("timestamp", "desc").limit(20).get(),
+      ]);
+      return {
+        logs: logRows,
+        tradeDocs: tradesSnap.docs.map((d) => ({ id: d.id, data: d.data() })),
+      };
+    });
 
-      getRecentLogs(maxLogs),
+    const trades = tradeDocs.map((doc) => {
 
-      adminDb
-        .collection("trades")
-        .orderBy("timestamp", "desc")
-        .limit(20)
-        .get(),
-
-    ]);
-
-    const trades = tradesSnapshot.docs.map((doc) => {
-
-      const data = doc.data();
+      const data = doc.data;
 
       return {
         id: doc.id,

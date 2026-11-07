@@ -1310,3 +1310,7 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - Berlaku untuk BUY setelah deploy ini; trade lama tidak punya `ctx`. Tes: `tests/tradeContext.test.ts` (193 pass).
 - Rencana: setelah ~20 SELL ber-`ctx`, analisis pola SL (tier, ATR%, RSI saat entry) lalu pilih pengungkit (filter SL% maks, kualitas entry, trailing).
 - Panel Kesiapan Canary: baris "exposure total" kini memakai `checkPortfolioExposure` + `getOpenExposureIdr` (sama dengan engine); sebelumnya hanya order/kas sehingga menyesatkan (18,8% vs ~48%). Gerbang BUY asli tidak berubah. 194 pass.
+
+### Session Log 57 -- Sumber baca Firestore (7 Nov 2026)
+- 10.37 WIB: Reads 23K (46%) sejak reset 15.00 WIB kemarin (~1,17K/jam, proyeksi ~28K/hari). Scan hanya ~32 baca/siklus (~4,6K/hari), jadi ~80% berasal dari tempat lain. Dugaan utama: tab dashboard terbuka -> `/api/logs/recent?limit=10` tiap 60 dtk = 10 log + 20 trade = 30 baca/panggilan (~1,8K/jam).
+- `logs/recent.ts`: cache 100 dtk per instance (setengah panggilan kena cache). Dugaan, belum terukur; verifikasi lewat Firebase Usage.
