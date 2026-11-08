@@ -42,6 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             price: Number(x.price) || 0,
             totalIdr: Number(x.totalIdr) || 0,
             ts: toMs(x.timestamp),
+            ctx: x.ctx && typeof x.ctx === "object" ? (x.ctx as Record<string, unknown>) : undefined,
           };
         }),
         audits: auditSnap.docs.map((d) => {

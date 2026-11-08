@@ -21,7 +21,7 @@ export interface Notif {
 }
 
 export interface FeedInput {
-  trades: { id: string; pair: string; type: string; mode: string; price: number; totalIdr: number; ts: number }[];
+  trades: { id: string; pair: string; type: string; mode: string; price: number; totalIdr: number; ts: number; ctx?: Record<string, unknown> }[];
   audits: {
     id: string;
     action: string;
@@ -35,6 +35,19 @@ export interface FeedInput {
 }
 
 const upper = (p: string) => p.replace("_", "/").toUpperCase();
+const REASON_LABEL: Record<string, string> = { STOP_LOSS: "kena Stop Loss", TAKE_PROFIT: "kena Take Profit", SIGNAL: "sinyal jual" };
+/** Ringkasan konteks exit (fase belajar): alasan, lama ditahan, SL/TP saat entry. Kosong untuk trade lama tanpa ctx. */
+export function exitContextText(ctx?: Record<string, unknown>): string {
+  if (!ctx || typeof ctx.exitReason !== "string") return "";
+  const parts = [REASON_LABEL[ctx.exitReason] ?? ctx.exitReason];
+  const held = Number(ctx.heldMinutes);
+  if (Number.isFinite(held)) parts.push(`ditahan ${held >= 120 ? `${Math.round(held / 60)} jam` : `${held} menit`}`);
+  const sl = Number(ctx.entry_slPercent);
+  const tp = Number(ctx.entry_tpPercent);
+  if (Number.isFinite(sl) && Number.isFinite(tp) && sl > 0) parts.push(`SL ${sl}% / TP ${tp}% saat entry`);
+  return ` Alasan: ${parts.join(", ")}.`;
+}
+
 const idr = (n: number) => `Rp${Math.round(n).toLocaleString("id-ID")}`;
 const val = (v: unknown) => (v === null || v === undefined ? "-" : typeof v === "object" ? JSON.stringify(v) : String(v));
 
@@ -74,7 +87,7 @@ export function buildNotifications(input: FeedInput, limit = 40): Notif[] {
           ts: t.ts,
           level: pct >= 0 ? "success" : "warning",
           title: `${pct >= 0 ? "Profit" : "Rugi"} ${pct >= 0 ? "+" : ""}${pct.toFixed(2)}% ${upper(t.pair)} (${t.mode})`,
-          detail: `SELL ${idr(t.price)} vs BUY ${idr(buy)} (perkiraan, belum termasuk fee).`,
+          detail: `SELL ${idr(t.price)} vs BUY ${idr(buy)} (perkiraan, belum termasuk fee).${exitContextText(t.ctx)}`,
         });
       } else {
         out.push({

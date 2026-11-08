@@ -86,3 +86,18 @@ test("tanpa data finance/infra: tidak error, ada catatan", () => {
   assert.match(r.sections.find((s) => s.role === "CTO")!.lines.join(" "), /belum tersedia/);
   assert.equal(roleRecs(r, "CFO").length + roleRecs(r, "CTO").length, 0);
 });
+
+import { buildNotifications, exitContextText } from "../src/services/notifications/feed";
+test("notifikasi SELL memuat alasan exit dari ctx; tanpa ctx tetap seperti semula", () => {
+  const mk = (ctx?: Record<string, unknown>) => buildNotifications({
+    trades: [
+      { id: "b", pair: "btc_idr", type: "BUY", mode: "live", price: 1374196511, totalIdr: 15000, ts: 1 },
+      { id: "s", pair: "btc_idr", type: "SELL", mode: "live", price: 1360238751, totalIdr: 15000, ts: 2, ctx },
+    ], audits: [], emergencyLogs: [], pendingRecs: [],
+  }).find((n) => n.id === "t_s")!;
+  assert.match(mk().title, /Rugi -1\.02% BTC\/IDR/);
+  assert.doesNotMatch(mk().detail, /Alasan/);
+  const d = mk({ exitReason: "STOP_LOSS", heldMinutes: 300, entry_slPercent: 1, entry_tpPercent: 2 }).detail;
+  assert.match(d, /Alasan: kena Stop Loss, ditahan 5 jam, SL 1% \/ TP 2% saat entry\./);
+  assert.equal(exitContextText(undefined), "");
+});

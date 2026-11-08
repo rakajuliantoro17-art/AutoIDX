@@ -1336,3 +1336,4 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - Reads hari penuh ~20K (40%); cron 5 menit ditahan (hitungan ulang: +144 x 54 = +7,8K -> ~56%).
 - 15.13 WIB: pemilik MEMATIKAN flag `fixedTakeProfit` (status sebelumnya tidak dikonfirmasi; kemungkinan menyala). Awal resmi eksperimen: TP 4% / SL 2% / flag mati. BUY sebelum 15.13 (DRX, XAUT) memakai level lama dan dikeluarkan dari evaluasi.
 - 15.20 WIB: dropdown pair Overview kini = watchlist (Trading Pair Universe) + posisi terbuka (`selectDisplayPairs`), bukan semua dokumen bot_state. 201 pass.
+- 9 Nov: notifikasi SELL kini menampilkan alasan exit (SL/TP/sinyal), lama ditahan, dan SL/TP saat entry dari `ctx` (hanya trade yang punya ctx). Trigger: SELL BTC/IDR -1,02% (kotor) tanpa alasan di notifikasi. 202 pass.
