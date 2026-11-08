@@ -12,7 +12,9 @@ padahal bot scan & bisa BUY pair manapun (services/scanner/).
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import { adminAuth } from "@/services/firebase/admin";
-import { getAllTrackedPairs } from "@/services/firebase/botState";
+import { getOpenPositionPairs } from "@/services/firebase/botState";
+import { getBotControl } from "@/services/firebase/botControl";
+import { selectDisplayPairs } from "@/services/scheduler/displayPairs";
 import { TRADING_CONFIG } from "@/config/trading";
 
 // Sinkron dengan default watchlist di config/trading.ts -- dipakai
@@ -61,9 +63,9 @@ export default async function handler(
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const tracked = await getAllTrackedPairs();
-
-  const pairs = tracked.length > 0 ? tracked.sort() : FALLBACK_PAIRS;
+  // Watchlist (Trading Pair Universe) + posisi terbuka -- pair yang memang dikelola bot.
+  const [control, openPairs] = await Promise.all([getBotControl(), getOpenPositionPairs()]);
+  const pairs = selectDisplayPairs(control.watchlist, openPairs, FALLBACK_PAIRS);
 
   return res.status(200).json({ pairs });
 

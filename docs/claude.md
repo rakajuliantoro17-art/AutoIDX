@@ -1335,3 +1335,4 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - Pengujian: ~20 SELL setelah perubahan; jangan ubah Max Open Position / cron; bandingkan memakai `ctx` (exitReason, pnlPercent, entry_*). Status flag `fixedTakeProfit` belum dikonfirmasi pemilik (harus MATI agar rasio efektif 2:1).
 - Reads hari penuh ~20K (40%); cron 5 menit ditahan (hitungan ulang: +144 x 54 = +7,8K -> ~56%).
 - 15.13 WIB: pemilik MEMATIKAN flag `fixedTakeProfit` (status sebelumnya tidak dikonfirmasi; kemungkinan menyala). Awal resmi eksperimen: TP 4% / SL 2% / flag mati. BUY sebelum 15.13 (DRX, XAUT) memakai level lama dan dikeluarkan dari evaluasi.
+- 15.20 WIB: dropdown pair Overview kini = watchlist (Trading Pair Universe) + posisi terbuka (`selectDisplayPairs`), bukan semua dokumen bot_state. 201 pass.
