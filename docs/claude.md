@@ -1328,3 +1328,9 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - Temuan laporan: 67 trade/30 hari menang 46%, rata-rata -0,58%/trade setelah biaya (ekspektasi negatif); ML 15% vs baseline 71% (shadow). ERN disetujui (13/25) tapi watchlist tampil 12 -- perlu diverifikasi.
 - 197 tes lulus.
 - KOREKSI (9a75091 tidak efektif): `capitalBase` belum ada di DEFAULT_CANARY_METRICS_CONFIG (replace gagal diam-diam; tes memberi nilai manual). Diperbaiki + tes konfigurasi bawaan tanpa argumen. 198 pass.
+
+### Session Log 60 -- Eksperimen rasio TP:SL (8 Nov 2026, 15.11 WIB)
+- Settings sebelum: SL 2%, TP 2% (rasio 1:1; mode ATR: TP = SL_ATR x TP/SL). Win rate terukur 46% (67 trade/30 hari), rata-rata -0,58%/trade setelah fee ~0,63%; win rate impas pada 1:1 = 54-66%.
+- Perubahan pemilik: **TP 4%** (SL tetap 2%) -> rasio 2:1. Berlaku untuk BUY baru; posisi DRX dan XAUT tetap pada level lama.
+- Pengujian: ~20 SELL setelah perubahan; jangan ubah Max Open Position / cron; bandingkan memakai `ctx` (exitReason, pnlPercent, entry_*). Status flag `fixedTakeProfit` belum dikonfirmasi pemilik (harus MATI agar rasio efektif 2:1).
+- Reads hari penuh ~20K (40%); cron 5 menit ditahan (hitungan ulang: +144 x 54 = +7,8K -> ~56%).
