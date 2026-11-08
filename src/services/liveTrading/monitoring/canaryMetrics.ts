@@ -197,6 +197,7 @@ const DEFAULT_CANARY_METRICS_CONFIG: CanaryMetricsConfig =
     maxDrawdown: 0.03,
 
     maxLoss: resolveMaxLossIdr(process.env.BOT_CANARY_MAX_DAILY_LOSS_IDR),
+    capitalBase: resolveCapitalBaseIdr(process.env.BOT_CANARY_CAPITAL_IDR),
 
     minimumSampleSize: 5,
 

@@ -62,3 +62,12 @@ test("drawdown tetap memicu CRITICAL bila rugi dari puncak melebihi 3% modal acu
   m.recordOrder({ orderId: "b", symbol: "y_idr", side: "SELL", amount: 1, status: "FILLED", latencyMs: 1000, timestamp: 2, pnl: -3600 });
   assert.equal(m.getSnapshot().status, "CRITICAL");
 });
+
+test("KONFIGURASI BAWAAN (tanpa argumen, seperti produksi): +326 lalu -897 tidak CRITICAL", () => {
+  const m = new CanaryMetrics();
+  m.recordOrder({ orderId: "a", symbol: "x_idr", side: "SELL", amount: 1, status: "FILLED", latencyMs: 1000, timestamp: 1, pnl: 326 });
+  m.recordOrder({ orderId: "b", symbol: "y_idr", side: "SELL", amount: 1, status: "FILLED", latencyMs: 1000, timestamp: 2, pnl: -897 });
+  const snap = m.getSnapshot();
+  assert.ok(snap.drawdown < 0.03, `drawdown ${snap.drawdown}`);
+  assert.notEqual(snap.status, "CRITICAL");
+});

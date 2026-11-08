@@ -1327,3 +1327,4 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - Gemini: laporan agen menulis "Ditulis oleh gemini" -> GEMINI_MODEL=gemini-3.5-flash-lite bekerja.
 - Temuan laporan: 67 trade/30 hari menang 46%, rata-rata -0,58%/trade setelah biaya (ekspektasi negatif); ML 15% vs baseline 71% (shadow). ERN disetujui (13/25) tapi watchlist tampil 12 -- perlu diverifikasi.
 - 197 tes lulus.
+- KOREKSI (9a75091 tidak efektif): `capitalBase` belum ada di DEFAULT_CANARY_METRICS_CONFIG (replace gagal diam-diam; tes memberi nilai manual). Diperbaiki + tes konfigurasi bawaan tanpa argumen. 198 pass.
