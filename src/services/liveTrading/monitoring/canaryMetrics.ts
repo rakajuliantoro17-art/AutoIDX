@@ -93,6 +93,13 @@ export interface CanaryMetricsConfig {
   maxLoss: number;
 
   /**
+   * Modal acuan (IDR) untuk drawdown dari kurva PnL kumulatif. Kurva itu berawal dari 0,
+   * jadi tanpa acuan ini untung kecil (Rp326) lalu rugi Rp897 terhitung drawdown 275%
+   * -> CRITICAL padahal baru 19% dari batas rugi.
+   */
+  capitalBase?: number;
+
+  /**
    * Minimum number of orders before metrics
    * are considered statistically meaningful.
    */
@@ -169,6 +176,11 @@ export function resolveMaxAverageLatencyMs(raw: string | undefined): number {
  * SELL rugi pertama langsung membuat status CRITICAL (totalPnl < -0).
  * Env BOT_CANARY_MAX_DAILY_LOSS_IDR; tidak valid/kosong -> 3000 (~2,7% modal).
  */
+export function resolveCapitalBaseIdr(raw: string | undefined): number {
+  const n = Number(raw);
+  return raw !== undefined && raw.trim() !== "" && Number.isFinite(n) && n > 0 ? n : 100_000;
+}
+
 export function resolveMaxLossIdr(raw: string | undefined): number {
   const n = Number(raw);
   return raw !== undefined && raw.trim() !== "" && Number.isFinite(n) && n > 0 ? n : 3_000;
@@ -546,12 +558,10 @@ export class CanaryMetrics {
       return 0;
     }
 
-    const drawdown =
-      (
-        this.peakEquity -
-        this.currentEquity
-      ) /
-      this.peakEquity;
+    // Penyebut = max(puncak, modal acuan): kurva PnL berawal 0 sehingga puncak kecil
+    // membuat drawdown membengkak. Dengan modal acuan, drawdown = rugi dari puncak / modal.
+    const denominator = Math.max(this.peakEquity, this.config.capitalBase ?? 0);
+    const drawdown = (this.peakEquity - this.currentEquity) / denominator;
 
     return Math.max(
       0,

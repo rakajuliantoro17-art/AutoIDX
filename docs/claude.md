@@ -1319,3 +1319,11 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - Penyebab (Kemungkinan Besar): `GEMINI_MODEL` tidak diset di Vercel, kode memakai bawaan `gemini-2.5-flash`; dokumentasi Google: model 2.5 hanya untuk pengguna lama, kunci dibuat Agu 2026 -> 404.
 - Perbaikan: env production `GEMINI_MODEL=gemini-3.5-flash-lite` (stabil, tanpa jadwal shutdown). `gemini.ts`: pesan error memuat teks error Google + nama model; konten menggabungkan bagian teks non-thought.
 - Belum terverifikasi: panggilan nyata ke API (tanpa akses jaringan dari sandbox). Verifikasi: log scan tidak lagi memuat "Gemini API Error". Bila masih gagal, pesan error baru menunjukkan sebabnya.
+
+### Session Log 59 -- Perbaikan drawdown canary & CFO (8 Nov 2026)
+- BUG (saya, commit 1f0c644): setelah PnL disambungkan, kurva PnL canary berawal dari 0, jadi drawdown = (puncak - sekarang) / puncak membengkak. SELL +Rp326 lalu rugi total -Rp571 -> drawdown 275% (> 3%) -> status CRITICAL -> BUY live DIBLOKIR walau rugi baru 19% dari batas Rp3.000. Terdeteksi dari laporan agen 8 Nov (CFO: "Status canary: CRITICAL").
+- Perbaikan: `capitalBase` (env `BOT_CANARY_CAPITAL_IDR`, default Rp100.000 = maxLoss/maxDrawdown); penyebut drawdown = max(puncak, capitalBase). Tes pembuktian: tes lama tanpa acuan -> CRITICAL, dengan acuan -> tidak.
+- CFO: SL overshoot kini dibandingkan batas engine 8% (bukan settings.stopLossPercent=2%, yang salah acuan dan menandai 3 trade).
+- Gemini: laporan agen menulis "Ditulis oleh gemini" -> GEMINI_MODEL=gemini-3.5-flash-lite bekerja.
+- Temuan laporan: 67 trade/30 hari menang 46%, rata-rata -0,58%/trade setelah biaya (ekspektasi negatif); ML 15% vs baseline 71% (shadow). ERN disetujui (13/25) tapi watchlist tampil 12 -- perlu diverifikasi.
+- 197 tes lulus.

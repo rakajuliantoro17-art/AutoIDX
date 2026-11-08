@@ -21,6 +21,8 @@ const MIN_CLOSED_FOR_EXPANSION = 20;
 const CFO_LOSS_WARN_FRACTION = 0.7;
 /** CFO: SELL dianggap "overshoot" bila rugi melewati SL sebanyak ini (poin persen). */
 const CFO_SL_OVERSHOOT_PP = 1;
+/** Batas SL keras engine (risk.ts MAX_STOP_LOSS_PERCENT). SL efektif = 1,5xATR dibatasi 0,5-8%, BUKAN settings.stopLossPercent. */
+const ENGINE_SL_CAP_PERCENT = 8;
 /** CTO: kuota baca Firestore Spark per hari dan interval cron scan yang diasumsikan. */
 export const FIRESTORE_DAILY_READ_LIMIT = 50_000;
 export const ASSUMED_SCAN_INTERVAL_MIN = 10;
@@ -263,7 +265,7 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
   } else {
     cfo.push("Data PnL canary belum tersedia.");
   }
-  const sl = input.settings.stopLossPercent;
+  const sl = ENGINE_SL_CAP_PERCENT;
   const overshoots = closedRaw.filter((c) => c.rawPct < -(sl + CFO_SL_OVERSHOOT_PP));
   if (overshoots.length > 0) {
     const worst = overshoots.reduce((m, c) => (c.rawPct < m.rawPct ? c : m));

@@ -38,3 +38,27 @@ test("live.sell mengirim pnl ke canary dan engine meneruskan entryPrice", () => 
   const eng = readFileSync("src/services/trading/engine.ts", "utf8");
   assert.equal((eng.match(/tradingService\.sell\(\{[^}]*entryPrice: state\.entryPrice/g) ?? []).length, 2);
 });
+
+test("drawdown pakai modal acuan: untung Rp326 lalu rugi Rp897 TIDAK CRITICAL (19% batas rugi)", () => {
+  const m = new CanaryMetrics({ maxLoss: 3000, minimumSampleSize: 1, capitalBase: 100_000 });
+  m.recordOrder({ orderId: "a", symbol: "x_idr", side: "SELL", amount: 1, status: "FILLED", latencyMs: 1000, timestamp: 1, pnl: 326 });
+  m.recordOrder({ orderId: "b", symbol: "y_idr", side: "SELL", amount: 1, status: "FILLED", latencyMs: 1000, timestamp: 2, pnl: -897 });
+  const snap = m.getSnapshot();
+  assert.equal(snap.totalPnl, -571);
+  assert.ok(snap.drawdown < 0.03, `drawdown ${snap.drawdown}`);
+  assert.notEqual(snap.status, "CRITICAL");
+});
+
+test("tanpa modal acuan perilaku lama: kasus yang sama CRITICAL (bukti bug)", () => {
+  const m = new CanaryMetrics({ maxLoss: 3000, minimumSampleSize: 1, capitalBase: 0 });
+  m.recordOrder({ orderId: "a", symbol: "x_idr", side: "SELL", amount: 1, status: "FILLED", latencyMs: 1000, timestamp: 1, pnl: 326 });
+  m.recordOrder({ orderId: "b", symbol: "y_idr", side: "SELL", amount: 1, status: "FILLED", latencyMs: 1000, timestamp: 2, pnl: -897 });
+  assert.equal(m.getSnapshot().status, "CRITICAL");
+});
+
+test("drawdown tetap memicu CRITICAL bila rugi dari puncak melebihi 3% modal acuan", () => {
+  const m = new CanaryMetrics({ maxLoss: 100_000, minimumSampleSize: 1, capitalBase: 100_000 });
+  m.recordOrder({ orderId: "a", symbol: "x_idr", side: "SELL", amount: 1, status: "FILLED", latencyMs: 1000, timestamp: 1, pnl: 500 });
+  m.recordOrder({ orderId: "b", symbol: "y_idr", side: "SELL", amount: 1, status: "FILLED", latencyMs: 1000, timestamp: 2, pnl: -3600 });
+  assert.equal(m.getSnapshot().status, "CRITICAL");
+});
