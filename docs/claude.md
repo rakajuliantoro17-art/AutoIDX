@@ -1337,3 +1337,9 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - 15.13 WIB: pemilik MEMATIKAN flag `fixedTakeProfit` (status sebelumnya tidak dikonfirmasi; kemungkinan menyala). Awal resmi eksperimen: TP 4% / SL 2% / flag mati. BUY sebelum 15.13 (DRX, XAUT) memakai level lama dan dikeluarkan dari evaluasi.
 - 15.20 WIB: dropdown pair Overview kini = watchlist (Trading Pair Universe) + posisi terbuka (`selectDisplayPairs`), bukan semua dokumen bot_state. 201 pass.
 - 9 Nov: notifikasi SELL kini menampilkan alasan exit (SL/TP/sinyal), lama ditahan, dan SL/TP saat entry dari `ctx` (hanya trade yang punya ctx). Trigger: SELL BTC/IDR -1,02% (kotor) tanpa alasan di notifikasi. 202 pass.
+
+### Session Log 61 -- Lantai SL dari Settings, eksperimen v2 (9 Nov 2026)
+- Temuan: SELL BTC/IDR 9 Nov 04.50 (BUY 8 Nov 22.20): SL 0,5% / TP 1% saat entry (ATR BTC rendah -> SL dipaksa ke batas minimum 0,5%, TP = 2 x 0,5%). Fee ~0,63% -> untung bersih +0,37% vs rugi -1,13%: win rate impas 75%. Rugi aktual -1,02% (~-1,65% bersih, ~-Rp248). Penyebab selisih 0,52 poin di atas SL (jeda siklus vs selip market order) belum terbukti; minta baris log "Stop Loss (ATR) tercapai ... @ harga" ~04.50.
+- Perubahan (disetujui pemilik, "ya"): `calculateAtrStopLevels` memakai Stop Loss Settings (2%) sebagai LANTAI: SL = min(8, max(lantai, 1,5 x ATR%)); lantai dibatasi 0,5-8%. Pair tenang: SL 2% / TP 4% (rasio 2:1, win rate impas ~44%). Posisi yang sudah terbuka tetap memakai level tersimpan.
+- Eksperimen v2 dimulai pada deploy commit ini (cek Vercel). v1 (15.13 WIB 8 Nov sampai deploy ini) dipisah: SELL #1 = BTC (SL 0,5/TP 1, -1,65% bersih).
+- Tes `tests/slFloor.test.ts`; 209 pass; build OK.

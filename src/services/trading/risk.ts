@@ -116,9 +116,19 @@ class RiskManager {
 
     const rawStopLossPercent = atrPercent * ATR_STOP_LOSS_MULTIPLIER;
 
+    // Batas bawah SL = Stop Loss di Settings (dibatasi 0,5-8%). Tanpa ini pair tenang
+    // (BTC/ETH/XAUT) mendapat SL 0,5% dan TP 1%: setelah fee ~0,63% untung bersih hanya
+    // +0,37% vs rugi -1,13% (win rate impas 75%). Dengan lantai 2% dan rasio 2:1 impasnya ~44%.
+    const slFloor = Math.min(
+      MAX_STOP_LOSS_PERCENT,
+      Math.max(
+        MIN_STOP_LOSS_PERCENT,
+        Number.isFinite(baseStopLossPercent) ? baseStopLossPercent : MIN_STOP_LOSS_PERCENT
+      )
+    );
     const stopLossPercent = Math.min(
       MAX_STOP_LOSS_PERCENT,
-      Math.max(MIN_STOP_LOSS_PERCENT, rawStopLossPercent)
+      Math.max(slFloor, rawStopLossPercent)
     );
 
     const takeProfitPercent =
