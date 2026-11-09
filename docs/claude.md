@@ -1343,3 +1343,4 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - Perubahan (disetujui pemilik, "ya"): `calculateAtrStopLevels` memakai Stop Loss Settings (2%) sebagai LANTAI: SL = min(8, max(lantai, 1,5 x ATR%)); lantai dibatasi 0,5-8%. Pair tenang: SL 2% / TP 4% (rasio 2:1, win rate impas ~44%). Posisi yang sudah terbuka tetap memakai level tersimpan.
 - Eksperimen v2 dimulai pada deploy commit ini (cek Vercel). v1 (15.13 WIB 8 Nov sampai deploy ini) dipisah: SELL #1 = BTC (SL 0,5/TP 1, -1,65% bersih).
 - Tes `tests/slFloor.test.ts`; 209 pass; build OK.
+- 9 Nov 11.05: Activity hanya 30 menit sehingga log pemicu SL BTC 04.50 tidak terlihat. Notifikasi SELL kini juga memuat "harga saat pemicu x%" (dari ctx.pnlPercent, harga terbaca sebelum order) agar selip order vs jeda siklus terbaca tanpa log. 209 pass.

@@ -42,6 +42,10 @@ export function exitContextText(ctx?: Record<string, unknown>): string {
   const parts = [REASON_LABEL[ctx.exitReason] ?? ctx.exitReason];
   const held = Number(ctx.heldMinutes);
   if (Number.isFinite(held)) parts.push(`ditahan ${held >= 120 ? `${Math.round(held / 60)} jam` : `${held} menit`}`);
+  // PnL% pada harga yang terbaca saat pemicu (sebelum order). Bandingkan dengan % di judul (harga isi):
+  // selisihnya = selip market order; selisih terhadap SL = harga bergerak di antara dua siklus.
+  const trig = Number(ctx.pnlPercent);
+  if (ctx.pnlPercent !== undefined && Number.isFinite(trig)) parts.push(`harga saat pemicu ${trig > 0 ? "+" : ""}${trig.toFixed(2)}%`);
   const sl = Number(ctx.entry_slPercent);
   const tp = Number(ctx.entry_tpPercent);
   if (Number.isFinite(sl) && Number.isFinite(tp) && sl > 0) parts.push(`SL ${sl}% / TP ${tp}% saat entry`);

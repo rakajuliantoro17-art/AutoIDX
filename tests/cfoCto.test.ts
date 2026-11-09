@@ -97,7 +97,7 @@ test("notifikasi SELL memuat alasan exit dari ctx; tanpa ctx tetap seperti semul
   }).find((n) => n.id === "t_s")!;
   assert.match(mk().title, /Rugi -1\.02% BTC\/IDR/);
   assert.doesNotMatch(mk().detail, /Alasan/);
-  const d = mk({ exitReason: "STOP_LOSS", heldMinutes: 300, entry_slPercent: 1, entry_tpPercent: 2 }).detail;
-  assert.match(d, /Alasan: kena Stop Loss, ditahan 5 jam, SL 1% \/ TP 2% saat entry\./);
+  const d = mk({ exitReason: "STOP_LOSS", heldMinutes: 300, pnlPercent: -0.61, entry_slPercent: 1, entry_tpPercent: 2 }).detail;
+  assert.match(d, /Alasan: kena Stop Loss, ditahan 5 jam, harga saat pemicu -0\.61%, SL 1% \/ TP 2% saat entry\./);
   assert.equal(exitContextText(undefined), "");
 });
