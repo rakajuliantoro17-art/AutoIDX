@@ -59,7 +59,11 @@ async function exitHandler(req: NextApiRequest, res: NextApiResponse) {
     if (outcome.status === "skipped") {
       return res.status(200).json({ success: true, skipped: true, throttled: outcome.throttled, reason: outcome.reason });
     }
-    return res.status(200).json({ success: true, ...outcome, reads: totalReads() });
+    const reads = totalReads();
+    console.log(
+      `[CRON EXIT] checked=${outcome.checked} exited=${outcome.exited.length} errors=${outcome.errors.length} reads=${reads} durationMs=${outcome.durationMs}`
+    );
+    return res.status(200).json({ success: true, ...outcome, reads });
   } catch (error) {
     if (isQuotaError(error)) throw error;
     console.error("[CRON EXIT ERROR]", error);
