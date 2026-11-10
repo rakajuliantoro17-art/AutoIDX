@@ -34,6 +34,9 @@ export interface ReadinessInput {
   openPositions: number;
   /** Nilai beli posisi terbuka (Rp). Dipakai gerbang exposure total, sama dengan engine. */
   openExposureIdr?: number;
+  /** Status Canary Monitor (HEALTHY/WARNING/CRITICAL). CRITICAL memblokir BUY di engine. */
+  canaryStatus?: string;
+  canaryStatusReasons?: string[];
   now: number;
 }
 
@@ -47,6 +50,14 @@ export function evaluateCanaryReadiness(i: ReadinessInput): { ready: boolean; ch
 
   add("account", "Akun Indodax aktif", i.hasActiveAccount ? "pass" : "fail",
     i.hasActiveAccount ? "Ada satu akun aktif." : "Tidak ada akun aktif; BUY tidak bisa dikirim.");
+
+  if (i.canaryStatus !== undefined) {
+    const critical = i.canaryStatus === "CRITICAL";
+    add("canaryStatus", "Status Canary Monitor", critical ? "fail" : i.canaryStatus === "HEALTHY" ? "pass" : "warn",
+      critical
+        ? `CRITICAL: BUY diblokir (SELL tetap jalan). ${(i.canaryStatusReasons ?? []).join("; ")}`.trim()
+        : `${i.canaryStatus}.`);
+  }
 
   add("emergency", "Emergency stop", i.emergencyStop ? "fail" : "pass",
     i.emergencyStop ? "Emergency stop MENYALA; BUY diblokir." : "Mati.");

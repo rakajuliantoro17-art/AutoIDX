@@ -85,6 +85,7 @@ import RiskManager from "./risk";
 import automationNotifier from "@/services/automation/notifier";
 import { isFeatureEnabled } from "@/services/firebase/featureFlags";
 import { calculateTrailingStop } from "@/services/trading/trailingStop";
+import { checkSlWidthCap, resolveMaxEntrySlPercent } from "@/services/trading/slWidthCap";
 import { buildEntryContext, buildExitContext } from "@/services/trading/tradeContext";
 import { checkPortfolioExposure } from "@/services/trading/exposure";
 import { MAX_EXPOSURE_PERCENT as ABSOLUTE_MAX_EXPOSURE_PERCENT } from "@/config/limits";
@@ -1375,6 +1376,28 @@ export class TradingEngine {
               effectiveConfig.stopLossPercent,
               effectiveConfig.targetProfitPercent
             ).stopLossPercent;
+            const slCap = checkSlWidthCap(
+              Math.max(effectiveConfig.stopLossPercent, atrStopPercent),
+              tradeAmountIdr,
+              resolveMaxEntrySlPercent(process.env.BOT_MAX_ENTRY_SL_PERCENT)
+            );
+            if (!slCap.ok) {
+              await recordLog(
+                "RISK",
+                "warning",
+                `[SL TERLALU LEBAR] BUY ${input.pair.toUpperCase()} diblokir: SL ${slCap.slPercent.toFixed(2)}% > batas ${slCap.maxPercent}% (rugi di SL ~Rp${slCap.lossAtStopIdr}). Env BOT_MAX_ENTRY_SL_PERCENT.`
+              );
+              return {
+                success: true,
+                signal: "HOLD",
+                confidence: decision.confidence,
+                reason: `[SL TERLALU LEBAR] SL ${slCap.slPercent.toFixed(2)}% melebihi batas ${slCap.maxPercent}%.`,
+                actionExecuted: false,
+                riskBlocked: true,
+                mode: modeLabel,
+                timestamp: new Date().toISOString(),
+              };
+            }
             const sellable = checkSellableAtStop(
               tradeAmountIdr,
               Math.max(effectiveConfig.stopLossPercent, atrStopPercent)

@@ -13,6 +13,7 @@ import { getLiveTradingConfig } from "@/services/liveTrading/risk/liveTradingCon
 import { getEffectiveTradingConfig } from "@/services/trading/effectiveConfig";
 import { RISK_CONFIG } from "@/config/risk";
 import { MAX_EXPOSURE_PERCENT, MIN_ORDER_VALUE } from "@/config/limits";
+import { getCanarySnapshot } from "@/services/liveTrading/monitoring/canaryStore";
 import { evaluateCanaryReadiness } from "@/services/canary/readiness";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -50,6 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       balanceError = "Tidak ada akun aktif.";
     }
 
+    const canarySnap = await getCanarySnapshot().catch(() => null);
     const canary = getLiveTradingConfig();
     const result = evaluateCanaryReadiness({
       mode: control.mode,
@@ -73,6 +75,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       uncertainLocks: uncertain.size,
       openPositions,
       openExposureIdr: openExposureIdr >= Number.MAX_SAFE_INTEGER ? undefined : openExposureIdr,
+      canaryStatus: canarySnap?.status,
+      canaryStatusReasons: canarySnap?.reasons,
       now: Date.now(),
     });
     return res.status(200).json(result);

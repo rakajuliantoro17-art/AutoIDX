@@ -64,3 +64,12 @@ test("exposure total memperhitungkan posisi terbuka (sama dengan engine)", async
   const penuh = row({ openExposureIdr: 60000 });
   assert.equal(penuh.status, "fail");
 });
+
+test("Canary Monitor CRITICAL membuat Kesiapan TIDAK siap (BUY diblokir engine)", () => {
+  const r = evaluateCanaryReadiness({ ...base, canaryStatus: "CRITICAL", canaryStatusReasons: ["Canary cumulative loss exceeded limit"] });
+  assert.equal(r.ready, false);
+  assert.equal(status(r, "canaryStatus"), "fail");
+  assert.match(r.checks.find((x) => x.id === "canaryStatus")!.detail, /cumulative loss/);
+  assert.equal(status(evaluateCanaryReadiness({ ...base, canaryStatus: "HEALTHY" }), "canaryStatus"), "pass");
+  assert.equal(status(evaluateCanaryReadiness({ ...base, canaryStatus: "WARNING" }), "canaryStatus"), "warn");
+});
