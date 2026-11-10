@@ -1344,3 +1344,10 @@ Mencakup Phase 44, 45, 47, 49 (Phase 50 menunggu hasil soak/canary).
 - Eksperimen v2 dimulai pada deploy commit ini (cek Vercel). v1 (15.13 WIB 8 Nov sampai deploy ini) dipisah: SELL #1 = BTC (SL 0,5/TP 1, -1,65% bersih).
 - Tes `tests/slFloor.test.ts`; 209 pass; build OK.
 - 9 Nov 11.05: Activity hanya 30 menit sehingga log pemicu SL BTC 04.50 tidak terlihat. Notifikasi SELL kini juga memuat "harga saat pemicu x%" (dari ctx.pnlPercent, harga terbaca sebelum order) agar selip order vs jeda siklus terbaca tanpa log. 209 pass.
+
+### Session Log 62 -- Pengamat exit SL/TP `/api/cron/exit`, eksperimen v3 (10 Nov 2026)
+- Motivasi: SL/TP hanya dicek tiap 10 menit (cron scan) -> selip di atas SL (UAI -9,35% vs SL 8%; BTC -1,02% vs SL 0,5%). Penyebab belum terbukti (jeda siklus vs selip market order vs harga candle basi).
+- Usulan pemilik disesuaikan: bukan scan watchlist kedua (mahal), tapi pengamat KHUSUS posisi terbuka: tanpa scan/indikator/BUY. Harga = ticker publik terkini; level SL/TP dari bot_state.
+- Kode: `TradingEngine.executeRiskExit` (diekstrak dari run(), perilaku identik) + `runExitCheck`; `services/scheduler/exitCycle.ts`; `pages/api/cron/exit.ts` (auth CRON_SECRET, throttle 60 dtk, heartbeat `system_status/exitHeartbeat`, mengembalikan `reads`). `cronLock`: doc `cronExit` saling-eksklusi dengan `cronScan` (skip bila yang lain jalan).
+- Cron-job.org: "AURA exit", tiap 2 menit pada menit ganjil, header Authorization sama dengan scan. Eksperimen v3 = mulai dari deploy ini (SELL setelahnya dipisah dari v1/v2).
+- Perkiraan biaya reads: ~5/panggilan x 720/hari = ~3,6K (tidak terukur; cek field `reads` di respons). 213 pass.

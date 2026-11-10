@@ -698,6 +698,138 @@ async function getRiskGatePortfolio(
 
 export class TradingEngine {
 
+
+  /**
+   * Eksekusi exit SL/TP (SELL + pencatatan PnL + reset state + log + notifikasi + audit).
+   * Dipakai bersama oleh run() (siklus scan) dan runExitCheck() (pengamat /api/cron/exit)
+   * supaya perilaku identik.
+   */
+  static async executeRiskExit(ctx: {
+    input: { pair: string; price: number };
+    state: Awaited<ReturnType<typeof getBotState>>;
+    riskEval: ReturnType<typeof RiskManager.evaluateWithLevels>;
+    tradingService: typeof LiveTradingService | typeof PaperTradingService;
+    modeLabel: "paper" | "live";
+  }): Promise<TradingEngineResult> {
+    const { input, state, riskEval, tradingService, modeLabel } = ctx;
+
+
+          const result = await tradingService.sell({
+
+            pair: input.pair,
+
+            price: input.price,
+
+            amount: state.coinAmount,
+
+            entryPrice: state.entryPrice,
+
+            strategy: state.strategyAtEntry,
+
+            context: buildExitContext({
+              exitReason: riskEval.shouldStopLoss ? "STOP_LOSS" : "TAKE_PROFIT",
+              entryPrice: state.entryPrice,
+              exitPrice: input.price,
+              entryContext: state.entryContext,
+              nowMs: Date.now(),
+            }),
+
+          });
+
+          const pnlIdr =
+            (input.price - state.entryPrice) * state.coinAmount;
+
+          await recordRealizedPnl(pnlIdr);
+
+          await updateBotState({
+
+            pair: input.pair,
+
+            inPosition: false,
+
+            entryPrice: 0,
+
+            coinAmount: 0,
+
+            currentPrice: input.price,
+
+            lastSignal: "SELL",
+
+            strategyAtEntry: "",
+
+            entryContext: null,
+
+          });
+
+          await recordLog(
+            "RISK",
+            riskEval.shouldStopLoss ? "warning" : "success",
+            `[${modeLabel.toUpperCase()}] ${riskEval.reason} ${input.pair.toUpperCase()} @ ${input.price}`
+          );
+
+          await automationNotifier[riskEval.shouldStopLoss ? "warning" : "success"](
+            riskEval.shouldStopLoss ? "Stop Loss Tereksekusi" : "Take Profit Tereksekusi",
+            `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${input.price.toLocaleString("id-ID")}\nPnL: ${riskEval.profitLossPercent}%\n${riskEval.reason}`
+          );
+
+          await auditLogger.log(
+            "ORDER_FILLED",
+            `${riskEval.shouldStopLoss ? "Stop Loss" : "Take Profit"} SELL ${input.pair} @ ${input.price} (${modeLabel})`,
+            {
+              symbol: input.pair,
+              metadata: {
+                mode: modeLabel,
+                trigger: riskEval.shouldStopLoss ? "STOP_LOSS" : "TAKE_PROFIT",
+                price: input.price,
+                entryPrice: state.entryPrice,
+                profitLossPercent: riskEval.profitLossPercent,
+              },
+            }
+          );
+
+          return {
+
+            success: true,
+
+            signal: "SELL",
+
+            confidence: 1,
+
+            reason: riskEval.reason,
+
+            actionExecuted: result.success,
+
+            mode: modeLabel,
+
+            timestamp: new Date().toISOString(),
+
+          };
+
+          }
+
+  /**
+   * Pengamat exit: hanya memeriksa SL/TP posisi terbuka pada harga ticker terkini, TANPA
+   * indikator/strategi/BUY. Level SL/TP dibaca dari bot_state (trailing, bila aktif, tetap
+   * dinaikkan oleh siklus scan). Mengembalikan null bila tidak ada aksi.
+   */
+  static async runExitCheck(input: { pair: string; price: number }): Promise<TradingEngineResult | null> {
+    const state = await getBotState(input.pair);
+    if (!state.inPosition) return null;
+    const riskEval = RiskManager.evaluateWithLevels(
+      state.entryPrice,
+      input.price,
+      true,
+      state.stopLossPrice,
+      state.takeProfitPrice
+    );
+    if (!(riskEval.shouldStopLoss || riskEval.shouldTakeProfit)) return null;
+    const control = await getBotControl();
+    const liveActive = isLiveModeActive(control);
+    const tradingService = liveActive ? LiveTradingService : PaperTradingService;
+    const modeLabel: "paper" | "live" = liveActive ? "live" : "paper";
+    return TradingEngine.executeRiskExit({ input, state, riskEval, tradingService, modeLabel });
+  }
+
   static async run(
     input: TradingEngineInput
   ): Promise<TradingEngineResult> {
@@ -805,98 +937,7 @@ export class TradingEngine {
         );
 
         if (riskEval.shouldStopLoss || riskEval.shouldTakeProfit) {
-
-          const result = await tradingService.sell({
-
-            pair: input.pair,
-
-            price: input.price,
-
-            amount: state.coinAmount,
-
-            entryPrice: state.entryPrice,
-
-            strategy: state.strategyAtEntry,
-
-            context: buildExitContext({
-              exitReason: riskEval.shouldStopLoss ? "STOP_LOSS" : "TAKE_PROFIT",
-              entryPrice: state.entryPrice,
-              exitPrice: input.price,
-              entryContext: state.entryContext,
-              nowMs: Date.now(),
-            }),
-
-          });
-
-          const pnlIdr =
-            (input.price - state.entryPrice) * state.coinAmount;
-
-          await recordRealizedPnl(pnlIdr);
-
-          await updateBotState({
-
-            pair: input.pair,
-
-            inPosition: false,
-
-            entryPrice: 0,
-
-            coinAmount: 0,
-
-            currentPrice: input.price,
-
-            lastSignal: "SELL",
-
-            strategyAtEntry: "",
-
-            entryContext: null,
-
-          });
-
-          await recordLog(
-            "RISK",
-            riskEval.shouldStopLoss ? "warning" : "success",
-            `[${modeLabel.toUpperCase()}] ${riskEval.reason} ${input.pair.toUpperCase()} @ ${input.price}`
-          );
-
-          await automationNotifier[riskEval.shouldStopLoss ? "warning" : "success"](
-            riskEval.shouldStopLoss ? "Stop Loss Tereksekusi" : "Take Profit Tereksekusi",
-            `[${modeLabel.toUpperCase()}] ${input.pair.toUpperCase()} @ Rp${input.price.toLocaleString("id-ID")}\nPnL: ${riskEval.profitLossPercent}%\n${riskEval.reason}`
-          );
-
-          await auditLogger.log(
-            "ORDER_FILLED",
-            `${riskEval.shouldStopLoss ? "Stop Loss" : "Take Profit"} SELL ${input.pair} @ ${input.price} (${modeLabel})`,
-            {
-              symbol: input.pair,
-              metadata: {
-                mode: modeLabel,
-                trigger: riskEval.shouldStopLoss ? "STOP_LOSS" : "TAKE_PROFIT",
-                price: input.price,
-                entryPrice: state.entryPrice,
-                profitLossPercent: riskEval.profitLossPercent,
-              },
-            }
-          );
-
-          return {
-
-            success: true,
-
-            signal: "SELL",
-
-            confidence: 1,
-
-            reason: riskEval.reason,
-
-            actionExecuted: result.success,
-
-            mode: modeLabel,
-
-            timestamp: new Date().toISOString(),
-
-          };
-
+          return await TradingEngine.executeRiskExit({ input, state, riskEval, tradingService, modeLabel });
         }
 
       }

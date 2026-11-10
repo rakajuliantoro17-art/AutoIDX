@@ -28,6 +28,9 @@ import { Timestamp } from "firebase-admin/firestore";
 
 const LOCK_COLLECTION = "systemLocks";
 const LOCK_DOC_ID = "cronScan";
+/** Doc kunci untuk pengamat exit (/api/cron/exit). Saling-eksklusi dengan scan, throttle terpisah. */
+export const EXIT_LOCK_DOC_ID = "cronExit";
+const LOCK_DOC_IDS = [LOCK_DOC_ID, EXIT_LOCK_DOC_ID];
 
 /**
  * TTL lock (detik di env CRON_LOCK_TTL_SECONDS, default 90, minimum 30).
@@ -83,11 +86,16 @@ function createRunId(): string {
  * dari ini. Default 0 = tanpa throttle (perilaku lama).
  */
 export async function acquireCronLock(
-  minIntervalMs = 0
+  minIntervalMs = 0,
+  docId: string = LOCK_DOC_ID
 ): Promise<CronLockHandle> {
 
   const runId = createRunId();
-  const lockRef = adminDb.collection(LOCK_COLLECTION).doc(LOCK_DOC_ID);
+  const lockRef = adminDb.collection(LOCK_COLLECTION).doc(docId);
+  // Doc kunci lain (scan <-> exit): bila yang lain MASIH berjalan, kita tunggu (skip) agar
+  // tidak ada dua siklus yang memutuskan BUY/SELL pada pair yang sama bersamaan.
+  const otherId = LOCK_DOC_IDS.find((id) => id !== docId);
+  const otherRef = otherId ? adminDb.collection(LOCK_COLLECTION).doc(otherId) : undefined;
 
   let reason: "running" | "throttled" | undefined;
 
@@ -96,7 +104,16 @@ export async function acquireCronLock(
     reason = undefined;
 
     const snapshot = await transaction.get(lockRef);
+    const otherSnap = otherRef ? await transaction.get(otherRef) : undefined;
     const now = Date.now();
+    if (otherSnap && otherSnap.exists) {
+      const od = otherSnap.data();
+      const otherLockedAt: number = od?.lockedAt instanceof Timestamp ? od.lockedAt.toMillis() : 0;
+      if (od?.released !== true && now - otherLockedAt <= getLockTtlMs()) {
+        reason = "running";
+        return false;
+      }
+    }
 
     if (snapshot.exists) {
       const data = snapshot.data();
