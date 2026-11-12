@@ -45,7 +45,7 @@ test("CFO: SL overshoot terdeteksi (UAI -9,35% vs SL 8%)", () => {
     { pair: "uai_idr", type: "BUY", mode: "live", price: 1.828, totalIdr: 15000, ts: NOW - 7200_000 },
     { pair: "uai_idr", type: "SELL", mode: "live", price: 1.657, totalIdr: 13600, ts: NOW - 3600_000 },
   ];
-  const r = analyzeOps(base({ trades, finance: fin(0) }));
+  const r = analyzeOps(base({ trades, finance: fin(0), cfoOvershootSinceMs: 0 }));
   const c = roleRecs(r, "CFO");
   assert.equal(c.length, 1);
   assert.equal(c[0].key, "sl_overshoot");
@@ -57,7 +57,7 @@ test("CFO: maksimal satu usulan per hari walau dua kondisi terpenuhi", () => {
     { pair: "uai_idr", type: "BUY", mode: "live", price: 1.828, totalIdr: 15000, ts: NOW - 7200_000 },
     { pair: "uai_idr", type: "SELL", mode: "live", price: 1.657, totalIdr: 13600, ts: NOW - 3600_000 },
   ];
-  assert.equal(roleRecs(analyzeOps(base({ trades, finance: fin(-2900) })), "CFO").length, 1);
+  assert.equal(roleRecs(analyzeOps(base({ trades, finance: fin(-2900), cfoOvershootSinceMs: 0 })), "CFO").length, 1);
 });
 
 test("CTO: heartbeat > 25 menit -> usulan cron mati", () => {
@@ -100,4 +100,12 @@ test("notifikasi SELL memuat alasan exit dari ctx; tanpa ctx tetap seperti semul
   const d = mk({ exitReason: "STOP_LOSS", heldMinutes: 300, pnlPercent: -0.61, entry_slPercent: 1, entry_tpPercent: 2 }).detail;
   assert.match(d, /Alasan: kena Stop Loss, ditahan 5 jam, harga saat pemicu -0\.61%, SL 1% \/ TP 2% saat entry\./);
   assert.equal(exitContextText(undefined), "");
+});
+
+test("CFO: overshoot sebelum pengamat exit aktif (default) tidak lagi ditandai", () => {
+  const trades = [
+    { pair: "uai_idr", type: "BUY", mode: "live", price: 1.828, totalIdr: 15000, ts: NOW - 7200_000 },
+    { pair: "uai_idr", type: "SELL", mode: "live", price: 1.657, totalIdr: 13600, ts: NOW - 3600_000 },
+  ];
+  assert.equal(roleRecs(analyzeOps(base({ trades, finance: fin(0) })), "CFO").length, 0);
 });

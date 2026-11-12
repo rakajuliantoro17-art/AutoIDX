@@ -95,6 +95,8 @@ export interface OpsInput {
     avgLatencyMs: number;
     maxLatencyMs: number;
   };
+  /** Hanya SELL dengan ts >= nilai ini yang dihitung sebagai SL overshoot (default: awal pengamat exit). */
+  cfoOvershootSinceMs?: number;
   /** Data infrastruktur (CTO). Opsional. */
   infra?: {
     /** Umur heartbeat scan (ms); null bila belum pernah ada. */

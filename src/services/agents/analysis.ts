@@ -23,6 +23,8 @@ const CFO_LOSS_WARN_FRACTION = 0.7;
 const CFO_SL_OVERSHOOT_PP = 1;
 /** Batas SL keras engine (risk.ts MAX_STOP_LOSS_PERCENT). SL efektif = 1,5xATR dibatasi 0,5-8%, BUKAN settings.stopLossPercent. */
 const ENGINE_SL_CAP_PERCENT = 8;
+/** Pengamat exit (/api/cron/exit) aktif sejak 10 Nov 2026 08.37 WIB. SELL sebelum itu dinilai dengan jeda siklus 10 menit, jadi tidak lagi ditandai CFO sebagai overshoot. */
+export const EXIT_WATCHER_START_MS = Date.UTC(2026, 10, 10, 1, 37, 0);
 /** CTO: kuota baca Firestore Spark per hari dan interval cron scan yang diasumsikan. */
 export const FIRESTORE_DAILY_READ_LIMIT = 50_000;
 export const ASSUMED_SCAN_INTERVAL_MIN = 10;
@@ -163,14 +165,14 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
   const recent = input.trades.filter((t) => t.ts >= input.nowMs - PERIOD_MS).sort((a, b) => a.ts - b.ts);
   const entry = new Map<string, number>();
   const perPair = new Map<string, number[]>();
-  const closedRaw: { pair: string; rawPct: number }[] = [];
+  const closedRaw: { pair: string; rawPct: number; sellTs: number }[] = [];
   for (const t of recent) {
     const k = `${t.pair}|${t.mode}`;
     if (t.type === "BUY") entry.set(k, t.price);
     else if (t.type === "SELL" && entry.has(k) && (entry.get(k) ?? 0) > 0) {
       const ret = (t.price / (entry.get(k) as number) - 1) * 100 - ROUND_TRIP_COST_PCT;
       perPair.set(t.pair, [...(perPair.get(t.pair) ?? []), ret]);
-      closedRaw.push({ pair: t.pair, rawPct: (t.price / (entry.get(k) as number) - 1) * 100 });
+      closedRaw.push({ pair: t.pair, rawPct: (t.price / (entry.get(k) as number) - 1) * 100, sellTs: t.ts });
       entry.delete(k);
     }
   }
@@ -266,17 +268,18 @@ export function analyzeOps(input: OpsInput): OpsAnalysis {
     cfo.push("Data PnL canary belum tersedia.");
   }
   const sl = ENGINE_SL_CAP_PERCENT;
-  const overshoots = closedRaw.filter((c) => c.rawPct < -(sl + CFO_SL_OVERSHOOT_PP));
+  const overshootSince = input.cfoOvershootSinceMs ?? EXIT_WATCHER_START_MS;
+  const overshoots = closedRaw.filter((c) => c.sellTs >= overshootSince && c.rawPct < -(sl + CFO_SL_OVERSHOOT_PP));
   if (overshoots.length > 0) {
     const worst = overshoots.reduce((m, c) => (c.rawPct < m.rawPct ? c : m));
-    cfo.push(`SL overshoot (30 hari): ${overshoots.length} trade rugi melewati SL ${sl}% lebih dari ${CFO_SL_OVERSHOOT_PP} poin; terburuk ${upper(worst.pair)} ${worst.rawPct.toFixed(2)}%.`);
+    cfo.push(`SL overshoot (sejak pengamat exit aktif): ${overshoots.length} trade rugi melewati SL ${sl}% lebih dari ${CFO_SL_OVERSHOOT_PP} poin; terburuk ${upper(worst.pair)} ${worst.rawPct.toFixed(2)}%.`);
     if (!cfoRec) {
       cfoRec = {
         role: "CFO",
         key: "sl_overshoot",
         kind: "note",
         title: `SL meleset: ${upper(worst.pair)} ${worst.rawPct.toFixed(2)}% (batas ${sl}%)`,
-        detail: `${overshoots.length} trade selesai rugi lebih dalam dari SL. Penyebab paling mungkin harga melompat di antara dua siklus cron (jeda 10 menit), bukan bug SL -- bersifat dugaan. Kerugian nyata lebih besar dari yang direncanakan; pertimbangkan ukuran posisi lebih kecil pada pair yang volatil.`,
+        detail: `${overshoots.length} trade selesai rugi lebih dalam dari SL. Pengamat exit memeriksa tiap ~2 menit, jadi penyebab paling mungkin lonjakan harga atau selip market order, bukan bug SL -- bersifat dugaan. Kerugian nyata lebih besar dari yang direncanakan; pertimbangkan ukuran posisi lebih kecil pada pair yang volatil.`,
       };
     }
   }
